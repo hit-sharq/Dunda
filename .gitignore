@@ -1,0 +1,16 @@
+node_modules
+.turbo
+dist
+build
+.next
+.expo
+.expo-shared
+.nvmrc
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.db
+*.sqlite
+.DS_Store
+.env
