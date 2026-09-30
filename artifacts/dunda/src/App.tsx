@@ -41,7 +41,7 @@ import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } fr
 // seconds flooded the server log with identical 403s.
 /** The studio that builds and maintains Dunda. Credited in every footer. */
 const VENDOR_URL = "https://www.lumyn.co.ke/";
-const VENDOR_NAME = "Lumyn";
+const VENDOR_NAME = "Lumyn Technologies";
 
 const queryClient = new QueryClient({
   defaultOptions: {
