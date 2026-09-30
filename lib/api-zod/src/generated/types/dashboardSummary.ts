@@ -13,12 +13,19 @@ export interface DashboardSummary {
   orders: number;
   averageOrderValue: number;
   activeTables: number;
+  totalTables: number;
   activeTabs: number;
-  poolRevenue: number;
+  /** @nullable */
+  branchId?: string | null;
+  /** @nullable */
+  branchName?: string | null;
   foodRevenue: number;
   drinkRevenue: number;
+  otherRevenue: number;
   /** @nullable */
   lowStockItems?: number | null;
+  /** @nullable */
+  outOfStockItems?: number | null;
   /** @nullable */
   upcomingEvents?: number | null;
   /** @nullable */

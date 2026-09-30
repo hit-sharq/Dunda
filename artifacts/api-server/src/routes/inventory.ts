@@ -19,6 +19,7 @@ import {
   categoriesTable,
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
+import { BranchScopeError, requireBranchScope } from "../lib/branchScope";
 
 const router: IRouter = Router();
 
@@ -75,7 +76,13 @@ router.post("/", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const branchId = tenant.branchId ?? "branch-nairobi";
+  let branchId: string;
+  try {
+    branchId = requireBranchScope(tenant);
+  } catch (err) {
+    res.status((err as BranchScopeError).status ?? 400).json({ error: (err as Error).message });
+    return;
+  }
   const result = await db.transaction(async (tx) => {
     const [product] = await tx
       .select()

@@ -187,7 +187,6 @@ router.get("/summary", async (req, res): Promise<void> => {
     drinkRevenue: drinks,
     foodRevenue: food,
     otherRevenue: other,
-    poolRevenue: 0,
     lowStockItems: alerts.length,
     outOfStockItems: lowStockCount.length,
     upcomingEvents: events.length,

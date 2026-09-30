@@ -72,33 +72,12 @@ export const tenantMiddleware: RequestHandler = async (req, res, next) => {
     return;
   }
 
-  const [demoOrg] = await db
-    .select()
-    .from(organizationsTable)
-    .orderBy(organizationsTable.createdAt)
-    .limit(1);
-
-  if (demoOrg) {
-    const [branch] = await db
-      .select()
-      .from(branchesTable)
-      .where(eq(branchesTable.organizationId, demoOrg.id));
-
-    req.clerk = {
-      organizationId: demoOrg.id,
-      branchId: branch?.id ?? null,
-      staffId: null,
-      clerkUserId: null,
-    };
-    next();
-    return;
-  }
-
-  req.clerk = {
-    organizationId: "org-demo",
-    branchId: "branch-nairobi",
-    staffId: null,
-    clerkUserId: null,
-  };
-  next();
+  // An authenticated account with no Dunda staff record and no organization
+  // membership is not authorized for any tenant. Guessing one would hand a real
+  // user someone else's sales, stock and customer data, so refuse instead.
+  res.status(403).json({
+    error:
+      "Your account is not linked to a Dunda organization. Ask an organization owner to invite you, then sign in again.",
+    code: "STAFF_RECORD_REQUIRED",
+  });
 };

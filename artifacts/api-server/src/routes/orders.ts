@@ -21,6 +21,7 @@ import {
   inventoryAlertsTable,
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
+import { BranchScopeError, requireBranchScope } from "../lib/branchScope";
 import { SERVICE_CHARGE_RATE, TAX_RATE } from "../lib/constants";
 import { logAuditEntry } from "../lib/auditLogger";
 import { publish } from "../lib/realtime";
@@ -217,7 +218,13 @@ router.post("/", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const branchId = tenant.branchId ?? "branch-nairobi";
+  let branchId: string;
+  try {
+    branchId = requireBranchScope(tenant);
+  } catch (err) {
+    res.status((err as BranchScopeError).status ?? 400).json({ error: (err as Error).message });
+    return;
+  }
   const id = `ord-${Date.now()}`;
   const number = `#${String(Date.now()).slice(-6)}`;
   const order = await db.transaction(async (tx) => {

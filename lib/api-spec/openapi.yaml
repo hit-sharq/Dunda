@@ -1834,18 +1834,22 @@ components:
         createdAt: { type: string, format: date-time }
     DashboardSummary:
       type: object
-      required: [date, revenue, orders, averageOrderValue, activeTables, activeTabs, poolRevenue, foodRevenue, drinkRevenue, outstandingPayments, revenueSeries, categoryBreakdown, paymentBreakdown, topProducts]
+      required: [date, revenue, orders, averageOrderValue, activeTables, totalTables, activeTabs, drinkRevenue, foodRevenue, otherRevenue, outstandingPayments, revenueSeries, categoryBreakdown, paymentBreakdown, topProducts]
       properties:
         date: { type: string, format: date }
         revenue: { type: number }
         orders: { type: integer }
         averageOrderValue: { type: number }
         activeTables: { type: integer }
+        totalTables: { type: integer }
         activeTabs: { type: integer }
-        poolRevenue: { type: number }
+        branchId: { type: ["string", "null"] }
+        branchName: { type: ["string", "null"] }
         foodRevenue: { type: number }
         drinkRevenue: { type: number }
+        otherRevenue: { type: number }
         lowStockItems: { type: ["integer", "null"] }
+        outOfStockItems: { type: ["integer", "null"] }
         upcomingEvents: { type: ["integer", "null"] }
         reservations: { type: ["integer", "null"] }
         outstandingPayments: { type: number }

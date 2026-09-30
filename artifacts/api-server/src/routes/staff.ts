@@ -22,6 +22,7 @@ import {
   organizationMembersTable,
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
+import { BranchScopeError, requireBranchScope } from "../lib/branchScope";
 import { logAuditEntry } from "../lib/auditLogger";
 
 const router: IRouter = Router();
@@ -314,7 +315,13 @@ router.post("/shifts", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const branchId = parsed.data.branchId ?? tenant.branchId ?? "branch-nairobi";
+  let branchId: string;
+  try {
+    branchId = requireBranchScope(tenant, parsed.data.branchId);
+  } catch (err) {
+    res.status((err as BranchScopeError).status ?? 400).json({ error: (err as Error).message });
+    return;
+  }
   const id = `shift-${Date.now()}`;
   const [shift] = await db
     .insert(staffShiftsTable)

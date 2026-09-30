@@ -48,6 +48,7 @@ import {
   tabsTable,
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
+import { BranchScopeError, requireBranchScope } from "../lib/branchScope";
 import { SERVICE_CHARGE_RATE, TAX_RATE } from "../lib/constants";
 import { logAuditEntry } from "../lib/auditLogger";
 import { publish } from "../lib/realtime";
@@ -284,7 +285,13 @@ router.post("/tabs", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const branchId = parsed.data.branchId ?? tenant.branchId ?? "branch-nairobi";
+  let branchId: string;
+  try {
+    branchId = requireBranchScope(tenant, parsed.data.branchId);
+  } catch (err) {
+    res.status((err as BranchScopeError).status ?? 400).json({ error: (err as Error).message });
+    return;
+  }
   const id = `tab-${Date.now()}`;
   const number = `#${1048 + Math.floor(Math.random() * 100)}`;
   const [tab] = await db
@@ -727,7 +734,7 @@ router.post("/reservations", async (req, res): Promise<void> => {
     .values({
       id,
       organizationId: tenant.organizationId,
-      branchId: tenant.branchId ?? "branch-nairobi",
+      branchId: requireBranchScope(tenant),
       customer: parsed.data.customer,
       phone: parsed.data.phone,
       reservationDate: parsed.data.date.toISOString().slice(0, 10),

@@ -11,6 +11,7 @@ import {
 import { db } from "@workspace/db";
 import { eventsTable } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
+import { BranchScopeError, requireBranchScope } from "../lib/branchScope";
 
 const router: IRouter = Router();
 
@@ -64,7 +65,7 @@ router.post("/", async (req, res): Promise<void> => {
     .values({
       id,
       organizationId: tenant.organizationId,
-      branchId: parsed.data.branchId ?? tenant.branchId ?? "branch-nairobi",
+      branchId: requireBranchScope(tenant, parsed.data.branchId),
       name: parsed.data.name,
       description: parsed.data.description ?? null,
       date: parsed.data.date.toISOString().slice(0, 10),

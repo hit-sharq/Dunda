@@ -1,5 +1,3 @@
-export const DEFAULT_BRANCH_ID = "branch-nairobi";
-export const DEFAULT_ORG_ID = "org-demo";
 export const SERVICE_CHARGE_RATE = 0.1;
 export const TAX_RATE = 0.16;
 
