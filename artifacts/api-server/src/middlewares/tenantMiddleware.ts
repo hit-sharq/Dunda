@@ -11,6 +11,7 @@ import {
   staffTable,
 } from "@workspace/db";
 import { getStaffContext } from "../lib/permissions";
+import { logger } from "../lib/logger";
 
 export interface TenantContext {
   organizationId: string;
@@ -31,10 +32,26 @@ export const tenantMiddleware: RequestHandler = async (req, res, next) => {
     return;
   }
 
-  const [staff] = await db
-    .select()
-    .from(staffTable)
-    .where(eq(staffTable.clerkUserId, userId));
+  // A database blip must not surface as an unhandled 500 with a stack trace.
+  // Retrying briefly covers the transient connect timeouts seen with pooled
+  // connections, and anything still failing is reported as unavailable.
+  let staff: typeof staffTable.$inferSelect | undefined;
+  try {
+    staff = (
+      await db
+        .select()
+        .from(staffTable)
+        .where(eq(staffTable.clerkUserId, userId))
+    )[0];
+  } catch (err) {
+    logger.error({ err, userId }, "Failed to resolve staff record");
+    res.status(503).json({
+      error:
+        "We could not reach the database just now. Please try again in a moment.",
+      code: "DATABASE_UNAVAILABLE",
+    });
+    return;
+  }
 
   if (staff) {
     const ctx = await getStaffContext(req);

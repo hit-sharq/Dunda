@@ -32,7 +32,25 @@ import { Hq } from '@/pages/hq';
 import NotFound from '@/pages/not-found';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 
-const queryClient = new QueryClient();
+// Operational screens poll because the realtime socket only fires on changes
+// made through this API. Without a floor, a failing request retried every few
+// seconds flooded the server log with identical 403s.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 15_000,
+      refetchOnWindowFocus: false,
+      // 4xx responses are answers, not transient faults: retrying an
+      // unauthorized or forbidden call can only produce the same answer.
+      retry: (failureCount, error) => {
+        const status = (error as { status?: number })?.status;
+        if (typeof status === 'number' && status >= 400 && status < 500) return false;
+        return failureCount < 2;
+      },
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
+    },
+  },
+});
 // The repo-root .env uses NEXT_PUBLIC_ names, so accept either prefix.
 const clerkPublishableKey =
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ??
@@ -365,7 +383,22 @@ function ProtectedRouter() {
   const { isLoaded, isSignedIn } = useAuth();
   useApiAuth();
   useRealtime(Boolean(isSignedIn));
+  // 403 STAFF_RECORD_REQUIRED means the account is authenticated but not yet
+  // linked to a Dunda staff record. Without this the user just sees empty
+  // screens and has no idea why.
+  const me = useGetMe();
+  const { user } = useUser();
+  const unlinked = me.isError && (me.error as { status?: number })?.status === 403;
   if (!isLoaded) return <div className="grid min-h-[100dvh] place-items-center bg-[#f5f1e8] text-sm text-[#68736d]">Loading your workspace…</div>;
+  if (isSignedIn && unlinked) {
+    return <div className="grid min-h-[100dvh] place-items-center bg-[#f5f1e8] p-6">
+      <div className="surface max-w-md rounded-2xl p-6 text-center">
+        <h1 className="font-display text-2xl font-bold">No workspace yet</h1>
+        <p className="mt-2 text-sm text-[#68736d]">Your account is signed in, but it is not linked to a Dunda organization yet. Ask an organization owner to invite this account, then reload.</p>
+        <p className="mt-4 rounded-lg bg-[#f5f1e8] p-3 text-left font-mono text-[11px] text-[#68736d]">Your account: {user?.primaryEmailAddress?.emailAddress ?? user?.id}</p>
+      </div>
+    </div>;
+  }
   return isSignedIn ?     <AppShell><Switch><Route path="/overview" component={Overview} /><Route path="/pos" component={NewPos} /><Route path="/floor" component={Floor} /><Route path="/designer" component={FloorDesigner} /><Route path="/orders" component={Orders} /><Route path="/bar" component={() => <ServiceBoard station="bar" />} /><Route path="/kitchen" component={() => <ServiceBoard station="kitchen" />} /><Route path="/products" component={Products} /><Route path="/inventory" component={Inventory} /><Route path="/staff" component={Staff} /><Route path="/customers" component={Customers} /><Route path="/events" component={Events} /><Route path="/reservations" component={Reservations} /><Route path="/reports" component={Reports} /><Route path="/hq" component={Hq} /><Route path="/settings" component={Settings} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
 }
 
