@@ -4,6 +4,7 @@ import {
   inventoryItemsTable,
   orderItemsTable,
   orderItemUnitsTable,
+  productUnitsTable,
   ordersTable,
   productsTable,
   stockMovementsTable,
@@ -28,20 +29,69 @@ export async function deductInventoryForOrderItem(
   item: typeof orderItemsTable.$inferSelect,
   ctx: StaffContext | null,
 ): Promise<void> {
+  const [unitRecord] = await tx
+    .select()
+    .from(orderItemUnitsTable)
+    .where(eq(orderItemUnitsTable.orderItemId, item.id));
+  return deductLine(tx, order, {
+    productId: item.productId,
+    unitId: item.unitId,
+    quantity: item.quantity,
+    quantityInBaseUnit: unitRecord ? Number(unitRecord.quantityInBaseUnit) : item.quantity,
+    referenceId: order.id,
+    ctx,
+  });
+}
+
+/**
+ * A tab line carries no recorded base-unit quantity, so it is derived from the
+ * selling unit's conversion factor at the moment the station hands it over.
+ */
+export async function deductInventoryForTabItem(
+  tx: any,
+  order: { organizationId: string; branchId: string; id: string },
+  item: { productId: string; unitId: string | null; quantity: number },
+  ctx: StaffContext | null,
+): Promise<void> {
+  let conversion = 1;
+  if (item.unitId) {
+    const [unit] = await tx
+      .select()
+      .from(productUnitsTable)
+      .where(eq(productUnitsTable.id, item.unitId));
+    if (unit) conversion = Number(unit.conversionFactor);
+  }
+  return deductLine(tx, order as typeof ordersTable.$inferSelect, {
+    productId: item.productId,
+    unitId: item.unitId,
+    quantity: item.quantity,
+    quantityInBaseUnit: item.quantity * conversion,
+    referenceId: order.id,
+    ctx,
+  });
+}
+
+/** Shared deduction: stock, movement, and the low-stock alert. */
+async function deductLine(
+  tx: any,
+  order: typeof ordersTable.$inferSelect,
+  line: {
+    productId: string;
+    unitId: string | null;
+    quantity: number;
+    quantityInBaseUnit: number;
+    referenceId: string;
+    ctx: StaffContext | null;
+  },
+): Promise<void> {
+  const item = line;
+  const quantityInBaseUnit = line.quantityInBaseUnit;
   {
     const [product] = await tx
       .select()
       .from(productsTable)
       .where(eq(productsTable.id, item.productId));
     if (!product?.trackInventory) return;
-
-    const [unitRecord] = await tx
-      .select()
-      .from(orderItemUnitsTable)
-      .where(eq(orderItemUnitsTable.orderItemId, item.id));
-    const quantityInBaseUnit = unitRecord
-      ? Number(unitRecord.quantityInBaseUnit)
-      : item.quantity;
 
     const [stock] = await tx
       .select()
@@ -85,9 +135,9 @@ export async function deductInventoryForOrderItem(
       quantity: String(item.quantity),
       quantityInBaseUnit: String(-quantityInBaseUnit),
       unitId: item.unitId,
-      referenceId: order.id,
+      referenceId: item.referenceId,
       reason: null,
-      staffId: ctx?.staffId ?? null,
+      staffId: line.ctx?.staffId ?? null,
     });
 
     // Keep low-stock alerts in step with the deduction.

@@ -9,6 +9,7 @@ import {
   useGetProductUnits,
   useGetBranchFloor,
   useGetBranches,
+  useGetTicketsByTab,
   useGetProducts,
   useGetTabs,
   type Product,
@@ -389,6 +390,8 @@ export function Pos() {
                 )}
               </ul>
 
+              <OutstandingTickets tabId={tab.id} />
+
               <dl className="mt-4 grid gap-1.5 border-t border-[#e8e1d6] pt-3 text-sm">
                 <div className="flex justify-between text-[#748079]">
                   <dt>Subtotal</dt>
@@ -564,6 +567,46 @@ export function Pos() {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+/**
+ * What the stations still owe this table.
+ *
+ * A waiter who rings in a round sees immediately that the drinks are ready but
+ * the food is still preparing, rather than having to ask.
+ */
+function OutstandingTickets({ tabId }: { tabId: string }) {
+  const tickets = useGetTicketsByTab(tabId, {
+    query: { queryKey: ["getTicketsByTab", tabId] },
+  });
+
+  if (tickets.isLoading) return null;
+
+  const open = (tickets.data ?? []).filter((t) => t.status !== "SERVED" && t.status !== "CANCELLED");
+  if (!open.length) return null;
+
+  return (
+    <div className="mt-3 rounded-xl bg-[#f5f1e8] p-3" data-testid="panel-outstanding">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.12em] text-[#8b938c]">
+        Still with the stations
+      </p>
+      <div className="grid gap-1.5">
+        {open.map((ticket) => (
+          <div key={ticket.id} className="flex items-start justify-between gap-2 text-xs">
+            <span className="min-w-0">
+              <span className="font-semibold">
+                {ticket.station === "BAR" ? "Bar" : "Kitchen"}
+              </span>
+              <span className="ml-1 text-[#859089]">{ticket.status.toLowerCase()}</span>
+              <span className="block text-[#65716b]">
+                {ticket.items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -1342,6 +1342,27 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/OrderTicket" }
+  /tickets/by-tab/{tabId}:
+    get:
+      operationId: getTicketsByTab
+      tags: [orders]
+      summary: Station tickets raised from one tab
+      description: >
+        What the floor asks for: everything a table has rung in, and which
+        stations still owe them something.
+      parameters:
+        - in: path
+          name: tabId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tickets for the tab
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/OrderTicket" }
   /tickets/by-order/{orderId}:
     get:
       operationId: getTicketsByOrder
@@ -2012,6 +2033,7 @@ components:
         orderNumber: { type: string }
         table: { type: ["string", "null"] }
         tableId: { type: ["string", "null"] }
+        tabId: { type: ["string", "null"] }
         station:
           type: string
           enum: [BAR, KITCHEN]

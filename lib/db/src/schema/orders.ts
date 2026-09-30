@@ -12,7 +12,7 @@ import { organizationsTable, branchesTable } from "./organization";
 import { productsTable } from "./products";
 import { staffTable } from "./auth";
 import { customersTable } from "./customers";
-import { tablesTable } from "./tables";
+import { tablesTable, tabsTable, tabItemsTable } from "./tables";
 
 export const orderStatusEnum = pgEnum("dunda_order_status", [
   "DRAFT",
@@ -116,9 +116,10 @@ export const orderTicketsTable = pgTable("dunda_order_tickets", {
   branchId: text("branch_id")
     .notNull()
     .references(() => branchesTable.id, { onDelete: "cascade" }),
-  orderId: text("order_id")
-    .notNull()
-    .references(() => ordersTable.id, { onDelete: "cascade" }),
+  orderId: text("order_id").references(() => ordersTable.id, { onDelete: "cascade" }),
+  // A ticket raised from the POS hangs off the customer's tab instead of an
+  // order, because a tab is what the floor actually works from.
+  tabId: text("tab_id").references(() => tabsTable.id, { onDelete: "cascade" }),
   station: text("station").notNull(),
   number: text("number").notNull(),
   status: text("status").notNull().default("PENDING"),
@@ -139,9 +140,16 @@ export const orderTicketItemsTable = pgTable("dunda_order_ticket_items", {
   ticketId: text("ticket_id")
     .notNull()
     .references(() => orderTicketsTable.id, { onDelete: "cascade" }),
-  orderItemId: text("order_item_id")
-    .notNull()
-    .references(() => orderItemsTable.id, { onDelete: "cascade" }),
+  // A ticket line points at exactly one source: an order item for a ticket
+  // raised from an order, or a tab item for one raised from the POS. Holding
+  // both ids in one column cannot work, because each is a foreign key and a
+  // non-null value must exist in the table it references.
+  orderItemId: text("order_item_id").references(() => orderItemsTable.id, {
+    onDelete: "cascade",
+  }),
+  tabItemId: text("tab_item_id").references(() => tabItemsTable.id, {
+    onDelete: "cascade",
+  }),
   name: text("name").notNull(),
   quantity: integer("quantity").notNull(),
   notes: text("notes"),

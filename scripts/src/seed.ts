@@ -189,14 +189,14 @@ async function seed() {
   // group rolls into "other", so a venue that does not categorise simply sees
   // its revenue ungrouped rather than mislabelled.
   await db.insert(categoriesTable).values([
-    { id: "cat-beer", organizationId: ORG_ID, name: "Beer", color: "#c77c4e", group: "drinks", sortOrder: 1 },
-    { id: "cat-spirits", organizationId: ORG_ID, name: "Spirits", color: "#b08d49", group: "drinks", sortOrder: 2 },
-    { id: "cat-cocktails", organizationId: ORG_ID, name: "Cocktails", color: "#8f80a6", group: "drinks", sortOrder: 3 },
-    { id: "cat-wine", organizationId: ORG_ID, name: "Wine", color: "#b75b56", group: "drinks", sortOrder: 4 },
-    { id: "cat-food", organizationId: ORG_ID, name: "Food", color: "#6ea493", group: "food", sortOrder: 5 },
-    { id: "cat-soft", organizationId: ORG_ID, name: "Soft Drinks", color: "#6f9fb2", group: "drinks", sortOrder: 6 },
-    { id: "cat-cigars", organizationId: ORG_ID, name: "Cigars", color: "#8ea75f", group: "food", sortOrder: 7 },
-    { id: "cat-cigarettes", organizationId: ORG_ID, name: "Cigarettes", color: "#b67d8c", group: "food", sortOrder: 8 },
+    { id: "cat-beer", organizationId: ORG_ID, name: "Beer", color: "#c77c4e", group: "drinks", station: "BAR", sortOrder: 1 },
+    { id: "cat-spirits", organizationId: ORG_ID, name: "Spirits", color: "#b08d49", group: "drinks", station: "BAR", sortOrder: 2 },
+    { id: "cat-cocktails", organizationId: ORG_ID, name: "Cocktails", color: "#8f80a6", group: "drinks", station: "BAR", sortOrder: 3 },
+    { id: "cat-wine", organizationId: ORG_ID, name: "Wine", color: "#b75b56", group: "drinks", station: "BAR", sortOrder: 4 },
+    { id: "cat-food", organizationId: ORG_ID, name: "Food", color: "#6ea493", group: "food", station: "KITCHEN", sortOrder: 5 },
+    { id: "cat-soft", organizationId: ORG_ID, name: "Soft Drinks", color: "#6f9fb2", group: "drinks", station: "BAR", sortOrder: 6 },
+    { id: "cat-cigars", organizationId: ORG_ID, name: "Cigars", color: "#8ea75f", group: "food", station: "BAR", sortOrder: 7 },
+    { id: "cat-cigarettes", organizationId: ORG_ID, name: "Cigarettes", color: "#b67d8c", group: "food", station: "BAR", sortOrder: 8 },
   ]);
 
   // Products carry a base inventory unit. Whisky and cigars exercise the

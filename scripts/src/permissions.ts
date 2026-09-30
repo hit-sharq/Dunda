@@ -14,6 +14,7 @@ export const PERMISSIONS = [
   { id: "perm_manage_prices", name: "manage_prices", description: "Change prices and selling units", category: "catalog" },
   { id: "perm_manage_staff", name: "manage_staff", description: "Invite and manage staff", category: "people" },
   { id: "perm_manage_roles", name: "manage_roles", description: "Manage roles and permissions", category: "people" },
+  { id: "perm_update_ticket", name: "update_ticket", description: "Accept, prepare and hand over station tickets", category: "pos" },
   { id: "perm_clock_shift", name: "clock_shift", description: "Clock in and out of shifts", category: "people" },
   { id: "perm_manage_events", name: "manage_events", description: "Manage events", category: "club" },
   { id: "perm_manage_reservations", name: "manage_reservations", description: "Manage reservations", category: "club" },
@@ -50,6 +51,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   role_branch_manager: [
     "view_pos",
+    "update_ticket",
     "create_order",
     "modify_order",
     "apply_discount",
@@ -102,7 +104,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "close_order",
     "manage_reservations",
   ],
-  role_bartender: [...viewOnly],
-  role_kitchen: [...viewOnly],
+  // The station confirms its own handover. The waiter who entered the order
+  // must not be able to mark it served and free the table early.
+  role_bartender: [...viewOnly, "update_ticket"],
+  role_kitchen: [...viewOnly, "update_ticket"],
   role_floor: ["view_pos", "create_order", "modify_order", "manage_reservations"],
 };

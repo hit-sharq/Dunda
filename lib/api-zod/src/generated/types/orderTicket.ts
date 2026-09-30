@@ -18,6 +18,8 @@ export interface OrderTicket {
   table?: string | null;
   /** @nullable */
   tableId?: string | null;
+  /** @nullable */
+  tabId?: string | null;
   station: OrderTicketStation;
   status: OrderTicketStatus;
   /** @nullable */

@@ -1,0 +1,1 @@
+ALTER TABLE "dunda_order_ticket_items" ALTER COLUMN "order_item_id" DROP NOT NULL;

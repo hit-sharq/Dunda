@@ -1,0 +1,2 @@
+ALTER TABLE "dunda_order_ticket_items" ADD COLUMN "tab_item_id" text;--> statement-breakpoint
+ALTER TABLE "dunda_order_ticket_items" ADD CONSTRAINT "dunda_order_ticket_items_tab_item_id_dunda_tab_items_id_fk" FOREIGN KEY ("tab_item_id") REFERENCES "public"."dunda_tab_items"("id") ON DELETE cascade ON UPDATE no action;

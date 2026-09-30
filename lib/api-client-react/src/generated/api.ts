@@ -6493,6 +6493,84 @@ export function useGetTickets<TData = Awaited<ReturnType<typeof getTickets>>, TE
 
 
 
+export const getGetTicketsByTabUrl = (tabId: string,) => {
+
+
+
+
+  return `/api/tickets/by-tab/${tabId}`
+}
+
+/**
+ * What the floor asks for: everything a table has rung in, and which stations still owe them something.
+ * @summary Station tickets raised from one tab
+ */
+export const getTicketsByTab = async (tabId: string, options?: Parameters<typeof customFetch>[1]): Promise<OrderTicket[]> => {
+
+  return customFetch<OrderTicket[]>(getGetTicketsByTabUrl(tabId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTicketsByTabQueryKey = (tabId: string,) => {
+    return [
+    `/api/tickets/by-tab/${tabId}`
+    ] as const;
+    }
+
+
+export const getGetTicketsByTabQueryOptions = <TData = Awaited<ReturnType<typeof getTicketsByTab>>, TError = ErrorType<unknown>>(tabId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTicketsByTab>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTicketsByTabQueryKey(tabId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTicketsByTab>>> = ({ signal }) => getTicketsByTab(tabId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: tabId !== null && tabId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTicketsByTab>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTicketsByTabQueryResult = NonNullable<Awaited<ReturnType<typeof getTicketsByTab>>>
+export type GetTicketsByTabQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Station tickets raised from one tab
+ */
+
+export function useGetTicketsByTab<TData = Awaited<ReturnType<typeof getTicketsByTab>>, TError = ErrorType<unknown>>(
+ tabId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTicketsByTab>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTicketsByTabQueryOptions(tabId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetTicketsByOrderUrl = (orderId: string,) => {
 
 

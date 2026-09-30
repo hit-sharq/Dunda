@@ -1877,6 +1877,7 @@ export const GetTicketsResponseItem = zod.object({
   "orderNumber": zod.string().optional(),
   "table": zod.string().nullish(),
   "tableId": zod.string().nullish(),
+  "tabId": zod.string().nullish(),
   "station": zod.enum(['BAR', 'KITCHEN']),
   "status": zod.enum(['DRAFT', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED']),
   "notes": zod.string().nullish(),
@@ -1893,6 +1894,37 @@ export const GetTicketsResponse = zod.array(GetTicketsResponseItem)
 
 
 /**
+ * What the floor asks for: everything a table has rung in, and which stations still owe them something.
+ * @summary Station tickets raised from one tab
+ */
+export const GetTicketsByTabParams = zod.object({
+  "tabId": zod.coerce.string()
+})
+
+export const GetTicketsByTabResponseItem = zod.object({
+  "id": zod.string(),
+  "number": zod.string(),
+  "orderId": zod.string(),
+  "orderNumber": zod.string().optional(),
+  "table": zod.string().nullish(),
+  "tableId": zod.string().nullish(),
+  "tabId": zod.string().nullish(),
+  "station": zod.enum(['BAR', 'KITCHEN']),
+  "status": zod.enum(['DRAFT', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "quantity": zod.number().int(),
+  "notes": zod.string().nullish()
+}))
+})
+export const GetTicketsByTabResponse = zod.array(GetTicketsByTabResponseItem)
+
+
+/**
  * @summary Every station ticket attached to one order
  */
 export const GetTicketsByOrderParams = zod.object({
@@ -1906,6 +1938,7 @@ export const GetTicketsByOrderResponseItem = zod.object({
   "orderNumber": zod.string().optional(),
   "table": zod.string().nullish(),
   "tableId": zod.string().nullish(),
+  "tabId": zod.string().nullish(),
   "station": zod.enum(['BAR', 'KITCHEN']),
   "status": zod.enum(['DRAFT', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED']),
   "notes": zod.string().nullish(),
@@ -1940,6 +1973,7 @@ export const UpdateTicketResponse = zod.object({
   "orderNumber": zod.string().optional(),
   "table": zod.string().nullish(),
   "tableId": zod.string().nullish(),
+  "tabId": zod.string().nullish(),
   "station": zod.enum(['BAR', 'KITCHEN']),
   "status": zod.enum(['DRAFT', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED']),
   "notes": zod.string().nullish(),

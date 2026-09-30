@@ -50,6 +50,7 @@ import {
 import { getTenant } from "../middlewares/tenantMiddleware";
 import { BranchScopeError, requireBranchScope } from "../lib/branchScope";
 import { calculateTotals, formatMoney, getTenantSettings } from "../lib/tenantSettings";
+import { closeTabTickets, raiseStationTicket } from "../lib/tabTickets";
 import { productAccentColors } from "../lib/constants";
 import { nextDocumentNumber } from "../lib/numbering";
 import { logAuditEntry } from "../lib/auditLogger";
@@ -496,6 +497,18 @@ router.post("/tabs/:tabId", async (req, res): Promise<void> => {
       notes: body.data.notes ?? null,
     });
   }
+  await raiseStationTicket({
+    tx: db,
+    tenant,
+    tab,
+    product,
+    lineId: existing[0]
+      ? existing[0].id
+      : `tab-item-${tab.id}-${product.id}-${body.data.unitId ?? "base"}`,
+    quantity: body.data.quantity,
+    notes: body.data.notes ?? null,
+  });
+
   const itemRows = await db
     .select()
     .from(tabItemsTable)
@@ -555,6 +568,10 @@ router.post("/tabs/:tabId/checkout", async (req, res): Promise<void> => {
       .set({ status: "CLOSED", closedAt: new Date() })
       .where(eq(tabsTable.id, tab.id))
       .returning();
+
+    // Settling the bill means the table is done, so any ticket still in flight
+    // is closed rather than left stranded on a station board.
+    await closeTabTickets(tx, tab.id, "SERVED");
     const released = await tx
       .update(tablesTable)
       .set({ status: "AVAILABLE", tabId: null, customer: null, total: 0 })

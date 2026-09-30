@@ -6,6 +6,7 @@ export type PermissionKey =
   | "view_pos"
   | "create_order"
   | "modify_order"
+  | "update_ticket"
   | "apply_discount"
   | "void_order"
   | "refund_payment"

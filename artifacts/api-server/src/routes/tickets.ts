@@ -8,13 +8,19 @@ import {
   orderTicketItemsTable,
   ordersTable,
   tablesTable,
+  tabItemsTable,
+  tabsTable,
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
 import { InvalidTransitionError, ORDER_STATUS_TRANSITIONS } from "../lib/orderWorkflow";
 import { isClosed } from "../lib/routing";
+import { tabTickets } from "../lib/tabTickets";
 import type { StaffContext } from "../lib/permissions";
 import { publish } from "../lib/realtime";
-import { deductInventoryForOrderItem as deductForItem } from "../lib/inventory";
+import {
+  deductInventoryForOrderItem as deductForItem,
+  deductInventoryForTabItem as deductForTabItem,
+} from "../lib/inventory";
 
 const router: IRouter = Router();
 
@@ -103,6 +109,37 @@ router.get("/", async (req, res): Promise<void> => {
   res.json(result);
 });
 
+/**
+ * The tickets raised from one tab.
+ *
+ * This is what the floor asks for: what has this table already rung in, and
+ * which stations still owe them something.
+ */
+router.get("/by-tab/:tabId", async (req, res): Promise<void> => {
+  if (!can(req, "view_pos")) return deny(res, "view_pos");
+  const tenant = getTenant(req);
+
+  const rows = await tabTickets(db, req.params.tabId);
+  res.json(
+    rows
+      .filter((t) => t.organizationId === tenant.organizationId)
+      .map((t) => ({
+        id: t.id,
+        number: t.number,
+        tabId: t.tabId,
+        station: t.station,
+        status: t.status,
+        createdAt: t.createdAt,
+        items: t.items.map((i) => ({
+          id: i.name,
+          name: i.name,
+          quantity: i.quantity,
+          notes: i.notes,
+        })),
+      })),
+  );
+});
+
 /** The tickets attached to one order, so the POS can show what is outstanding. */
 router.get("/by-order/:orderId", async (req, res): Promise<void> => {
   if (!can(req, "view_pos")) return deny(res, "view_pos");
@@ -138,7 +175,7 @@ router.get("/by-order/:orderId", async (req, res): Promise<void> => {
  * accountable for what it actually handed over.
  */
 router.patch("/:ticketId", async (req, res): Promise<void> => {
-  if (!can(req, "modify_order")) return deny(res, "modify_order");
+  if (!can(req, "update_ticket")) return deny(res, "update_ticket");
   const tenant = getTenant(req);
   const ctx = req.clerk?.__staffContext as StaffContext | undefined;
 
@@ -179,10 +216,45 @@ router.patch("/:ticketId", async (req, res): Promise<void> => {
       }
     }
 
-    const [order] = await tx
-      .select()
-      .from(ordersTable)
-      .where(eq(ordersTable.id, ticket.orderId));
+    // A ticket hangs off an order or off a tab. Either way it needs the order
+    // row for billing context and the table, so resolve the tab when there is
+    // no order.
+    let order = ticket.orderId
+      ? (
+          await tx
+            .select()
+            .from(ordersTable)
+            .where(eq(ordersTable.id, ticket.orderId))
+        )[0]
+      : undefined;
+
+    if (!order && ticket.tabId) {
+      const [tab] = await tx
+        .select()
+        .from(tabsTable)
+        .where(eq(tabsTable.id, ticket.tabId));
+      if (tab) {
+        order = {
+          id: tab.id,
+          organizationId: tab.organizationId,
+          branchId: tab.branchId,
+          number: tab.number,
+          tableName: tab.tableName,
+          tableId: tab.tableId,
+          customerId: null,
+          staffId: null,
+          status: tab.status,
+          subtotal: tab.subtotal,
+          serviceCharge: tab.serviceCharge,
+          tax: tab.tax,
+          discount: tab.discount,
+          total: tab.total,
+          notes: null,
+          createdAt: tab.openedAt,
+          updatedAt: tab.openedAt,
+        };
+      }
+    }
     if (!order) return { kind: "missing" } as const;
 
     const lines = await tx
@@ -194,11 +266,21 @@ router.patch("/:ticketId", async (req, res): Promise<void> => {
     // manager decision rather than an automatic stock change.
     if (parsed.data.status === "SERVED" && ticket.status !== "SERVED") {
       for (const line of lines) {
-        const [item] = await tx
-          .select()
-          .from(orderItemsTable)
-          .where(eq(orderItemsTable.id, line.orderItemId));
-        if (item) await deductForItem(tx, order, item, ctx ?? null);
+        // A ticket raised from a POS tab has no order_items row, so the
+        // deduction is driven by the ticket line's own recorded quantity.
+        if (line.orderItemId) {
+          const [item] = await tx
+            .select()
+            .from(orderItemsTable)
+            .where(eq(orderItemsTable.id, line.orderItemId));
+          if (item) await deductForItem(tx, order, item, ctx ?? null);
+        } else if (line.tabItemId) {
+          const [tabItem] = await tx
+            .select()
+            .from(tabItemsTable)
+            .where(eq(tabItemsTable.id, line.tabItemId));
+          if (tabItem) await deductForTabItem(tx, order, tabItem, ctx ?? null);
+        }
       }
     }
 
@@ -213,7 +295,11 @@ router.patch("/:ticketId", async (req, res): Promise<void> => {
     const remaining = await tx
       .select({ status: orderTicketsTable.status })
       .from(orderTicketsTable)
-      .where(eq(orderTicketsTable.orderId, ticket.orderId));
+      .where(
+        ticket.orderId
+          ? eq(orderTicketsTable.orderId, ticket.orderId)
+          : eq(orderTicketsTable.tabId, ticket.tabId ?? ""),
+      );
     if (remaining.every((t) => isClosed(t.status)) && order.tableId) {
       await tx
         .update(tablesTable)
