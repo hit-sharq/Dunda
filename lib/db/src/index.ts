@@ -39,7 +39,22 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+/**
+ * Pool settings for a managed database reached over the public internet.
+ *
+ * The provider hands out pooled connections that can be dropped between
+ * queries, which surfaced as intermittent ETIMEDOUT on an otherwise valid
+ * query. A longer idle timeout keeps a warm connection around, and a generous
+ * connect timeout avoids failing fast on a brief network stall.
+ */
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 10,
+  connectionTimeoutMillis: 20_000,
+  idleTimeoutMillis: 30_000,
+  // Keep a failed socket from being handed to the next caller.
+  allowExitOnIdle: false,
+});
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";

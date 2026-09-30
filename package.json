@@ -18,12 +18,16 @@
     "db:migrate": "pnpm --filter @workspace/db migrate",
     "db:studio": "pnpm --filter @workspace/db studio",
     "db:seed": "pnpm --filter @workspace/db seed",
-    "api:codegen": "pnpm --filter @workspace/api-spec codegen"
+    "api:codegen": "pnpm --filter @workspace/api-spec codegen",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "pnpm run typecheck && pnpm test && pnpm run build"
   },
   "private": true,
   "devDependencies": {
     "concurrently": "^9.1.0",
     "prettier": "^3.9.6",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.4"
   }
 }
