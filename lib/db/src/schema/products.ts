@@ -21,6 +21,9 @@ export const categoriesTable = pgTable("dunda_categories", {
   // rolls up into the "other" bucket, so a tenant's own taxonomy is respected
   // rather than being forced into a fixed drink/food split.
   group: text("group"),
+  // Which station prepares items in this category: BAR or KITCHEN. Left null the
+  // routing falls back to the reporting group, then to the bar.
+  station: text("station"),
   sortOrder: integer("sort_order").notNull().default(0),
 });
 

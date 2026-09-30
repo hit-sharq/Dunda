@@ -100,3 +100,52 @@ export type InsertOrderItemUnit = z.infer<typeof insertOrderItemUnitSchema>;
 export const insertOrderSchema = createInsertSchema(ordersTable);
 export const insertOrderItemSchema = createInsertSchema(orderItemsTable);
 export const insertOrderItemUnitSchema = createInsertSchema(orderItemUnitsTable);
+
+/**
+ * One ticket per preparation station.
+ *
+ * A table that orders both drinks and food produces two tickets under one
+ * order: they share the bill but progress independently, so the bar marking its
+ * ticket served no longer removes the food from the kitchen board.
+ */
+export const orderTicketsTable = pgTable("dunda_order_tickets", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizationsTable.id, { onDelete: "cascade" }),
+  branchId: text("branch_id")
+    .notNull()
+    .references(() => branchesTable.id, { onDelete: "cascade" }),
+  orderId: text("order_id")
+    .notNull()
+    .references(() => ordersTable.id, { onDelete: "cascade" }),
+  station: text("station").notNull(),
+  number: text("number").notNull(),
+  status: text("status").notNull().default("PENDING"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const orderTicketItemsTable = pgTable("dunda_order_ticket_items", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizationsTable.id, { onDelete: "cascade" }),
+  ticketId: text("ticket_id")
+    .notNull()
+    .references(() => orderTicketsTable.id, { onDelete: "cascade" }),
+  orderItemId: text("order_item_id")
+    .notNull()
+    .references(() => orderItemsTable.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  quantity: integer("quantity").notNull(),
+  notes: text("notes"),
+});
+
+export type OrderTicket = typeof orderTicketsTable.$inferSelect;
+export type OrderTicketItem = typeof orderTicketItemsTable.$inferSelect;

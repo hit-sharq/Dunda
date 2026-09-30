@@ -661,6 +661,69 @@ export interface ProductReportItem {
   revenue: number;
 }
 
+export type UpdateTicketInputStatus = typeof UpdateTicketInputStatus[keyof typeof UpdateTicketInputStatus];
+
+
+export const UpdateTicketInputStatus = {
+  ACCEPTED: 'ACCEPTED',
+  PREPARING: 'PREPARING',
+  READY: 'READY',
+  SERVED: 'SERVED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export interface UpdateTicketInput {
+  status: UpdateTicketInputStatus;
+}
+
+export interface OrderTicketItem {
+  id: string;
+  name: string;
+  quantity: number;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type OrderTicketStation = typeof OrderTicketStation[keyof typeof OrderTicketStation];
+
+
+export const OrderTicketStation = {
+  BAR: 'BAR',
+  KITCHEN: 'KITCHEN',
+} as const;
+
+export type OrderTicketStatus = typeof OrderTicketStatus[keyof typeof OrderTicketStatus];
+
+
+export const OrderTicketStatus = {
+  DRAFT: 'DRAFT',
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  PREPARING: 'PREPARING',
+  READY: 'READY',
+  SERVED: 'SERVED',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export interface OrderTicket {
+  id: string;
+  number: string;
+  orderId: string;
+  orderNumber?: string;
+  /** @nullable */
+  table?: string | null;
+  /** @nullable */
+  tableId?: string | null;
+  station: OrderTicketStation;
+  status: OrderTicketStatus;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  items: OrderTicketItem[];
+}
+
 /**
  * @nullable
  */
@@ -1221,6 +1284,19 @@ export type GetNotificationUnreadCount200 = {
 export type GlobalSearchParams = {
 q: string;
 };
+
+export type GetTicketsParams = {
+station: GetTicketsStation;
+includeClosed?: boolean;
+};
+
+export type GetTicketsStation = typeof GetTicketsStation[keyof typeof GetTicketsStation];
+
+
+export const GetTicketsStation = {
+  BAR: 'BAR',
+  KITCHEN: 'KITCHEN',
+} as const;
 
 export type GetInventoryReportParams = {
 branchId?: string;

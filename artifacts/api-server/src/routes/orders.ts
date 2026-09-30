@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, desc, type SQL } from "drizzle-orm";
+import { and, eq, desc, inArray, type SQL } from "drizzle-orm";
 import {
   CreateOrderBody,
   CreateOrderResponse,
@@ -13,6 +13,8 @@ import { db } from "@workspace/db";
 import {
   orderItemsTable,
   orderItemUnitsTable,
+  orderTicketsTable,
+  orderTicketItemsTable,
   tablesTable,
   ordersTable,
   productsTable,
@@ -22,12 +24,19 @@ import {
   inventoryAlertsTable,
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
+import { deductInventoryForOrderItem } from "../lib/inventory";
 import { BranchScopeError, requireBranchScope } from "../lib/branchScope";
 import { calculateTotals, formatMoney, getTenantSettings } from "../lib/tenantSettings";
 import { nextDocumentNumber } from "../lib/numbering";
 import { logAuditEntry } from "../lib/auditLogger";
 import { publish } from "../lib/realtime";
 import { InvalidTransitionError, ORDER_STATUS_TRANSITIONS } from "../lib/orderWorkflow";
+import {
+  isClosed,
+  loadCategoryStations,
+  splitIntoTickets,
+  type TicketLine,
+} from "../lib/routing";
 import { hasPermission, type StaffContext } from "../lib/permissions";
 
 const router: IRouter = Router();
@@ -41,6 +50,10 @@ function deny(res: any, permission: string): void {
   res.status(403).json({
     error: `You do not have permission to perform this action. Required: ${permission}`,
   });
+}
+
+function uid(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function staffContext(req: any): StaffContext | undefined {
@@ -65,108 +78,20 @@ async function deductInventoryForOrder(
     .where(eq(orderItemsTable.orderId, order.id));
 
   for (const item of items) {
-    const [product] = await tx
-      .select()
-      .from(productsTable)
-      .where(eq(productsTable.id, item.productId));
-    if (!product?.trackInventory) continue;
-
-    const [unitRecord] = await tx
-      .select()
-      .from(orderItemUnitsTable)
-      .where(eq(orderItemUnitsTable.orderItemId, item.id));
-    const quantityInBaseUnit = unitRecord
-      ? Number(unitRecord.quantityInBaseUnit)
-      : item.quantity;
-
-    const [stock] = await tx
-      .select()
-      .from(inventoryItemsTable)
-      .where(
-        and(
-          eq(inventoryItemsTable.productId, product.id),
-          eq(inventoryItemsTable.branchId, order.branchId),
-        ),
-      );
-
-    let currentQuantity = quantityInBaseUnit;
-    if (stock) {
-      currentQuantity = Number(stock.currentQuantity) - quantityInBaseUnit;
-      await tx
-        .update(inventoryItemsTable)
-        .set({ currentQuantity: String(currentQuantity) })
-        .where(eq(inventoryItemsTable.id, stock.id));
-    } else {
-      await tx.insert(inventoryItemsTable).values({
-        id: `inv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        organizationId: order.organizationId,
-        branchId: order.branchId,
-        productId: product.id,
-        name: product.name,
-        category: product.category,
-        sku: product.sku,
-        currentQuantity: String(-quantityInBaseUnit),
-        reorderLevel: "0",
-        cost: product.cost,
-        unit: product.baseUnit,
-      });
-    }
-
-    await tx.insert(stockMovementsTable).values({
-      id: `move-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      organizationId: order.organizationId,
-      branchId: order.branchId,
-      productId: product.id,
-      type: "SALE",
-      quantity: String(item.quantity),
-      quantityInBaseUnit: String(-quantityInBaseUnit),
-      unitId: item.unitId,
-      referenceId: order.id,
-      reason: null,
-      staffId: ctx?.staffId ?? null,
-    });
-
-    // Keep low-stock alerts in step with the deduction.
-    if (stock) {
-      const existingAlert = await tx
-        .select()
-        .from(inventoryAlertsTable)
-        .where(
-          and(
-            eq(inventoryAlertsTable.productId, product.id),
-            eq(inventoryAlertsTable.branchId, order.branchId),
-          ),
-        );
-      const reorderLevel = Number(stock.reorderLevel);
-      const severity = currentQuantity <= 0 ? "OUT" : "LOW";
-      if (currentQuantity <= reorderLevel) {
-        if (existingAlert[0]) {
-          await tx
-            .update(inventoryAlertsTable)
-            .set({ stock: String(currentQuantity), severity })
-            .where(eq(inventoryAlertsTable.id, existingAlert[0].id));
-        } else {
-          await tx.insert(inventoryAlertsTable).values({
-            id: `alert-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            organizationId: order.organizationId,
-            branchId: order.branchId,
-            productId: product.id,
-            name: product.name,
-            category: product.category,
-            stock: String(currentQuantity),
-            minimum: String(reorderLevel),
-            unit: product.baseUnit,
-            severity,
-          });
-        }
-      } else if (existingAlert[0]) {
-        await tx
-          .delete(inventoryAlertsTable)
-          .where(eq(inventoryAlertsTable.id, existingAlert[0].id));
-      }
-    }
+    await deductInventoryForOrderItem(tx, order, item, ctx);
   }
 }
+
+/**
+ * Deducts one order line.
+ *
+ * Every order item carries a recorded quantity in the product's configured base
+ * unit (see orderItemUnitsTable), so deduction is exact regardless of whether
+ * the item was sold as a piece, pack, bottle, glass or shot.
+ *
+ * A station ticket deducts its own lines when it is served, so a table whose
+ * drinks are served before its food still has both accounted for.
+ */
 
 router.get("/", async (req, res): Promise<void> => {
   const tenant = getTenant(req);
@@ -292,6 +217,23 @@ router.post("/", async (req, res): Promise<void> => {
         );
     }
 
+    // Resolve the preparing station for every category on this order once,
+    // rather than per line.
+    const productRows = await tx
+      .select({ id: productsTable.id, categoryId: productsTable.categoryId })
+      .from(productsTable)
+      .where(
+        and(
+          eq(productsTable.organizationId, tenant.organizationId),
+          inArray(productsTable.id, parsed.data.items.map((i) => i.productId)),
+        ),
+      );
+    const stationByCategory = await loadCategoryStations(
+      tenant.organizationId,
+      productRows.map((r) => r.categoryId).filter((c): c is string => Boolean(c)),
+    );
+
+    const ticketLines: TicketLine[] = [];
     let subtotal = 0;
     for (const item of parsed.data.items) {
       const [product] = await tx
@@ -345,6 +287,46 @@ router.post("/", async (req, res): Promise<void> => {
         conversionFactor: String(conversionFactor),
         quantityInBaseUnit: String(item.quantity * conversionFactor),
       });
+
+      ticketLines.push({
+        orderItemId,
+        name: product.name,
+        quantity: item.quantity,
+        notes: item.notes ?? null,
+        station: stationByCategory.get(product.categoryId ?? "") ?? "BAR",
+      });
+    }
+
+    // One ticket per preparation station. They share the order for billing but
+    // advance independently, so serving the drinks does not clear the food from
+    // the pass.
+    for (const [station, lines] of splitIntoTickets(ticketLines)) {
+      const [ticket] = await tx
+        .insert(orderTicketsTable)
+        .values({
+          id: uid("ticket"),
+          organizationId: tenant.organizationId,
+          branchId,
+          orderId: order.id,
+          station,
+          number: `${order.number}-${station === "BAR" ? "B" : "K"}`,
+          status: "PENDING",
+          notes: null,
+        })
+        .returning();
+      if (lines.length) {
+        await tx.insert(orderTicketItemsTable).values(
+          lines.map((line, index) => ({
+            id: `${ticket.id}-${index}`,
+            organizationId: tenant.organizationId,
+            ticketId: ticket.id,
+            orderItemId: line.orderItemId,
+            name: line.name,
+            quantity: line.quantity,
+            notes: line.notes,
+          })),
+        );
+      }
     }
 
     // Orders are always created with no discount; discounts are applied later

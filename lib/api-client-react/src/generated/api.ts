@@ -59,6 +59,7 @@ import type {
   GetStaffReportParams,
   GetTableReportParams,
   GetTabsParams,
+  GetTicketsParams,
   GlobalSearchParams,
   HealthStatus,
   HqReport,
@@ -70,6 +71,7 @@ import type {
   NotificationInput,
   NotificationReadInput,
   Order,
+  OrderTicket,
   Payment,
   PaymentInput,
   PaymentReport,
@@ -101,7 +103,8 @@ import type {
   Table,
   TableInput,
   TableReportItem,
-  UpdateOrderStatusInput
+  UpdateOrderStatusInput,
+  UpdateTicketInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -6404,6 +6407,258 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = Err
 
 
 
+
+export const getGetTicketsUrl = (params: GetTicketsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/tickets?${stringifiedParams}` : `/api/tickets`
+}
+
+/**
+ * The bar and kitchen boards read the same endpoint with a different station, so each only ever sees the lines it is responsible for.
+ * @summary Tickets for one preparation station
+ */
+export const getTickets = async (params: GetTicketsParams, options?: Parameters<typeof customFetch>[1]): Promise<OrderTicket[]> => {
+
+  return customFetch<OrderTicket[]>(getGetTicketsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTicketsQueryKey = (params?: GetTicketsParams,) => {
+    return [
+    `/api/tickets`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetTicketsQueryOptions = <TData = Awaited<ReturnType<typeof getTickets>>, TError = ErrorType<unknown>>(params: GetTicketsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTickets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTicketsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTickets>>> = ({ signal }) => getTickets(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTickets>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTicketsQueryResult = NonNullable<Awaited<ReturnType<typeof getTickets>>>
+export type GetTicketsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Tickets for one preparation station
+ */
+
+export function useGetTickets<TData = Awaited<ReturnType<typeof getTickets>>, TError = ErrorType<unknown>>(
+ params: GetTicketsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTickets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTicketsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTicketsByOrderUrl = (orderId: string,) => {
+
+
+
+
+  return `/api/tickets/by-order/${orderId}`
+}
+
+/**
+ * @summary Every station ticket attached to one order
+ */
+export const getTicketsByOrder = async (orderId: string, options?: Parameters<typeof customFetch>[1]): Promise<OrderTicket[]> => {
+
+  return customFetch<OrderTicket[]>(getGetTicketsByOrderUrl(orderId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTicketsByOrderQueryKey = (orderId: string,) => {
+    return [
+    `/api/tickets/by-order/${orderId}`
+    ] as const;
+    }
+
+
+export const getGetTicketsByOrderQueryOptions = <TData = Awaited<ReturnType<typeof getTicketsByOrder>>, TError = ErrorType<unknown>>(orderId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTicketsByOrder>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTicketsByOrderQueryKey(orderId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTicketsByOrder>>> = ({ signal }) => getTicketsByOrder(orderId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orderId !== null && orderId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTicketsByOrder>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTicketsByOrderQueryResult = NonNullable<Awaited<ReturnType<typeof getTicketsByOrder>>>
+export type GetTicketsByOrderQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Every station ticket attached to one order
+ */
+
+export function useGetTicketsByOrder<TData = Awaited<ReturnType<typeof getTicketsByOrder>>, TError = ErrorType<unknown>>(
+ orderId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTicketsByOrder>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTicketsByOrderQueryOptions(orderId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateTicketUrl = (ticketId: string,) => {
+
+
+
+
+  return `/api/tickets/${ticketId}`
+}
+
+/**
+ * Stock is deducted when the ticket is served, not when the order closes. The table is released once no ticket remains open.
+ * @summary Advance a station ticket through the service workflow
+ */
+export const updateTicket = async (ticketId: string,
+    updateTicketInput: UpdateTicketInput, options?: Parameters<typeof customFetch>[1]): Promise<OrderTicket> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OrderTicket>(getUpdateTicketUrl(ticketId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateTicketInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateTicketMutationKey = () => ['updateTicket'] as const;
+
+export const getUpdateTicketMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTicket>>, TError,UpdateTicketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTicket>>, TError,UpdateTicketMutationVariables, TContext> => {
+
+const mutationKey = getUpdateTicketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTicket>>, UpdateTicketMutationVariables> = (props) => {
+          const {ticketId,data} = props ?? {};
+
+          return  updateTicket(ticketId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTicketMutationResult = NonNullable<Awaited<ReturnType<typeof updateTicket>>>
+    export type UpdateTicketMutationBody = BodyType<UpdateTicketInput>
+    export type UpdateTicketMutationError = ErrorType<void>
+    export type UpdateTicketMutationVariables = {ticketId: string;data: BodyType<UpdateTicketInput>}
+
+    /**
+ * @summary Advance a station ticket through the service workflow
+ */
+export const useUpdateTicket = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTicket>>, TError,UpdateTicketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTicket>>,
+        TError,
+        UpdateTicketMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateTicketMutationOptions(options));
+    }
 
 export const getGetInventoryReportUrl = (params?: GetInventoryReportParams,) => {
   const normalizedParams = new URLSearchParams();

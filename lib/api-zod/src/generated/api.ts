@@ -1862,6 +1862,99 @@ export const GetMeResponse = zod.object({
 
 
 /**
+ * The bar and kitchen boards read the same endpoint with a different station, so each only ever sees the lines it is responsible for.
+ * @summary Tickets for one preparation station
+ */
+export const GetTicketsQueryParams = zod.object({
+  "station": zod.enum(['BAR', 'KITCHEN']),
+  "includeClosed": zod.coerce.boolean().optional()
+})
+
+export const GetTicketsResponseItem = zod.object({
+  "id": zod.string(),
+  "number": zod.string(),
+  "orderId": zod.string(),
+  "orderNumber": zod.string().optional(),
+  "table": zod.string().nullish(),
+  "tableId": zod.string().nullish(),
+  "station": zod.enum(['BAR', 'KITCHEN']),
+  "status": zod.enum(['DRAFT', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "quantity": zod.number().int(),
+  "notes": zod.string().nullish()
+}))
+})
+export const GetTicketsResponse = zod.array(GetTicketsResponseItem)
+
+
+/**
+ * @summary Every station ticket attached to one order
+ */
+export const GetTicketsByOrderParams = zod.object({
+  "orderId": zod.coerce.string()
+})
+
+export const GetTicketsByOrderResponseItem = zod.object({
+  "id": zod.string(),
+  "number": zod.string(),
+  "orderId": zod.string(),
+  "orderNumber": zod.string().optional(),
+  "table": zod.string().nullish(),
+  "tableId": zod.string().nullish(),
+  "station": zod.enum(['BAR', 'KITCHEN']),
+  "status": zod.enum(['DRAFT', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "quantity": zod.number().int(),
+  "notes": zod.string().nullish()
+}))
+})
+export const GetTicketsByOrderResponse = zod.array(GetTicketsByOrderResponseItem)
+
+
+/**
+ * Stock is deducted when the ticket is served, not when the order closes. The table is released once no ticket remains open.
+ * @summary Advance a station ticket through the service workflow
+ */
+export const UpdateTicketParams = zod.object({
+  "ticketId": zod.coerce.string()
+})
+
+export const UpdateTicketBody = zod.object({
+  "status": zod.enum(['ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'])
+})
+
+export const UpdateTicketResponse = zod.object({
+  "id": zod.string(),
+  "number": zod.string(),
+  "orderId": zod.string(),
+  "orderNumber": zod.string().optional(),
+  "table": zod.string().nullish(),
+  "tableId": zod.string().nullish(),
+  "station": zod.enum(['BAR', 'KITCHEN']),
+  "status": zod.enum(['DRAFT', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "quantity": zod.number().int(),
+  "notes": zod.string().nullish()
+}))
+})
+
+
+/**
  * @summary Inventory position, movements and discrepancies
  */
 export const GetInventoryReportQueryParams = zod.object({

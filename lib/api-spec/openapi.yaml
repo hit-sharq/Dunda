@@ -1316,6 +1316,76 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Me" }
+  /tickets:
+    get:
+      operationId: getTickets
+      tags: [orders]
+      summary: Tickets for one preparation station
+      description: >
+        The bar and kitchen boards read the same endpoint with a different
+        station, so each only ever sees the lines it is responsible for.
+      parameters:
+        - in: query
+          name: station
+          required: true
+          schema:
+            type: string
+            enum: [BAR, KITCHEN]
+        - in: query
+          name: includeClosed
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Open tickets for the station
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/OrderTicket" }
+  /tickets/by-order/{orderId}:
+    get:
+      operationId: getTicketsByOrder
+      tags: [orders]
+      summary: Every station ticket attached to one order
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tickets for the order
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/OrderTicket" }
+  /tickets/{ticketId}:
+    patch:
+      operationId: updateTicket
+      tags: [orders]
+      summary: Advance a station ticket through the service workflow
+      description: >
+        Stock is deducted when the ticket is served, not when the order closes.
+        The table is released once no ticket remains open.
+      parameters:
+        - in: path
+          name: ticketId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateTicketInput" }
+      responses:
+        "200":
+          description: Updated ticket
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderTicket" }
+        "409":
+          description: The ticket cannot move to that state
   /reports/inventory:
     get:
       operationId: getInventoryReport
@@ -1917,6 +1987,43 @@ components:
       properties:
         label: { type: string }
         value: { type: number }
+    UpdateTicketInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ACCEPTED, PREPARING, READY, SERVED, CANCELLED]
+    OrderTicketItem:
+      type: object
+      required: [id, name, quantity]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        quantity: { type: integer }
+        notes: { type: ["string", "null"] }
+    OrderTicket:
+      type: object
+      required: [id, number, orderId, station, status, createdAt, items]
+      properties:
+        id: { type: string }
+        number: { type: string }
+        orderId: { type: string }
+        orderNumber: { type: string }
+        table: { type: ["string", "null"] }
+        tableId: { type: ["string", "null"] }
+        station:
+          type: string
+          enum: [BAR, KITCHEN]
+        status:
+          type: string
+          enum: [DRAFT, PENDING, ACCEPTED, PREPARING, READY, SERVED, COMPLETED, CANCELLED]
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OrderTicketItem" }
     Me:
       type: object
       required: [organizationId, permissions, isOwner]
