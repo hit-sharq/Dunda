@@ -8,6 +8,8 @@ export type BodyType<T> = T;
 
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
+export type UnauthorizedHandler = (error: ApiError<unknown>) => void;
+
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
@@ -17,6 +19,20 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _unauthorizedHandler: UnauthorizedHandler | null = null;
+
+/**
+ * Register a callback invoked when the API reports the caller is unauthenticated.
+ *
+ * The shared client cannot decide what that means: the web app signs the person
+ * out and sends them to sign-in, while a mobile app may show a re-authenticate
+ * prompt. Each app registers its own behaviour.
+ *
+ * Pass `null` to clear the handler.
+ */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  _unauthorizedHandler = handler;
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -322,6 +338,20 @@ async function parseSuccessBody(
   }
 }
 
+let _unauthorizedNotifiedAt = 0;
+const UNAUTHORIZED_NOTIFY_COOLDOWN_MS = 2000;
+
+/**
+ * Reports an unauthenticated response at most once per cooldown window, so a
+ * burst of parallel requests cannot trigger the handler repeatedly.
+ */
+function notifyUnauthorized(error: ApiError<unknown>): void {
+  const now = Date.now();
+  if (now - _unauthorizedNotifiedAt < UNAUTHORIZED_NOTIFY_COOLDOWN_MS) return;
+  _unauthorizedNotifiedAt = now;
+  _unauthorizedHandler?.(error);
+}
+
 export async function customFetch<T = unknown>(
   input: RequestInfo | URL,
   options: CustomFetchOptions = {},
@@ -364,7 +394,14 @@ export async function customFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
-    throw new ApiError(response, errorData, requestInfo);
+    const error = new ApiError(response, errorData, requestInfo);
+    // A dashboard fires many queries at once, so an expired session produces a
+    // burst of 401s. Notify once per burst, otherwise the app would attempt a
+    // sign-out for every in-flight request.
+    if (response.status === 401 && _unauthorizedHandler) {
+      notifyUnauthorized(error);
+    }
+    throw error;
   }
 
   return (await parseSuccessBody(response, responseType, requestInfo)) as T;

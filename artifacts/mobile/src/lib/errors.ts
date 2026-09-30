@@ -21,7 +21,11 @@ export function describeError(error: unknown, apiMessage?: string): FriendlyErro
   const status = e.status;
 
   if (status === 401) {
-    return { title: "Session expired", detail: "Sign in again to continue.", canRetry: false };
+    return {
+      title: "Session expired",
+      detail: "Sign in again to continue.",
+      canRetry: false,
+    };
   }
   if (status === 403) {
     return {

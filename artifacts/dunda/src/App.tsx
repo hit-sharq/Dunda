@@ -23,6 +23,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch, NotificationBell } from '@/components/chrome';
 import { useRealtime } from '@/hooks/use-realtime';
 import { useApiAuth } from '@/hooks/use-api-auth';
+import { useSessionGuard } from '@/hooks/use-session-guard';
 import { MoneyProvider, money } from '@/lib/money';
 import { QueryNotice } from '@/components/query-notice';
 import { Skeleton } from '@/components/ui';
@@ -365,7 +366,18 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="grid gap-1.5 text-xs font-semibold text-[#5d6963]">{label}{children}</label>; }
 
 function Auth({ mode }: { mode: 'sign-in' | 'sign-up' }) {
-  return <div className="grid min-h-[100dvh] bg-[#1c2a30] lg:grid-cols-[1fr_1fr]"><div className="hidden flex-col justify-between p-10 lg:flex"><Logo dark /><div className="max-w-lg pb-10"><p className="font-mono text-xs uppercase tracking-[.2em] text-[#f07a4b]">The operating system for after hours</p><h1 className="mt-5 font-display text-6xl font-extrabold leading-[.93] tracking-[-.06em] text-[#f6efe2]">Own the night.<br /><span className="text-[#90c7b1]">Together.</span></h1><p className="mt-6 max-w-sm text-sm leading-6 text-[#9fb0a8]">Dunda brings the room, the rail, and the floor into one live view — so your team can move with the night.</p></div><div className="flex items-center gap-2 text-xs text-[#70847e]"><span className="h-2 w-2 rounded-full bg-[#83c4a6]" /> Live operations, without the noise</div></div><div className="grid place-items-center bg-[#f5f1e8] p-5 sm:p-10"><div className="w-full max-w-[440px]">{mode === 'sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div></div></div>;
+  // A session that ended on its own sends the person here; saying why is the
+  // difference between "the app is broken" and "please sign in again".
+  const sessionEnded = (() => {
+    try {
+      const flag = window.sessionStorage.getItem('dunda:session-ended') === '1';
+      if (flag) window.sessionStorage.removeItem('dunda:session-ended');
+      return flag;
+    } catch {
+      return false;
+    }
+  })();
+  return <div className="grid min-h-[100dvh] bg-[#1c2a30] lg:grid-cols-[1fr_1fr]"><div className="hidden flex-col justify-between p-10 lg:flex"><Logo dark /><div className="max-w-lg pb-10"><p className="font-mono text-xs uppercase tracking-[.2em] text-[#f07a4b]">The operating system for after hours</p><h1 className="mt-5 font-display text-6xl font-extrabold leading-[.93] tracking-[-.06em] text-[#f6efe2]">Own the night.<br /><span className="text-[#90c7b1]">Together.</span></h1><p className="mt-6 max-w-sm text-sm leading-6 text-[#9fb0a8]">Dunda brings the room, the rail, and the floor into one live view — so your team can move with the night.</p></div><div className="flex items-center gap-2 text-xs text-[#70847e]"><span className="h-2 w-2 rounded-full bg-[#83c4a6]" /> Live operations, without the noise</div></div><div className="grid place-items-center bg-[#f5f1e8] p-5 sm:p-10"><div className="w-full max-w-[440px]">{sessionEnded && mode === 'sign-in' && <div className="mb-4 rounded-xl border border-[#e7d39c] bg-[#fbf2d9] px-4 py-3 text-sm text-[#92702b]" role="status">Your session ended. Please sign in again to continue.</div>}{mode === 'sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div></div></div>;
 }
 
 function Landing() {
@@ -377,6 +389,7 @@ function Landing() {
 function ProtectedRouter() {
   const { isLoaded, isSignedIn } = useAuth();
   useApiAuth();
+  useSessionGuard();
   useRealtime(Boolean(isSignedIn));
   // 403 STAFF_RECORD_REQUIRED means the account is authenticated but not yet
   // linked to a Dunda staff record. Without this the user just sees empty

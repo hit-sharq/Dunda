@@ -55,9 +55,11 @@ export function describeError(
   }
 
   if (status === 401) {
+    // The app signs the person out rather than leaving a dead panel on screen,
+    // so this is a fallback for the brief window before the redirect lands.
     return {
       title: "Session expired",
-      detail: "Sign in again to continue.",
+      detail: "Taking you back to sign in…",
       tone: "warning",
       canRetry: false,
       code,
