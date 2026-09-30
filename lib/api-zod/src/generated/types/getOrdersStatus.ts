@@ -10,9 +10,12 @@ export type GetOrdersStatus = typeof GetOrdersStatus[keyof typeof GetOrdersStatu
 
 
 export const GetOrdersStatus = {
-  NEW: 'NEW',
+  DRAFT: 'DRAFT',
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
   PREPARING: 'PREPARING',
   READY: 'READY',
   SERVED: 'SERVED',
   COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
 } as const;

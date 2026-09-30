@@ -10,8 +10,21 @@ import type { OrderStatus } from './orderStatus';
 export interface Order {
   id: string;
   number: string;
-  table: string;
+  /** @nullable */
+  table: string | null;
   status: OrderStatus;
   items: string[];
+  /** @nullable */
+  subtotal?: number | null;
+  /** @nullable */
+  serviceCharge?: number | null;
+  /** @nullable */
+  tax?: number | null;
+  /** @nullable */
+  discount?: number | null;
+  /** @nullable */
+  total?: number | null;
+  /** @nullable */
+  notes?: string | null;
   createdAt: Date;
 }

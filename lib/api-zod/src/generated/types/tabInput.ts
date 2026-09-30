@@ -11,4 +11,6 @@ export interface TabInput {
   customer: string;
   /** @minLength 1 */
   table: string;
+  /** @nullable */
+  branchId?: string | null;
 }

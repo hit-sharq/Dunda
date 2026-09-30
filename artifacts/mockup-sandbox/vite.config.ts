@@ -5,7 +5,8 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { mockupPreviewPlugin } from "./mockupPreviewPlugin";
 
-const rawPort = process.env.PORT;
+// Defaulted so the sandbox builds outside the Replit environment.
+const rawPort = process.env.PORT ?? '5174';
 
 if (!rawPort) {
   throw new Error(
@@ -19,7 +20,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
+const basePath = process.env.BASE_PATH ?? '/';
 
 if (!basePath) {
   throw new Error(

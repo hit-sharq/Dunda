@@ -4,15 +4,28 @@
   "license": "MIT",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "dev": "concurrently \"pnpm dev:server\" \"pnpm dev:web\"",
+    "dev:web": "pnpm --filter @workspace/dunda dev",
+    "dev:server": "pnpm --filter @workspace/api-server dev",
+    "dev:mobile": "pnpm --filter @workspace/dunda-mobile dev",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "build:web": "pnpm --filter @workspace/dunda build",
+    "build:server": "pnpm --filter @workspace/api-server build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "db:push": "pnpm --filter @workspace/db push",
+    "db:generate": "pnpm --filter @workspace/db generate",
+    "db:migrate": "pnpm --filter @workspace/db migrate",
+    "db:studio": "pnpm --filter @workspace/db studio",
+    "db:seed": "pnpm --filter @workspace/db seed",
+    "api:codegen": "pnpm --filter @workspace/api-spec codegen"
   },
   "private": true,
   "dependencies": {
     "@replit/connectors-sdk": "^0.4.3"
   },
   "devDependencies": {
+    "concurrently": "^9.1.0",
     "prettier": "^3.9.6",
     "typescript": "~5.9.3"
   }

@@ -10,4 +10,8 @@ export interface TabItemInput {
   productId: string;
   /** @minimum 1 */
   quantity: number;
+  /** @nullable */
+  unitId?: string | null;
+  /** @nullable */
+  notes?: string | null;
 }

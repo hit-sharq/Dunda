@@ -1,6 +1,5 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
   description: Dunda club operating system API
@@ -16,14 +15,40 @@ tags:
     description: Branch and floor operations
   - name: products
     description: Product catalog
+  - name: categories
+    description: Product categories
+  - name: units
+    description: Product unit configuration
   - name: tabs
     description: Customer tabs and checkout
   - name: orders
     description: Active orders
+  - name: staff
+    description: Staff management
+  - name: shifts
+    description: Staff shift tracking
+  - name: customers
+    description: Customer profiles
   - name: reservations
     description: Table reservations
+  - name: events
+    description: Event management
   - name: inventory
-    description: Inventory alerts
+    description: Inventory, stock, suppliers
+  - name: reports
+    description: Sales and operational reports
+  - name: audit
+    description: Audit log access
+  - name: floors
+    description: Floor designer, sections and tables
+  - name: payments
+    description: Payments and refunds
+  - name: stock
+    description: Stock transfers and counts
+  - name: notifications
+    description: Notification center
+  - name: search
+    description: Global search
 paths:
   /healthz:
     get:
@@ -92,6 +117,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Floor"
+  /branches/{branchId}/tables:
+    get:
+      operationId: getBranchTables
+      tags: [branches]
+      summary: List all tables for a branch
+      parameters:
+        - $ref: "#/components/parameters/BranchId"
+      responses:
+        "200":
+          description: Tables
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Table"
+  /categories:
+    get:
+      operationId: getCategories
+      tags: [categories]
+      summary: List product categories
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
   /products:
     get:
       operationId: getProducts
@@ -115,6 +170,61 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+  /products/{productId}/units:
+    get:
+      operationId: getProductUnits
+      tags: [units]
+      summary: Get selling units for a product
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product units
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductUnit"
+    post:
+      operationId: createProductUnit
+      tags: [units]
+      summary: Add a selling unit
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductUnitInput" }
+      responses:
+        "201":
+          description: Created unit
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductUnit" }
   /tabs:
     get:
       operationId: getTabs
@@ -218,7 +328,7 @@ paths:
           name: status
           schema:
             type: string
-            enum: [NEW, PREPARING, READY, SERVED, COMPLETED]
+            enum: [DRAFT, PENDING, ACCEPTED, PREPARING, READY, SERVED, COMPLETED, CANCELLED]
       responses:
         "200":
           description: Orders
@@ -228,6 +338,230 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Order"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderInput"
+      responses:
+        "201":
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+  /orders/{orderId}/status:
+    patch:
+      operationId: updateOrderStatus
+      tags: [orders]
+      summary: Update order status
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrderStatusInput"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+  /staff:
+    get:
+      operationId: getStaff
+      tags: [staff]
+      summary: List staff members
+      responses:
+        "200":
+          description: Staff members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffMember"
+    post:
+      operationId: createStaff
+      tags: [staff]
+      summary: Create a staff member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStaffInput"
+      responses:
+        "201":
+          description: Created staff member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffMember"
+  /staff/{staffId}:
+    get:
+      operationId: getStaffMember
+      tags: [staff]
+      summary: Get staff member details
+      parameters:
+        - in: path
+          name: staffId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Staff member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffMember"
+  /staff/shifts:
+    get:
+      operationId: getShifts
+      tags: [shifts]
+      summary: List staff shifts
+      responses:
+        "200":
+          description: Staff shifts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffShift"
+    post:
+      operationId: createShift
+      tags: [shifts]
+      summary: Create a staff shift
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShiftInput"
+      responses:
+        "201":
+          description: Created shift
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffShift"
+  /customers:
+    get:
+      operationId: getCustomers
+      tags: [customers]
+      summary: List customers
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerInput"
+      responses:
+        "201":
+          description: Created customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+  /customers/{customerId}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get customer details
+      parameters:
+        - in: path
+          name: customerId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+  /events:
+    get:
+      operationId: getEvents
+      tags: [events]
+      summary: List events
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+    post:
+      operationId: createEvent
+      tags: [events]
+      summary: Create an event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventInput"
+      responses:
+        "201":
+          description: Created event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+  /events/{eventId}:
+    get:
+      operationId: getEvent
+      tags: [events]
+      summary: Get event details
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
   /reservations:
     get:
       operationId: getReservations
@@ -259,6 +593,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Reservation"
+  /inventory:
+    get:
+      operationId: getInventory
+      tags: [inventory]
+      summary: List inventory items
+      responses:
+        "200":
+          description: Inventory items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+    post:
+      operationId: adjustInventory
+      tags: [inventory]
+      summary: Adjust inventory quantity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdjustInventoryInput"
+      responses:
+        "200":
+          description: Updated inventory item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
   /inventory/alerts:
     get:
       operationId: getInventoryAlerts
@@ -273,6 +638,774 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/InventoryAlert"
+  /suppliers:
+    get:
+      operationId: getSuppliers
+      tags: [inventory]
+      summary: List suppliers
+      responses:
+        "200":
+          description: Suppliers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Supplier"
+    post:
+      operationId: createSupplier
+      tags: [inventory]
+      summary: Create a supplier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSupplierInput"
+      responses:
+        "201":
+          description: Created supplier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+  /reports/sales:
+    get:
+      operationId: getSalesReport
+      tags: [reports]
+      summary: Get sales report
+      parameters:
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Sales report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesReport"
+  /reports/products:
+    get:
+      operationId: getProductReport
+      tags: [reports]
+      summary: Get product sales report
+      parameters:
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Product report
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductReportItem"
+  /audit-logs:
+    get:
+      operationId: getAuditLogs
+      tags: [audit]
+      summary: List audit log entries
+      parameters:
+        - in: query
+          name: entity
+          schema:
+            type: string
+        - in: query
+          name: action
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+  /products/barcodes/{barcode}:
+    get:
+      operationId: getProductByBarcode
+      tags: [products]
+      summary: Resolve a scanned barcode to a product and selling unit
+      parameters:
+        - in: path
+          name: barcode
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Product matched by barcode
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BarcodeLookup" }
+        "404":
+          description: Product not found
+  /products/{productId}:
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Deactivate or delete a product
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed
+  /products/{productId}/units/{unitId}:
+    patch:
+      operationId: updateProductUnit
+      tags: [units]
+      summary: Update a selling unit or its price
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: unitId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductUnitInput" }
+      responses:
+        "200":
+          description: Updated unit
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductUnit" }
+    delete:
+      operationId: deleteProductUnit
+      tags: [units]
+      summary: Remove a selling unit
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: unitId
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed
+  /products/{productId}/barcodes:
+    post:
+      operationId: createProductBarcode
+      tags: [products]
+      summary: Register a barcode against a selling unit
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductBarcodeInput" }
+      responses:
+        "201":
+          description: Created barcode
+  /products/{productId}/barcodes/{barcodeId}:
+    delete:
+      operationId: deleteProductBarcode
+      tags: [products]
+      summary: Remove a barcode
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: barcodeId
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed
+  /floors:
+    get:
+      operationId: getFloors
+      tags: [floors]
+      summary: List floors and sections for a branch
+      parameters:
+        - in: query
+          name: branchId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Floors with sections
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FloorLayout" }
+    post:
+      operationId: createFloor
+      tags: [floors]
+      summary: Create a floor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FloorInput" }
+      responses:
+        "201":
+          description: Created floor
+  /floors/{floorId}:
+    patch:
+      operationId: updateFloor
+      tags: [floors]
+      summary: Rename or reorder a floor
+      parameters:
+        - in: path
+          name: floorId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FloorInput" }
+      responses:
+        "200":
+          description: Updated floor
+    delete:
+      operationId: deleteFloor
+      tags: [floors]
+      summary: Delete an empty floor
+      parameters:
+        - in: path
+          name: floorId
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed
+  /floors/{floorId}/sections:
+    post:
+      operationId: createFloorSection
+      tags: [floors]
+      summary: Create a section
+      parameters:
+        - in: path
+          name: floorId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FloorSectionInput" }
+      responses:
+        "201":
+          description: Created section
+  /floors/sections/{sectionId}:
+    patch:
+      operationId: updateFloorSection
+      tags: [floors]
+      summary: Rename a section
+      parameters:
+        - in: path
+          name: sectionId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FloorSectionInput" }
+      responses:
+        "200":
+          description: Updated section
+    delete:
+      operationId: deleteFloorSection
+      tags: [floors]
+      summary: Delete a section and its tables
+      parameters:
+        - in: path
+          name: sectionId
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed
+  /floors/tables:
+    get:
+      operationId: getFloorTables
+      tags: [floors]
+      summary: List tables for a branch
+      parameters:
+        - in: query
+          name: branchId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tables
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Table" }
+    post:
+      operationId: createTable
+      tags: [floors]
+      summary: Add a table
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TableInput" }
+      responses:
+        "201":
+          description: Created table
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Table" }
+  /floors/tables/{tableId}:
+    patch:
+      operationId: updateTable
+      tags: [floors]
+      summary: Move, resize, rename or restatus a table
+      parameters:
+        - in: path
+          name: tableId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TableInput" }
+      responses:
+        "200":
+          description: Updated table
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Table" }
+    delete:
+      operationId: deleteTable
+      tags: [floors]
+      summary: Delete an unoccupied table
+      parameters:
+        - in: path
+          name: tableId
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed
+  /payments:
+    get:
+      operationId: getPayments
+      tags: [payments]
+      summary: List payments
+      parameters:
+        - in: query
+          name: orderId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Payment" }
+    post:
+      operationId: createPayment
+      tags: [payments]
+      summary: Record a payment against an order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentInput" }
+      responses:
+        "201":
+          description: Recorded payment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+  /payments/refunds:
+    get:
+      operationId: getRefunds
+      tags: [payments]
+      summary: List refunds
+      responses:
+        "200":
+          description: Refunds
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Refund" }
+    post:
+      operationId: createRefund
+      tags: [payments]
+      summary: Refund a payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefundInput" }
+      responses:
+        "201":
+          description: Recorded refund
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Refund" }
+  /stock/transfers:
+    get:
+      operationId: getStockTransfers
+      tags: [stock]
+      summary: List stock transfers
+      responses:
+        "200":
+          description: Transfers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StockTransfer" }
+    post:
+      operationId: createStockTransfer
+      tags: [stock]
+      summary: Request a stock transfer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StockTransferInput" }
+      responses:
+        "201":
+          description: Requested transfer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StockTransfer" }
+  /stock/transfers/{transferId}:
+    patch:
+      operationId: updateStockTransfer
+      tags: [stock]
+      summary: Advance a transfer through its states
+      parameters:
+        - in: path
+          name: transferId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StockTransferStatusInput" }
+      responses:
+        "200":
+          description: Updated transfer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StockTransfer" }
+  /stock/counts:
+    get:
+      operationId: getStockCounts
+      tags: [stock]
+      summary: List stock counts
+      responses:
+        "200":
+          description: Stock counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StockCount" }
+    post:
+      operationId: createStockCount
+      tags: [stock]
+      summary: Draft a stock count
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StockCountInput" }
+      responses:
+        "201":
+          description: Created stock count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StockCount" }
+  /stock/counts/{countId}/submit:
+    post:
+      operationId: submitStockCount
+      tags: [stock]
+      summary: Submit a stock count for review
+      parameters:
+        - in: path
+          name: countId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StockCount" }
+  /stock/counts/{countId}/approve:
+    post:
+      operationId: approveStockCount
+      tags: [stock]
+      summary: Approve a stock count and post variances
+      parameters:
+        - in: path
+          name: countId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StockCountApprovalInput" }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StockCount" }
+  /notifications:
+    get:
+      operationId: getNotifications
+      tags: [notifications]
+      summary: List notifications
+      parameters:
+        - in: query
+          name: unread
+          schema: { type: boolean }
+        - in: query
+          name: limit
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Notification" }
+    post:
+      operationId: createNotification
+      tags: [notifications]
+      summary: Create a notification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationInput" }
+      responses:
+        "201":
+          description: Created notification
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Notification" }
+  /notifications/{notificationId}:
+    patch:
+      operationId: updateNotification
+      tags: [notifications]
+      summary: Mark a notification read or unread
+      parameters:
+        - in: path
+          name: notificationId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationReadInput" }
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Notification" }
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark every notification read
+      responses:
+        "200":
+          description: Done
+  /notifications/unread-count:
+    get:
+      operationId: getNotificationUnreadCount
+      tags: [notifications]
+      summary: Count unread notifications
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [count]
+                properties: { count: { type: integer } }
+  /search:
+    get:
+      operationId: globalSearch
+      tags: [search]
+      summary: Search across orders, products, tables, customers, reservations, events and staff
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchResult" }
+  /reports/inventory:
+    get:
+      operationId: getInventoryReport
+      tags: [reports]
+      summary: Inventory position, movements and discrepancies
+      parameters:
+        - in: query
+          name: branchId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Inventory report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InventoryReport" }
+  /reports/staff:
+    get:
+      operationId: getStaffReport
+      tags: [reports]
+      summary: Staff sales and shift performance
+      parameters:
+        - in: query
+          name: branchId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Staff report
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StaffReportItem" }
+  /reports/tables:
+    get:
+      operationId: getTableReport
+      tags: [reports]
+      summary: Table utilisation and revenue
+      parameters:
+        - in: query
+          name: branchId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Table report
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TableReportItem" }
+  /reports/payments:
+    get:
+      operationId: getPaymentReport
+      tags: [reports]
+      summary: Payment method breakdown and refunds
+      parameters:
+        - in: query
+          name: branchId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Payment report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentReport" }
+  /reports/events:
+    get:
+      operationId: getEventReport
+      tags: [reports]
+      summary: Event performance
+      parameters:
+        - in: query
+          name: branchId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Event report
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/EventReportItem" }
+  /reports/hq:
+    get:
+      operationId: getHqReport
+      tags: [reports]
+      summary: Consolidated multi-branch organization view
+      responses:
+        "200":
+          description: HQ report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HqReport" }
+  /auth/login:
+    post:
+      operationId: recordLogin
+      tags: [health]
+      summary: Record a sign-in in the audit log
+      responses:
+        "200":
+          description: Recorded
+
 components:
   parameters:
     BranchId:
@@ -318,6 +1451,10 @@ components:
         total: { type: number }
         tabId: { type: ["string", "null"] }
         customer: { type: ["string", "null"] }
+        x: { type: integer }
+        y: { type: integer }
+        width: { type: integer }
+        height: { type: integer }
     FloorSection:
       type: object
       required: [id, name, tables]
@@ -344,7 +1481,21 @@ components:
         color: { type: string }
     Product:
       type: object
-      required: [id, name, categoryId, category, price, unit, stock, available, accent]
+      required:
+        [
+          id,
+          name,
+          categoryId,
+          category,
+          price,
+          unit,
+          baseUnit,
+          stock,
+          available,
+          active,
+          trackInventory,
+          accent,
+        ]
       properties:
         id: { type: string }
         name: { type: string }
@@ -352,9 +1503,31 @@ components:
         category: { type: string }
         price: { type: number }
         unit: { type: string }
+        baseUnit: { type: string }
         stock: { type: number }
         available: { type: boolean }
+        active: { type: boolean }
+        trackInventory: { type: boolean }
         accent: { type: string }
+        sku: { type: ["string", "null"] }
+        barcode: { type: ["string", "null"] }
+        cost: { type: integer }
+        tax: { type: integer }
+        description: { type: ["string", "null"] }
+    ProductUnit:
+      type: object
+      required: [id, productId, name, abbreviation, conversionFactor, sellingPrice, wholeUnitsOnly]
+      properties:
+        id: { type: string }
+        productId: { type: string }
+        name: { type: string }
+        abbreviation: { type: string }
+        conversionFactor: { type: number }
+        sellingPrice: { type: number }
+        cost: { type: ["number", "null"] }
+        wholeUnitsOnly: { type: boolean }
+        isBaseUnit: { type: boolean }
+        sortOrder: { type: integer }
     TabItem:
       type: object
       required: [id, productId, name, quantity, unitPrice, total, category]
@@ -366,6 +1539,9 @@ components:
         unitPrice: { type: number }
         total: { type: number }
         category: { type: string }
+        unitId: { type: ["string", "null"] }
+        unitName: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
     Tab:
       type: object
       required: [id, number, customer, table, status, items, subtotal, serviceCharge, tax, discount, total, openedAt]
@@ -390,12 +1566,15 @@ components:
       properties:
         customer: { type: string, minLength: 1 }
         table: { type: string, minLength: 1 }
+        branchId: { type: ["string", "null"] }
     TabItemInput:
       type: object
       required: [productId, quantity]
       properties:
         productId: { type: string }
         quantity: { type: integer, minimum: 1 }
+        unitId: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
     CheckoutInput:
       type: object
       required: [method, amount]
@@ -417,22 +1596,157 @@ components:
       properties:
         id: { type: string }
         number: { type: string }
-        table: { type: string }
-        status: { type: string, enum: [NEW, PREPARING, READY, SERVED, COMPLETED] }
+        table: { type: ["string", "null"] }
+        status: { type: string, enum: [DRAFT, PENDING, ACCEPTED, PREPARING, READY, SERVED, COMPLETED, CANCELLED] }
         items: { type: array, items: { type: string } }
+        subtotal: { type: ["number", "null"] }
+        serviceCharge: { type: ["number", "null"] }
+        tax: { type: ["number", "null"] }
+        discount: { type: ["number", "null"] }
+        total: { type: ["number", "null"] }
+        notes: { type: ["string", "null"] }
         createdAt: { type: string, format: date-time }
+    CreateOrderInput:
+      type: object
+      required: [table, items]
+      properties:
+        table: { type: string }
+        customerId: { type: ["string", "null"] }
+        staffId: { type: ["string", "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [productId, quantity]
+            properties:
+              productId: { type: string }
+              quantity: { type: integer, minimum: 1 }
+              unitId: { type: ["string", "null"] }
+              notes: { type: ["string", "null"] }
+    UpdateOrderStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [PENDING, ACCEPTED, PREPARING, READY, SERVED, COMPLETED, CANCELLED] }
+    OrderItem:
+      type: object
+      required: [id, orderId, productId, name, quantity, unitPrice, total]
+      properties:
+        id: { type: string }
+        orderId: { type: string }
+        productId: { type: string }
+        unitId: { type: ["string", "null"] }
+        name: { type: string }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        total: { type: number }
+        notes: { type: ["string", "null"] }
+        categoryId: { type: ["string", "null"] }
+    StaffMember:
+      type: object
+      required: [id, name, email, role, status]
+      properties:
+        id: { type: string }
+        clerkUserId: { type: string }
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        role: { type: string }
+        roleId: { type: ["string", "null"] }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        branchId: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    CreateStaffInput:
+      type: object
+      required: [name, email, roleId]
+      properties:
+        clerkUserId: { type: ["string", "null"] }
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        roleId: { type: string }
+        branchId: { type: ["string", "null"] }
+    StaffShift:
+      type: object
+      required: [id, staffId, status]
+      properties:
+        id: { type: string }
+        staffId: { type: string }
+        staffName: { type: ["string", "null"] }
+        clockInAt: { type: ["string", "null"] }
+        clockOutAt: { type: ["string", "null"] }
+        breakStartAt: { type: ["string", "null"] }
+        breakEndAt: { type: ["string", "null"] }
+        status: { type: string, enum: [DRAFT, RUNNING, CLOSED] }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    CreateShiftInput:
+      type: object
+      required: [staffId]
+      properties:
+        staffId: { type: string }
+        branchId: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+    Customer:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        vipLevel: { type: string, enum: [NONE, BRONZE, SILVER, GOLD, PLATINUM] }
+        totalVisits: { type: integer }
+        totalSpend: { type: number }
+        lastVisitAt: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    CreateCustomerInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+    Event:
+      type: object
+      required: [id, name, date, startTime, endTime, capacity, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        date: { type: string, format: date }
+        startTime: { type: string }
+        endTime: { type: string }
+        capacity: { type: integer }
+        status: { type: string, enum: [DRAFT, UPCOMING, LIVE, COMPLETED, CANCELLED] }
+        revenue: { type: number }
+    CreateEventInput:
+      type: object
+      required: [name, date, startTime, endTime, capacity]
+      properties:
+        name: { type: string }
+        date: { type: string, format: date }
+        startTime: { type: string }
+        endTime: { type: string }
+        capacity: { type: integer, minimum: 1 }
+        description: { type: ["string", "null"] }
+        branchId: { type: ["string", "null"] }
     Reservation:
       type: object
       required: [id, customer, phone, date, time, table, guests, status]
       properties:
         id: { type: string }
         customer: { type: string }
+        customerName: { type: ["string", "null"] }
         phone: { type: string }
         date: { type: string, format: date }
         time: { type: string }
         table: { type: string }
         guests: { type: integer }
         status: { type: string, enum: [PENDING, CONFIRMED, ACTIVE, COMPLETED, CANCELLED, NO_SHOW] }
+        notes: { type: ["string", "null"] }
     ReservationInput:
       type: object
       required: [customer, phone, date, time, table, guests]
@@ -444,6 +1758,46 @@ components:
         table: { type: string, minLength: 1 }
         guests: { type: integer, minimum: 1 }
         notes: { type: ["string", "null"] }
+    InventoryItem:
+      type: object
+      required: [id, name, currentQuantity, reorderLevel, unit]
+      properties:
+        id: { type: string }
+        productId: { type: ["string", "null"] }
+        name: { type: string }
+        category: { type: ["string", "null"] }
+        sku: { type: ["string", "null"] }
+        currentQuantity: { type: number }
+        reorderLevel: { type: number }
+        cost: { type: ["number", "null"] }
+        unit: { type: string }
+    AdjustInventoryInput:
+      type: object
+      required: [productId, quantity, type]
+      properties:
+        productId: { type: string }
+        quantity: { type: number }
+        type: { type: string, enum: [PURCHASE, SALE, ADJUSTMENT, WASTE, RETURN, STOCK_COUNT] }
+        reason: { type: ["string", "null"] }
+    Supplier:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        contact: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+    CreateSupplierInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        contact: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
     InventoryAlert:
       type: object
       required: [id, name, category, stock, minimum, unit, severity]
@@ -465,6 +1819,19 @@ components:
         detail: { type: string }
         amount: { type: ["number", "null"] }
         timestamp: { type: string, format: date-time }
+    AuditLog:
+      type: object
+      required: [id, action, entity, createdAt]
+      properties:
+        id: { type: string }
+        staffId: { type: ["string", "null"] }
+        staffName: { type: ["string", "null"] }
+        action: { type: string, enum: [LOGIN, CREATE, UPDATE, DELETE, VOID, REFUND, ADJUST, APPROVE, DISCARD] }
+        entity: { type: string }
+        entityId: { type: ["string", "null"] }
+        detail: { type: ["string", "null"] }
+        reason: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
     DashboardSummary:
       type: object
       required: [date, revenue, orders, averageOrderValue, activeTables, activeTabs, poolRevenue, foodRevenue, drinkRevenue, outstandingPayments, revenueSeries, categoryBreakdown, paymentBreakdown, topProducts]
@@ -478,6 +1845,9 @@ components:
         poolRevenue: { type: number }
         foodRevenue: { type: number }
         drinkRevenue: { type: number }
+        lowStockItems: { type: ["integer", "null"] }
+        upcomingEvents: { type: ["integer", "null"] }
+        reservations: { type: ["integer", "null"] }
         outstandingPayments: { type: number }
         revenueSeries:
           type: array
@@ -495,10 +1865,423 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MetricPoint"
+    SalesReport:
+      type: object
+      required: [dateFrom, dateTo, totalRevenue, totalOrders, averageOrderValue, byPaymentMethod, byHour]
+      properties:
+        dateFrom: { type: string, format: date }
+        dateTo: { type: string, format: date }
+        totalRevenue: { type: number }
+        totalOrders: { type: integer }
+        averageOrderValue: { type: number }
+        byPaymentMethod:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricPoint"
+        byHour:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricPoint"
+    ProductReportItem:
+      type: object
+      required: [name, category, quantitySold, revenue]
+      properties:
+        name: { type: string }
+        category: { type: string }
+        quantitySold: { type: integer }
+        revenue: { type: number }
     MetricPoint:
       type: object
       required: [label, value]
       properties:
         label: { type: string }
         value: { type: number }
+    StockTransferStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [DRAFT, REQUESTED, APPROVED, IN_TRANSIT, RECEIVED, CANCELLED]
+    NotificationReadInput:
+      type: object
+      required: [read]
+      properties: { read: { type: boolean } }
+    StockCountApprovalInput:
+      type: object
+      properties:
+        reason: { type: ["string", "null"] }
+    ProductInput:
+      type: object
+      required: [name, categoryId, category, price]
+      properties:
+        name: { type: string, minLength: 1 }
+        categoryId: { type: string }
+        category: { type: string }
+        baseUnit: { type: string }
+        sku: { type: ["string", "null"] }
+        barcode: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        cost: { type: integer, minimum: 0 }
+        price: { type: integer, minimum: 0 }
+        tax: { type: integer, minimum: 0 }
+        trackInventory: { type: boolean }
+        accent: { type: string }
+    ProductUnitInput:
+      type: object
+      required: [name, abbreviation, conversionFactor, sellingPrice]
+      properties:
+        name: { type: string, minLength: 1 }
+        abbreviation: { type: string, minLength: 1 }
+        conversionFactor: { type: number, exclusiveMinimum: 0 }
+        isBaseUnit: { type: boolean }
+        sellingPrice: { type: integer, minimum: 0 }
+        cost: { type: ["integer", "null"] }
+        wholeUnitsOnly: { type: boolean }
+        sortOrder: { type: integer }
+    ProductBarcodeInput:
+      type: object
+      required: [barcode, unitId]
+      properties:
+        barcode: { type: string, minLength: 1 }
+        unitId: { type: string }
+    BarcodeLookup:
+      type: object
+      required: [productId, name, category, baseUnit, trackInventory, active]
+      properties:
+        productId: { type: string }
+        name: { type: string }
+        category: { type: string }
+        baseUnit: { type: string }
+        trackInventory: { type: boolean }
+        active: { type: boolean }
+        stock: { type: ["number", "null"] }
+        stockUnit: { type: ["string", "null"] }
+        sellingUnit:
+          type: ["object", "null"]
+          properties:
+            id: { type: string }
+            name: { type: string }
+            abbreviation: { type: string }
+            conversionFactor: { type: number }
+            sellingPrice: { type: integer }
+            wholeUnitsOnly: { type: boolean }
+    FloorLayout:
+      type: object
+      required: [branchId, floors]
+      properties:
+        branchId: { type: string }
+        floors:
+          type: array
+          items:
+            type: object
+            required: [id, name, sortOrder, sections]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              sortOrder: { type: integer }
+              sections:
+                type: array
+                items:
+                  type: object
+                  required: [id, name, color, sortOrder]
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    color: { type: string }
+                    sortOrder: { type: integer }
+    FloorInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        sortOrder: { type: integer }
+        branchId: { type: string }
+    FloorSectionInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        color: { type: string }
+        sortOrder: { type: integer }
+    TableInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        section: { type: string, minLength: 1 }
+        floorSectionId: { type: ["string", "null"] }
+        seats: { type: integer, minimum: 1 }
+        x: { type: integer }
+        y: { type: integer }
+        width: { type: integer, minimum: 40 }
+        height: { type: integer, minimum: 40 }
+        status:
+          type: string
+          enum: [AVAILABLE, OCCUPIED, RESERVED, PAYMENT_PENDING, CLEANING]
+        branchId: { type: string }
+        floorId: { type: string }
+    Payment:
+      type: object
+      required: [id, organizationId, branchId, orderId, amount, method, status, paidAt]
+      properties:
+        id: { type: string }
+        organizationId: { type: string }
+        branchId: { type: string }
+        orderId: { type: string }
+        amount: { type: integer }
+        method: { type: string }
+        reference: { type: ["string", "null"] }
+        status: { type: string }
+        cashierId: { type: ["string", "null"] }
+        paidAt: { type: string, format: date-time }
+        outstanding: { type: integer }
+        fullyPaid: { type: boolean }
+    PaymentInput:
+      type: object
+      required: [orderId, amount, method]
+      properties:
+        orderId: { type: string }
+        amount: { type: integer, minimum: 1 }
+        method:
+          type: string
+          enum: [CASH, MPESA, CARD, BANK_TRANSFER, OTHER]
+        reference: { type: ["string", "null"] }
+        isFinal: { type: boolean }
+    Refund:
+      type: object
+      required: [id, paymentId, amount, status, createdAt]
+      properties:
+        id: { type: string }
+        paymentId: { type: string }
+        amount: { type: integer }
+        reason: { type: ["string", "null"] }
+        status: { type: string }
+        approvedById: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    RefundInput:
+      type: object
+      required: [paymentId, amount, reason]
+      properties:
+        paymentId: { type: string }
+        amount: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 1 }
+        status: { type: string, enum: [PENDING, SUCCESSFUL] }
+    StockTransfer:
+      type: object
+      required: [id, organizationId, sourceBranchId, destinationBranchId, status, createdAt]
+      properties:
+        id: { type: string }
+        organizationId: { type: string }
+        sourceBranchId: { type: string }
+        destinationBranchId: { type: string }
+        status: { type: string }
+        notes: { type: ["string", "null"] }
+        approvedById: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              productId: { type: string }
+              quantity: { type: string }
+              quantityInBaseUnit: { type: string }
+    StockTransferInput:
+      type: object
+      required: [sourceBranchId, destinationBranchId, items]
+      properties:
+        sourceBranchId: { type: string }
+        destinationBranchId: { type: string }
+        notes: { type: ["string", "null"] }
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [productId, quantity]
+            properties:
+              productId: { type: string }
+              quantity: { type: number, exclusiveMinimum: 0 }
+              unitId: { type: ["string", "null"] }
+    StockCount:
+      type: object
+      required: [id, organizationId, branchId, status, createdAt]
+      properties:
+        id: { type: string }
+        organizationId: { type: string }
+        branchId: { type: string }
+        status: { type: string }
+        notes: { type: ["string", "null"] }
+        countedById: { type: ["string", "null"] }
+        approvedById: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              productId: { type: string }
+              expectedQuantity: { type: string }
+              actualQuantity: { type: ["string", "null"] }
+              variance: { type: ["string", "null"] }
+    StockCountInput:
+      type: object
+      required: [items]
+      properties:
+        branchId: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [productId, actualQuantity]
+            properties:
+              productId: { type: string }
+              actualQuantity: { type: number }
+    Notification:
+      type: object
+      required: [id, type, title, message, read, createdAt]
+      properties:
+        id: { type: string }
+        type: { type: string }
+        title: { type: string }
+        message: { type: string }
+        read: { type: boolean }
+        referenceId: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    NotificationInput:
+      type: object
+      required: [type, title, message, staffId]
+      properties:
+        type:
+          type: string
+          enum:
+            [
+              ORDER_READY,
+              RESERVATION,
+              LOW_STOCK,
+              INVENTORY_DISCREPANCY,
+              APPROVAL_REQUEST,
+              STOCK_TRANSFER,
+              EVENT_REMINDER,
+            ]
+        title: { type: string }
+        message: { type: string }
+        staffId: { type: string }
+        branchId: { type: ["string", "null"] }
+        referenceId: { type: ["string", "null"] }
+    SearchResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            required: [type, id, title, subtitle, href]
+            properties:
+              type: { type: string }
+              id: { type: string }
+              title: { type: string }
+              subtitle: { type: string }
+              href: { type: string }
+    InventoryReport:
+      type: object
+      required:
+        [totalItems, stockValue, belowReorder, outOfStock, byMovement, discrepancies]
+      properties:
+        totalItems: { type: integer }
+        stockValue: { type: number }
+        belowReorder: { type: integer }
+        outOfStock: { type: integer }
+        byMovement:
+          type: array
+          items: { $ref: "#/components/schemas/MetricPoint" }
+        discrepancies:
+          type: array
+          items:
+            type: object
+            properties:
+              productId: { type: string }
+              name: { type: ["string", "null"] }
+              variance: { type: number }
+              unit: { type: ["string", "null"] }
+    StaffReportItem:
+      type: object
+      required: [staffId, name, orders, revenue, averageOrderValue]
+      properties:
+        staffId: { type: ["string", "null"] }
+        name: { type: string }
+        orders: { type: integer }
+        revenue: { type: number }
+        averageOrderValue: { type: number }
+    TableReportItem:
+      type: object
+      required: [id, name, section, seats, status, revenue, covers, averageStayMinutes]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        section: { type: string }
+        seats: { type: integer }
+        status: { type: string }
+        revenue: { type: number }
+        covers: { type: integer }
+        averageStayMinutes: { type: integer }
+    PaymentReport:
+      type: object
+      required: [total, refunded, byMethod]
+      properties:
+        total: { type: number }
+        refunded: { type: number }
+        byMethod:
+          type: array
+          items:
+            type: object
+            required: [label, value, count]
+            properties:
+              label: { type: string }
+              value: { type: number }
+              count: { type: integer }
+    EventReportItem:
+      type: object
+      required:
+        [id, name, date, capacity, status, reservations, guests, revenue, utilisation]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        date: { type: string }
+        capacity: { type: integer }
+        status: { type: string }
+        reservations: { type: integer }
+        guests: { type: integer }
+        revenue: { type: number }
+        utilisation: { type: integer }
+    HqReport:
+      type: object
+      required:
+        [totalRevenue, totalOrders, activeBranches, branches, inventoryAlerts, upcomingEvents, activeStaff]
+      properties:
+        totalRevenue: { type: number }
+        totalOrders: { type: integer }
+        activeBranches: { type: integer }
+        inventoryAlerts: { type: integer }
+        upcomingEvents: { type: integer }
+        activeStaff: { type: integer }
+        branches:
+          type: array
+          items:
+            type: object
+            required: [id, name, city, status, revenue, orders, tables, inventoryAlerts]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              city: { type: string }
+              status: { type: string }
+              revenue: { type: number }
+              orders: { type: integer }
+              tables: { type: integer }
+              inventoryAlerts: { type: integer }
 

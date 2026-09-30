@@ -73,6 +73,8 @@ onlyBuiltDependencies:
   - esbuild
   - msw
   - unrs-resolver
+  - browser-tabs-lock
+  - core-js
 
 overrides:
   # replit uses linux-x64 only, we can exclude all other platforms
@@ -160,3 +162,9 @@ overrides:
   esbuild: "0.28.2"
   # orval pins js-yaml to an exact version older than the CVE fix (>=4.3.2)
   js-yaml: '4.3.2'
+
+allowBuilds:
+  '@clerk/shared': true
+  browser-tabs-lock: true
+  core-js: true
+  esbuild: true

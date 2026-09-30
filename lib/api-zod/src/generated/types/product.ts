@@ -13,7 +13,18 @@ export interface Product {
   category: string;
   price: number;
   unit: string;
+  baseUnit: string;
   stock: number;
   available: boolean;
+  active: boolean;
+  trackInventory: boolean;
   accent: string;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  barcode?: string | null;
+  cost?: number;
+  tax?: number;
+  /** @nullable */
+  description?: string | null;
 }

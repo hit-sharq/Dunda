@@ -18,4 +18,8 @@ export interface Table {
   tabId: string | null;
   /** @nullable */
   customer?: string | null;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
 }

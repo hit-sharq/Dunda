@@ -7,27 +7,42 @@ import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bell, CalendarDays, ChevronDown,
   ChevronRight, CircleHelp, ClipboardList, CreditCard, Database, DoorOpen, Grid2X2,
   LayoutDashboard, Menu, Package, Plus, RefreshCw, Search, Settings2, ShoppingBag,
-  SlidersHorizontal, Sparkles, Store, Ticket, UserRound, Utensils, WalletCards, X,
+  SlidersHorizontal, Sparkles, Store,   Ticket, UserRound, Users, Utensils, WalletCards, X,
 } from 'lucide-react';
 import {
-  getGetBranchFloorQueryKey, getGetBranchesQueryKey, getGetDashboardActivityQueryKey,
-  getGetDashboardSummaryQueryKey, getGetInventoryAlertsQueryKey, getGetOrdersQueryKey,
-  getGetProductsQueryKey, getGetReservationsQueryKey, getGetTabQueryKey, getGetTabsQueryKey,
-  useAddTabItem, useCheckoutTab, useCreateReservation, useCreateTab, useGetBranchFloor,
-  useGetBranches, useGetDashboardActivity, useGetDashboardSummary, useGetInventoryAlerts,
-  useGetOrders, useGetProducts, useGetReservations, useGetTab, useGetTabs,
-  type CheckoutInputMethod, type Product,
+  getGetBranchFloorQueryKey, getGetBranchesQueryKey, getGetCategoriesQueryKey, getGetDashboardActivityQueryKey, getGetDashboardSummaryQueryKey,
+  getGetInventoryAlertsQueryKey, getGetOrdersQueryKey, getGetProductsQueryKey, getGetReservationsQueryKey, getGetStaffQueryKey, getGetTabsQueryKey, getGetCustomersQueryKey, getGetEventsQueryKey, getGetSalesReportQueryKey, getGetAuditLogsQueryKey, getGetInventoryQueryKey,
+  useAddTabItem,   useAdjustInventory, useCheckoutTab, useCreateCustomer, useCreateEvent, useCreateOrder,
+  useCreateReservation, useCreateShift, useCreateStaff, useCreateTab, useCreateSupplier, useGetBranchFloor,
+  useGetBranches, useGetCategories, useGetDashboardActivity, useGetDashboardSummary, useGetEvents, useGetInventory, useGetInventoryAlerts,
+  useGetOrders, useGetProducts, useGetReservations, useGetStaff, useGetTabs, useUpdateOrderStatus,
+  useGetTab, useGetCustomer, useGetCustomers, useGetEvent, useGetShifts, useGetSalesReport, useGetAuditLogs,
+  type CheckoutInputMethod, type Customer, type Event, type Product, type StaffMember, type InventoryAlert,
 } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { GlobalSearch, NotificationBell } from '@/components/chrome';
+import { useRealtime } from '@/hooks/use-realtime';
+import { Pos as NewPos } from '@/pages/pos';
+import { Products } from '@/pages/products';
+import { FloorDesigner } from '@/pages/floor-designer';
+import { ServiceBoard } from '@/pages/service-board';
+import { Hq } from '@/pages/hq';
 import NotFound from '@/pages/not-found';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 
 const queryClient = new QueryClient();
+// The repo-root .env uses NEXT_PUBLIC_ names, so accept either prefix.
+const clerkPublishableKey =
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ??
+  import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+  clerkPublishableKey,
 );
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+// The Clerk frontend-API proxy only exists behind the deployment edge, where
+// the API server mounts it in production. In development it must stay unset,
+// otherwise Clerk tries to load clerk.js from a host that doesn't resolve.
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL || undefined;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const todayLabel = new Intl.DateTimeFormat('en-KE', {
   weekday: 'long',
@@ -67,10 +82,118 @@ const nav = [
   { href: '/overview', label: 'Overview', icon: LayoutDashboard },
   { href: '/pos', label: 'Point of sale', icon: ShoppingBag },
   { href: '/floor', label: 'Floor', icon: Grid2X2 },
+  { href: '/designer', label: 'Floor designer', icon: SlidersHorizontal },
   { href: '/orders', label: 'Orders', icon: ClipboardList },
-  { href: '/inventory', label: 'Inventory', icon: Package },
-  { href: '/reservations', label: 'Reservations', icon: CalendarDays },
+  { href: '/bar', label: 'Bar / Kitchen', icon: Utensils },
+  { href: '/products', label: 'Products', icon: Package },
+  { href: '/inventory', label: 'Inventory', icon: WalletCards },
+  { href: '/staff', label: 'Staff', icon: UserRound },
+  { href: '/customers', label: 'Customers', icon: Users },
+  { href: '/events', label: 'Events', icon: CalendarDays },
+  { href: '/reservations', label: 'Reservations', icon: Ticket },
+  { href: '/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/hq', label: 'HQ', icon: Store },
+  { href: '/settings', label: 'Settings', icon: Settings2 },
 ];
+
+function Staff() {
+  const staff = useGetStaff();
+  const shifts = useGetShifts();
+  return <div className="rise">
+    <PageIntro eyebrow="Team / people" title="Your crew" detail="Staff members, their roles, and active shifts." action={<Button onClick={() => staff.refetch()} data-testid="button-refresh-staff"><RefreshCw size={15} /> Refresh</Button>} />
+    <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
+      <section className="surface rounded-2xl p-5">
+        <h3 className="font-display text-xl font-bold mb-4">Staff members</h3>
+        <QueryNotice loading={staff.isLoading} error={staff.isError} empty={!staff.isLoading && !staff.isError && !staff.data?.length} onRetry={() => staff.refetch()} />
+        {staff.data?.map((s: StaffMember) => <div key={s.id} className="flex items-center justify-between border-b border-[#eee8de] py-3 last:border-0" data-testid={`row-staff-${s.id}`}>
+          <div className="flex items-center gap-3">
+            <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#e6f0eb] text-[#438875]">{s.name.slice(0,1)}</div>
+            <div>
+              <p className="font-semibold">{s.name}</p>
+              <p className="text-xs text-[#859087]">{s.role} · {s.email}</p>
+            </div>
+          </div>
+          <span className="text-xs font-semibold text-[#9b762c]">{s.status}</span>
+        </div>)}
+      </section>
+      <section className="surface rounded-2xl p-5">
+        <h3 className="font-display text-xl font-bold mb-4">Active shifts</h3>
+        <QueryNotice loading={shifts.isLoading} error={shifts.isError} empty={!shifts.isLoading && !shifts.isError && !shifts.data?.length} onRetry={() => shifts.refetch()} />
+        {shifts.data?.map((sh) => <div key={sh.id} className="border-b border-[#eee8de] py-3 last:border-0" data-testid={`row-shift-${sh.id}`}>
+          <p className="font-semibold">{sh.staffId}</p>
+          <p className="text-xs text-[#859087]">{sh.status}</p>
+        </div>)}
+      </section>
+    </div>
+  </div>;
+}
+
+function Customers() {
+  const customers = useGetCustomers();
+  return <div className="rise">
+    <PageIntro eyebrow="People / customers" title="Your customers" detail="VIP members, visit history, and notes." action={<Link href="/customers/new" className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#f07a4b] px-4 text-sm font-semibold text-[#182127] hover:bg-[#e96738]" data-testid="link-new-customer"><Plus size={16} /> Add customer</Link>} />
+    <section className="surface rounded-2xl p-5">
+      <QueryNotice loading={customers.isLoading} error={customers.isError} empty={!customers.isLoading && !customers.isError && !customers.data?.length} onRetry={() => customers.refetch()} />
+      {customers.data?.map((c: Customer) => <div key={c.id} className="flex items-center justify-between border-b border-[#eee8de] py-3 last:border-0" data-testid={`row-customer-${c.id}`}>
+        <div className="flex items-center gap-3">
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#e8e3d9] text-[#182127]">{c.name.slice(0,1)}</div>
+          <div>
+            <p className="font-semibold">{c.name}</p>
+            <p className="text-xs text-[#859087]">{c.phone ?? c.email ?? 'No contact'}</p>
+          </div>
+        </div>
+        <span className={`text-xs font-semibold ${c.vipLevel !== 'NONE' ? 'text-[#9b762c]' : 'text-[#859087]'}`}>{c.vipLevel}</span>
+      </div>)}
+    </section>
+  </div>;
+}
+
+function Events() {
+  const events = useGetEvents();
+  return <div className="rise">
+    <PageIntro eyebrow="Events / bookings" title="Upcoming events" detail="Special nights, reservations, and VIP packages." action={<Button onClick={() => events.refetch()} data-testid="button-refresh-events"><RefreshCw size={15} /> Refresh</Button>} />
+    <section className="surface rounded-2xl p-5">
+      <QueryNotice loading={events.isLoading} error={events.isError} empty={!events.isLoading && !events.isError && !events.data?.length} onRetry={() => events.refetch()} />
+      {events.data?.map((e: Event) => <div key={e.id} className="border-b border-[#eee8de] py-4 last:border-0" data-testid={`card-event-${e.id}`}>
+        <h3 className="font-display text-xl font-bold">{e.name}</h3>
+        <p className="text-xs text-[#859087] mt-1">{e.date} · {e.startTime}–{e.endTime} · capacity: {e.capacity}</p>
+        {e.description && <p className="text-sm text-[#65716b] mt-2">{e.description}</p>}
+        <span className={`mt-2 inline-block w-fit text-xs font-semibold ${e.status === 'UPCOMING' ? 'text-[#3c7e69]' : 'text-[#9b762c]'}`}>{e.status}</span>
+      </div>)}
+    </section>
+  </div>;
+}
+
+function Reports() {
+  const today = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const sales = useGetSalesReport({ dateFrom: thirtyDaysAgo, dateTo: today });
+  const audit = useGetAuditLogs({ entity: undefined, action: undefined });
+  return <div className="rise">
+    <PageIntro eyebrow="Reports / analytics" title="Business at a glance" detail="Sales performance and recent audit trail." />
+    <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
+      <section className="surface rounded-2xl p-5">
+        <h3 className="font-display text-xl font-bold mb-4">Sales report</h3>
+        <QueryNotice loading={sales.isLoading} error={sales.isError} empty={!sales.isLoading && !sales.isError} onRetry={() => sales.refetch()} />
+        {sales.data && <div className="space-y-3">
+          <div className="flex items-center justify-between"><span className="text-sm text-[#748079]">Total revenue</span><span className="font-mono font-bold">{money(sales.data.totalRevenue)}</span></div>
+          <div className="flex items-center justify-between"><span className="text-sm text-[#748079]">Total orders</span><span className="font-mono font-bold">{sales.data.totalOrders}</span></div>
+          <div className="flex items-center justify-between"><span className="text-sm text-[#748079]">Average order value</span><span className="font-mono font-bold">{sales.data.averageOrderValue ? money(sales.data.averageOrderValue) : '—'}</span></div>
+        </div>}
+      </section>
+      <section className="surface rounded-2xl p-5">
+        <h3 className="font-display text-xl font-bold mb-4">Recent activity</h3>
+        <QueryNotice loading={audit.isLoading} error={audit.isError} empty={!audit.isLoading && !audit.isError && !audit.data?.length} onRetry={() => audit.refetch()} />
+        <div className="space-y-3">
+          {audit.data?.slice(0, 10).map((log) => <div key={log.id} className="text-xs" data-testid={`row-audit-${log.id}`}>
+            <span className="font-mono text-[#b65332]">{log.action}</span> · <span className="text-[#65716b]">{log.entity} {log.entityId}</span>
+            <span className="block text-[#859087]">{new Date(log.createdAt).toLocaleString()}</span>
+          </div>)}
+        </div>
+      </section>
+    </div>
+  </div>;
+}
 
 function AppShell({ children }: { children: ReactNode }) {
   const [location, setLocation] = useLocation();
@@ -86,11 +209,11 @@ function AppShell({ children }: { children: ReactNode }) {
         {branchOpen && <div className="absolute left-0 right-0 top-14 z-20 rounded-xl border border-[#40535a] bg-[#26383e] p-1.5 shadow-xl"><button className="w-full rounded-lg bg-[#33484d] px-3 py-2 text-left text-sm" data-testid="button-branch-lantern">The Lantern Room <span className="float-right text-xs text-[#91b9a5]">LIVE</span></button><button className="w-full rounded-lg px-3 py-2 text-left text-sm text-[#a9b8b2] hover:bg-[#33484d]" data-testid="button-branch-embassy">Embassy Lounge</button></div>}
       </div>
       <nav className="grid gap-1" aria-label="Main navigation">{nav.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => setMobileOpen(false)} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors ${location === href ? 'bg-[#f07a4b] font-semibold text-[#182127]' : 'text-[#aebdb6] hover:bg-[#2a3c42] hover:text-[#f6efe2]'}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}><Icon size={17} strokeWidth={1.8} /><span>{label}</span>{label === 'Orders' && <span className="ml-auto rounded-full bg-[#db6950] px-1.5 py-0.5 text-[10px] text-[#fff4e8]">6</span>}</Link>)}</nav>
-       <div className="mt-auto grid gap-1 border-t border-[#35484d] pt-4"><Link href="/settings" className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-[#aebdb6] hover:bg-[#2a3c42] hover:text-[#f6efe2] ${location === '/settings' ? 'bg-[#2a3c42] text-[#f6efe2]' : ''}`} data-testid="link-nav-settings"><Settings2 size={17} /> Settings</Link><button onClick={signOutAndReturn} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-[#aebdb6] hover:bg-[#2a3c42] hover:text-[#f6efe2]" data-testid="button-sign-out"><DoorOpen size={17} /> Sign out</button></div>
+       <div className="mt-auto grid gap-1 border-t border-[#35484d] pt-4"><button onClick={signOutAndReturn} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-[#aebdb6] hover:bg-[#2a3c42] hover:text-[#f6efe2]" data-testid="button-sign-out"><DoorOpen size={17} /> Sign out</button></div>
       <div className="mt-5 rounded-xl border border-[#385158] bg-[#22343a] p-3"><div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[.16em] text-[#90a69f]"><span>Shift pulse</span><span className="text-[#8bd1b2]">Live</span></div><div className="mb-2 flex items-end justify-between"><span className="font-display text-2xl font-bold">74%</span><Activity size={17} className="text-[#f07a4b]" /></div><div className="h-1.5 overflow-hidden rounded-full bg-[#3b5054]"><div className="h-full w-[74%] rounded-full bg-[#f07a4b]" /></div><p className="mt-2 text-[11px] text-[#8da29c]">Steady service · 11:42 PM</p></div>
     </aside>
     {mobileOpen && <button onClick={() => setMobileOpen(false)} className="fixed inset-0 z-30 bg-[#142027]/45 md:hidden" aria-label="Close menu" data-testid="button-overlay-close" />}
-    <main className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-[#e2dcd0] bg-[#f5f1e8]/95 px-4 backdrop-blur md:px-8"><div className="flex items-center gap-3"><Button variant="ghost" className="px-2 md:hidden" onClick={() => setMobileOpen(true)} data-testid="button-open-menu"><Menu size={20} /></Button><div><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#87908b]">Tuesday, 18 June 2024</p><h1 className="font-display text-xl font-bold tracking-tight text-[#182127]">{location === '/overview' ? 'Tonight at a glance' : nav.find((x) => x.href === location)?.label ?? (location === '/settings' ? 'Workspace settings' : 'Dunda')}</h1></div></div><div className="flex items-center gap-2"><button className="relative grid h-10 w-10 place-items-center rounded-xl text-[#68726f] hover:bg-[#eae5da]" data-testid="button-notifications"><Bell size={18} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#f07a4b]" /></button><div className="hidden h-7 w-px bg-[#ded7ca] sm:block" /><button className="flex items-center gap-2 rounded-xl p-1.5 pr-2 hover:bg-[#eae5da]" data-testid="button-user-menu"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#b8d1c7] text-xs font-bold text-[#21433f]">AM</span><span className="hidden text-left sm:block"><span className="block text-xs font-semibold">Amina Mwangi</span><span className="block text-[10px] text-[#7e8983]">Floor manager</span></span></button></div></header><div className="mx-auto max-w-[1500px] p-4 md:p-8">{children}</div></main>
+    <main className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-[#e2dcd0] bg-[#f5f1e8]/95 px-4 backdrop-blur md:px-8"><div className="flex items-center gap-3"><Button variant="ghost" className="px-2 md:hidden" onClick={() => setMobileOpen(true)} data-testid="button-open-menu"><Menu size={20} /></Button><div><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#87908b]">Tuesday, 18 June 2024</p><h1 className="font-display text-xl font-bold tracking-tight text-[#182127]">{location === '/overview' ? 'Tonight at a glance' : nav.find((x) => x.href === location)?.label ?? (location === '/settings' ? 'Workspace settings' : 'Dunda')}</h1></div></div><div className="flex items-center gap-2"><GlobalSearch onNavigate={(href) => setLocation(href)} /><NotificationBell /><div className="hidden h-7 w-px bg-[#ded7ca] sm:block" /><button className="flex items-center gap-2 rounded-xl p-1.5 pr-2 hover:bg-[#eae5da]" data-testid="button-user-menu"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#b8d1c7] text-xs font-bold text-[#21433f]">AM</span><span className="hidden text-left sm:block"><span className="block text-xs font-semibold">Amina Mwangi</span><span className="block text-[10px] text-[#7e8983]">Floor manager</span></span></button></div></header><div className="mx-auto max-w-[1500px] p-4 md:p-8">{children}</div></main>
   </div>;
 }
 
@@ -121,6 +244,7 @@ function Overview() {
 function Pos() {
   const products = useGetProducts();
   const tabs = useGetTabs({ status: 'OPEN' });
+  const allTabs = useGetTabs();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [selectedId, setSelectedId] = useState<string>();
@@ -133,13 +257,13 @@ function Pos() {
   const createTab = useCreateTab();
   const addItem = useAddTabItem();
   const checkout = useCheckoutTab();
-  const detail = useGetTab(selectedId ?? '', { query: { enabled: Boolean(selectedId), queryKey: getGetTabQueryKey(selectedId ?? '') } });
+  const detail = allTabs.data?.find((t) => t.id === selectedId);
   const list = products.data ?? [];
   const cats = ['All', ...Array.from(new Set(list.map((p) => p.category)))];
   const filtered = list.filter((p) => (category === 'All' || p.category === category) && p.name.toLowerCase().includes(search.toLowerCase()));
-  const openTab = detail.data ?? tabs.data?.find((tab) => tab.id === selectedId);
+  const openTab = detail ?? tabs.data?.find((tab) => tab.id === selectedId);
   const create = (event: FormEvent) => { event.preventDefault(); if (!customer || !table) return; createTab.mutate({ data: { customer, table } }, { onSuccess: (tab) => { setSelectedId(tab.id); setShowNew(false); setCustomer(''); setTable(''); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); } }); };
-  const add = (p: Product) => { if (!selectedId) { setNotice('Open a tab first, then add items.'); return; } addItem.mutate({ tabId: selectedId, data: { productId: p.id, quantity: 1 } }, { onSuccess: (tab) => { qc.setQueryData(getGetTabQueryKey(selectedId), tab); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); setNotice(`${p.name} added`); } }); };
+  const add = (p: Product) => { if (!selectedId) { setNotice('Open a tab first, then add items.'); return; } addItem.mutate({ tabId: selectedId, data: { productId: p.id, quantity: 1 } }, { onSuccess: (tab) => {       qc.setQueryData(getGetTabsQueryKey({ status: 'OPEN' }), tabs.data); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); setNotice(`${p.name} added`); } }); };
   const pay = () => { if (!openTab) return; checkout.mutate({ tabId: openTab.id, data: { method: payment, amount: openTab.total, reference: null } }, { onSuccess: (result) => { setNotice(`Receipt ${result.receiptNumber} closed successfully`); setSelectedId(undefined); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); } }); };
   return <div className="rise"><PageIntro eyebrow="Fast lane / POS" title="Take the order." detail="Tap a product to send it to the selected tab. Built for a busy counter and a 10-inch tablet." action={<Button onClick={() => setShowNew(true)} data-testid="button-new-tab"><Plus size={16} /> New tab</Button>} />
     {notice && <div className="mb-4 flex items-center justify-between rounded-xl border border-[#b8d5c9] bg-[#e5f1eb] px-4 py-3 text-sm text-[#397463]" data-testid="status-pos-success"><span>{notice}</span><button onClick={() => setNotice('')} data-testid="button-dismiss-notice"><X size={15} /></button></div>}
@@ -196,8 +320,9 @@ function Landing() {
 
 function ProtectedRouter() {
   const { isLoaded, isSignedIn } = useAuth();
+  useRealtime(Boolean(isSignedIn));
   if (!isLoaded) return <div className="grid min-h-[100dvh] place-items-center bg-[#f5f1e8] text-sm text-[#68736d]">Loading your workspace…</div>;
-  return isSignedIn ? <AppShell><Switch><Route path="/overview" component={Overview} /><Route path="/pos" component={Pos} /><Route path="/floor" component={Floor} /><Route path="/orders" component={Orders} /><Route path="/inventory" component={Inventory} /><Route path="/reservations" component={Reservations} /><Route path="/settings" component={Settings} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
+  return isSignedIn ?     <AppShell><Switch><Route path="/overview" component={Overview} /><Route path="/pos" component={NewPos} /><Route path="/floor" component={Floor} /><Route path="/designer" component={FloorDesigner} /><Route path="/orders" component={Orders} /><Route path="/bar" component={() => <ServiceBoard station="bar" />} /><Route path="/kitchen" component={() => <ServiceBoard station="kitchen" />} /><Route path="/products" component={Products} /><Route path="/inventory" component={Inventory} /><Route path="/staff" component={Staff} /><Route path="/customers" component={Customers} /><Route path="/events" component={Events} /><Route path="/reservations" component={Reservations} /><Route path="/reports" component={Reports} /><Route path="/hq" component={Hq} /><Route path="/settings" component={Settings} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
 }
 
 function Router() { return <Switch><Route path="/" component={Landing} /><Route path="/sign-in/*?" component={() => <Auth mode="sign-in" />} /><Route path="/sign-up/*?" component={() => <Auth mode="sign-up" />} /><Route component={ProtectedRouter} /></Switch>; }

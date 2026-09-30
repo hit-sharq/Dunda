@@ -49,6 +49,10 @@ export interface Table {
   tabId: string | null;
   /** @nullable */
   customer?: string | null;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
 }
 
 export interface FloorSection {
@@ -75,9 +79,34 @@ export interface Product {
   category: string;
   price: number;
   unit: string;
+  baseUnit: string;
   stock: number;
   available: boolean;
+  active: boolean;
+  trackInventory: boolean;
   accent: string;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  barcode?: string | null;
+  cost?: number;
+  tax?: number;
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface ProductUnit {
+  id: string;
+  productId: string;
+  name: string;
+  abbreviation: string;
+  conversionFactor: number;
+  sellingPrice: number;
+  /** @nullable */
+  cost?: number | null;
+  wholeUnitsOnly: boolean;
+  isBaseUnit?: boolean;
+  sortOrder?: number;
 }
 
 export interface TabItem {
@@ -88,6 +117,12 @@ export interface TabItem {
   unitPrice: number;
   total: number;
   category: string;
+  /** @nullable */
+  unitId?: string | null;
+  /** @nullable */
+  unitName?: string | null;
+  /** @nullable */
+  notes?: string | null;
 }
 
 export type TabStatus = typeof TabStatus[keyof typeof TabStatus];
@@ -118,12 +153,18 @@ export interface TabInput {
   customer: string;
   /** @minLength 1 */
   table: string;
+  /** @nullable */
+  branchId?: string | null;
 }
 
 export interface TabItemInput {
   productId: string;
   /** @minimum 1 */
   quantity: number;
+  /** @nullable */
+  unitId?: string | null;
+  /** @nullable */
+  notes?: string | null;
 }
 
 export type CheckoutInputMethod = typeof CheckoutInputMethod[keyof typeof CheckoutInputMethod];
@@ -156,20 +197,237 @@ export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
 
 
 export const OrderStatus = {
-  NEW: 'NEW',
+  DRAFT: 'DRAFT',
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
   PREPARING: 'PREPARING',
   READY: 'READY',
   SERVED: 'SERVED',
   COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
 } as const;
 
 export interface Order {
   id: string;
   number: string;
-  table: string;
+  /** @nullable */
+  table: string | null;
   status: OrderStatus;
   items: string[];
+  /** @nullable */
+  subtotal?: number | null;
+  /** @nullable */
+  serviceCharge?: number | null;
+  /** @nullable */
+  tax?: number | null;
+  /** @nullable */
+  discount?: number | null;
+  /** @nullable */
+  total?: number | null;
+  /** @nullable */
+  notes?: string | null;
   createdAt: string;
+}
+
+export type CreateOrderInputItemsItem = {
+  productId: string;
+  /** @minimum 1 */
+  quantity: number;
+  /** @nullable */
+  unitId?: string | null;
+  /** @nullable */
+  notes?: string | null;
+};
+
+export interface CreateOrderInput {
+  table: string;
+  /** @nullable */
+  customerId?: string | null;
+  /** @nullable */
+  staffId?: string | null;
+  items: CreateOrderInputItemsItem[];
+}
+
+export type UpdateOrderStatusInputStatus = typeof UpdateOrderStatusInputStatus[keyof typeof UpdateOrderStatusInputStatus];
+
+
+export const UpdateOrderStatusInputStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  PREPARING: 'PREPARING',
+  READY: 'READY',
+  SERVED: 'SERVED',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export interface UpdateOrderStatusInput {
+  status: UpdateOrderStatusInputStatus;
+}
+
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  productId: string;
+  /** @nullable */
+  unitId?: string | null;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  categoryId?: string | null;
+}
+
+export type StaffMemberStatus = typeof StaffMemberStatus[keyof typeof StaffMemberStatus];
+
+
+export const StaffMemberStatus = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+} as const;
+
+export interface StaffMember {
+  id: string;
+  clerkUserId?: string;
+  name: string;
+  /** @nullable */
+  email: string | null;
+  /** @nullable */
+  phone?: string | null;
+  role: string;
+  /** @nullable */
+  roleId?: string | null;
+  status: StaffMemberStatus;
+  /** @nullable */
+  branchId?: string | null;
+  createdAt?: string;
+}
+
+export interface CreateStaffInput {
+  /** @nullable */
+  clerkUserId?: string | null;
+  name: string;
+  /** @nullable */
+  email: string | null;
+  /** @nullable */
+  phone?: string | null;
+  roleId: string;
+  /** @nullable */
+  branchId?: string | null;
+}
+
+export type StaffShiftStatus = typeof StaffShiftStatus[keyof typeof StaffShiftStatus];
+
+
+export const StaffShiftStatus = {
+  DRAFT: 'DRAFT',
+  RUNNING: 'RUNNING',
+  CLOSED: 'CLOSED',
+} as const;
+
+export interface StaffShift {
+  id: string;
+  staffId: string;
+  /** @nullable */
+  staffName?: string | null;
+  /** @nullable */
+  clockInAt?: string | null;
+  /** @nullable */
+  clockOutAt?: string | null;
+  /** @nullable */
+  breakStartAt?: string | null;
+  /** @nullable */
+  breakEndAt?: string | null;
+  status: StaffShiftStatus;
+  /** @nullable */
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface CreateShiftInput {
+  staffId: string;
+  /** @nullable */
+  branchId?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type CustomerVipLevel = typeof CustomerVipLevel[keyof typeof CustomerVipLevel];
+
+
+export const CustomerVipLevel = {
+  NONE: 'NONE',
+  BRONZE: 'BRONZE',
+  SILVER: 'SILVER',
+  GOLD: 'GOLD',
+  PLATINUM: 'PLATINUM',
+} as const;
+
+export interface Customer {
+  id: string;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  vipLevel?: CustomerVipLevel;
+  totalVisits?: number;
+  totalSpend?: number;
+  /** @nullable */
+  lastVisitAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface CreateCustomerInput {
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type EventStatus = typeof EventStatus[keyof typeof EventStatus];
+
+
+export const EventStatus = {
+  DRAFT: 'DRAFT',
+  UPCOMING: 'UPCOMING',
+  LIVE: 'LIVE',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export interface Event {
+  id: string;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  status: EventStatus;
+  revenue?: number;
+}
+
+export interface CreateEventInput {
+  name: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /** @minimum 1 */
+  capacity: number;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  branchId?: string | null;
 }
 
 export type ReservationStatus = typeof ReservationStatus[keyof typeof ReservationStatus];
@@ -187,12 +445,16 @@ export const ReservationStatus = {
 export interface Reservation {
   id: string;
   customer: string;
+  /** @nullable */
+  customerName?: string | null;
   phone: string;
   date: string;
   time: string;
   table: string;
   guests: number;
   status: ReservationStatus;
+  /** @nullable */
+  notes?: string | null;
 }
 
 export interface ReservationInput {
@@ -209,6 +471,67 @@ export interface ReservationInput {
   guests: number;
   /** @nullable */
   notes?: string | null;
+}
+
+export interface InventoryItem {
+  id: string;
+  /** @nullable */
+  productId?: string | null;
+  name: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  sku?: string | null;
+  currentQuantity: number;
+  reorderLevel: number;
+  /** @nullable */
+  cost?: number | null;
+  unit: string;
+}
+
+export type AdjustInventoryInputType = typeof AdjustInventoryInputType[keyof typeof AdjustInventoryInputType];
+
+
+export const AdjustInventoryInputType = {
+  PURCHASE: 'PURCHASE',
+  SALE: 'SALE',
+  ADJUSTMENT: 'ADJUSTMENT',
+  WASTE: 'WASTE',
+  RETURN: 'RETURN',
+  STOCK_COUNT: 'STOCK_COUNT',
+} as const;
+
+export interface AdjustInventoryInput {
+  productId: string;
+  quantity: number;
+  type: AdjustInventoryInputType;
+  /** @nullable */
+  reason?: string | null;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  /** @nullable */
+  contact?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  address?: string | null;
+}
+
+export interface CreateSupplierInput {
+  name: string;
+  /** @nullable */
+  contact?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  address?: string | null;
 }
 
 export type InventoryAlertSeverity = typeof InventoryAlertSeverity[keyof typeof InventoryAlertSeverity];
@@ -250,6 +573,38 @@ export interface ActivityItem {
   timestamp: string;
 }
 
+export type AuditLogAction = typeof AuditLogAction[keyof typeof AuditLogAction];
+
+
+export const AuditLogAction = {
+  LOGIN: 'LOGIN',
+  CREATE: 'CREATE',
+  UPDATE: 'UPDATE',
+  DELETE: 'DELETE',
+  VOID: 'VOID',
+  REFUND: 'REFUND',
+  ADJUST: 'ADJUST',
+  APPROVE: 'APPROVE',
+  DISCARD: 'DISCARD',
+} as const;
+
+export interface AuditLog {
+  id: string;
+  /** @nullable */
+  staffId?: string | null;
+  /** @nullable */
+  staffName?: string | null;
+  action: AuditLogAction;
+  entity: string;
+  /** @nullable */
+  entityId?: string | null;
+  /** @nullable */
+  detail?: string | null;
+  /** @nullable */
+  reason?: string | null;
+  createdAt: string;
+}
+
 export interface MetricPoint {
   label: string;
   value: number;
@@ -265,11 +620,468 @@ export interface DashboardSummary {
   poolRevenue: number;
   foodRevenue: number;
   drinkRevenue: number;
+  /** @nullable */
+  lowStockItems?: number | null;
+  /** @nullable */
+  upcomingEvents?: number | null;
+  /** @nullable */
+  reservations?: number | null;
   outstandingPayments: number;
   revenueSeries: MetricPoint[];
   categoryBreakdown: MetricPoint[];
   paymentBreakdown: MetricPoint[];
   topProducts: MetricPoint[];
+}
+
+export interface SalesReport {
+  dateFrom: string;
+  dateTo: string;
+  totalRevenue: number;
+  totalOrders: number;
+  averageOrderValue: number;
+  byPaymentMethod: MetricPoint[];
+  byHour: MetricPoint[];
+}
+
+export interface ProductReportItem {
+  name: string;
+  category: string;
+  quantitySold: number;
+  revenue: number;
+}
+
+export type StockTransferStatusInputStatus = typeof StockTransferStatusInputStatus[keyof typeof StockTransferStatusInputStatus];
+
+
+export const StockTransferStatusInputStatus = {
+  DRAFT: 'DRAFT',
+  REQUESTED: 'REQUESTED',
+  APPROVED: 'APPROVED',
+  IN_TRANSIT: 'IN_TRANSIT',
+  RECEIVED: 'RECEIVED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export interface StockTransferStatusInput {
+  status: StockTransferStatusInputStatus;
+}
+
+export interface NotificationReadInput {
+  read: boolean;
+}
+
+export interface StockCountApprovalInput {
+  /** @nullable */
+  reason?: string | null;
+}
+
+export interface ProductInput {
+  /** @minLength 1 */
+  name: string;
+  categoryId: string;
+  category: string;
+  baseUnit?: string;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  barcode?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @minimum 0 */
+  cost?: number;
+  /** @minimum 0 */
+  price: number;
+  /** @minimum 0 */
+  tax?: number;
+  trackInventory?: boolean;
+  accent?: string;
+}
+
+export interface ProductUnitInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  abbreviation: string;
+  /** @exclusiveMinimum 0 */
+  conversionFactor: number;
+  isBaseUnit?: boolean;
+  /** @minimum 0 */
+  sellingPrice: number;
+  /** @nullable */
+  cost?: number | null;
+  wholeUnitsOnly?: boolean;
+  sortOrder?: number;
+}
+
+export interface ProductBarcodeInput {
+  /** @minLength 1 */
+  barcode: string;
+  unitId: string;
+}
+
+/**
+ * @nullable
+ */
+export type BarcodeLookupSellingUnit = {
+  id?: string;
+  name?: string;
+  abbreviation?: string;
+  conversionFactor?: number;
+  sellingPrice?: number;
+  wholeUnitsOnly?: boolean;
+} | null;
+
+export interface BarcodeLookup {
+  productId: string;
+  name: string;
+  category: string;
+  baseUnit: string;
+  trackInventory: boolean;
+  active: boolean;
+  /** @nullable */
+  stock?: number | null;
+  /** @nullable */
+  stockUnit?: string | null;
+  /** @nullable */
+  sellingUnit?: BarcodeLookupSellingUnit;
+}
+
+export type FloorLayoutFloorsItemSectionsItem = {
+  id: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+};
+
+export type FloorLayoutFloorsItem = {
+  id: string;
+  name: string;
+  sortOrder: number;
+  sections: FloorLayoutFloorsItemSectionsItem[];
+};
+
+export interface FloorLayout {
+  branchId: string;
+  floors: FloorLayoutFloorsItem[];
+}
+
+export interface FloorInput {
+  /** @minLength 1 */
+  name: string;
+  sortOrder?: number;
+  branchId?: string;
+}
+
+export interface FloorSectionInput {
+  /** @minLength 1 */
+  name: string;
+  color?: string;
+  sortOrder?: number;
+}
+
+export type TableInputStatus = typeof TableInputStatus[keyof typeof TableInputStatus];
+
+
+export const TableInputStatus = {
+  AVAILABLE: 'AVAILABLE',
+  OCCUPIED: 'OCCUPIED',
+  RESERVED: 'RESERVED',
+  PAYMENT_PENDING: 'PAYMENT_PENDING',
+  CLEANING: 'CLEANING',
+} as const;
+
+export interface TableInput {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  section?: string;
+  /** @nullable */
+  floorSectionId?: string | null;
+  /** @minimum 1 */
+  seats?: number;
+  x?: number;
+  y?: number;
+  /** @minimum 40 */
+  width?: number;
+  /** @minimum 40 */
+  height?: number;
+  status?: TableInputStatus;
+  branchId?: string;
+  floorId?: string;
+}
+
+export interface Payment {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  orderId: string;
+  amount: number;
+  method: string;
+  /** @nullable */
+  reference?: string | null;
+  status: string;
+  /** @nullable */
+  cashierId?: string | null;
+  paidAt: string;
+  outstanding?: number;
+  fullyPaid?: boolean;
+}
+
+export type PaymentInputMethod = typeof PaymentInputMethod[keyof typeof PaymentInputMethod];
+
+
+export const PaymentInputMethod = {
+  CASH: 'CASH',
+  MPESA: 'MPESA',
+  CARD: 'CARD',
+  BANK_TRANSFER: 'BANK_TRANSFER',
+  OTHER: 'OTHER',
+} as const;
+
+export interface PaymentInput {
+  orderId: string;
+  /** @minimum 1 */
+  amount: number;
+  method: PaymentInputMethod;
+  /** @nullable */
+  reference?: string | null;
+  isFinal?: boolean;
+}
+
+export interface Refund {
+  id: string;
+  paymentId: string;
+  amount: number;
+  /** @nullable */
+  reason?: string | null;
+  status: string;
+  /** @nullable */
+  approvedById?: string | null;
+  createdAt: string;
+}
+
+export type RefundInputStatus = typeof RefundInputStatus[keyof typeof RefundInputStatus];
+
+
+export const RefundInputStatus = {
+  PENDING: 'PENDING',
+  SUCCESSFUL: 'SUCCESSFUL',
+} as const;
+
+export interface RefundInput {
+  paymentId: string;
+  /** @minimum 1 */
+  amount: number;
+  /** @minLength 1 */
+  reason: string;
+  status?: RefundInputStatus;
+}
+
+export type StockTransferItemsItem = {
+  id?: string;
+  productId?: string;
+  quantity?: string;
+  quantityInBaseUnit?: string;
+};
+
+export interface StockTransfer {
+  id: string;
+  organizationId: string;
+  sourceBranchId: string;
+  destinationBranchId: string;
+  status: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  approvedById?: string | null;
+  createdAt: string;
+  items?: StockTransferItemsItem[];
+}
+
+export type StockTransferInputItemsItem = {
+  productId: string;
+  /** @exclusiveMinimum 0 */
+  quantity: number;
+  /** @nullable */
+  unitId?: string | null;
+};
+
+export interface StockTransferInput {
+  sourceBranchId: string;
+  destinationBranchId: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @minItems 1 */
+  items: StockTransferInputItemsItem[];
+}
+
+export type StockCountItemsItem = {
+  id?: string;
+  productId?: string;
+  expectedQuantity?: string;
+  /** @nullable */
+  actualQuantity?: string | null;
+  /** @nullable */
+  variance?: string | null;
+};
+
+export interface StockCount {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  status: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  countedById?: string | null;
+  /** @nullable */
+  approvedById?: string | null;
+  createdAt: string;
+  items?: StockCountItemsItem[];
+}
+
+export type StockCountInputItemsItem = {
+  productId: string;
+  actualQuantity: number;
+};
+
+export interface StockCountInput {
+  /** @nullable */
+  branchId?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @minItems 1 */
+  items: StockCountInputItemsItem[];
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  /** @nullable */
+  referenceId?: string | null;
+  createdAt: string;
+}
+
+export type NotificationInputType = typeof NotificationInputType[keyof typeof NotificationInputType];
+
+
+export const NotificationInputType = {
+  ORDER_READY: 'ORDER_READY',
+  RESERVATION: 'RESERVATION',
+  LOW_STOCK: 'LOW_STOCK',
+  INVENTORY_DISCREPANCY: 'INVENTORY_DISCREPANCY',
+  APPROVAL_REQUEST: 'APPROVAL_REQUEST',
+  STOCK_TRANSFER: 'STOCK_TRANSFER',
+  EVENT_REMINDER: 'EVENT_REMINDER',
+} as const;
+
+export interface NotificationInput {
+  type: NotificationInputType;
+  title: string;
+  message: string;
+  staffId: string;
+  /** @nullable */
+  branchId?: string | null;
+  /** @nullable */
+  referenceId?: string | null;
+}
+
+export type SearchResultResultsItem = {
+  type: string;
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+};
+
+export interface SearchResult {
+  results: SearchResultResultsItem[];
+}
+
+export type InventoryReportDiscrepanciesItem = {
+  productId?: string;
+  /** @nullable */
+  name?: string | null;
+  variance?: number;
+  /** @nullable */
+  unit?: string | null;
+};
+
+export interface InventoryReport {
+  totalItems: number;
+  stockValue: number;
+  belowReorder: number;
+  outOfStock: number;
+  byMovement: MetricPoint[];
+  discrepancies: InventoryReportDiscrepanciesItem[];
+}
+
+export interface StaffReportItem {
+  /** @nullable */
+  staffId: string | null;
+  name: string;
+  orders: number;
+  revenue: number;
+  averageOrderValue: number;
+}
+
+export interface TableReportItem {
+  id: string;
+  name: string;
+  section: string;
+  seats: number;
+  status: string;
+  revenue: number;
+  covers: number;
+  averageStayMinutes: number;
+}
+
+export type PaymentReportByMethodItem = {
+  label: string;
+  value: number;
+  count: number;
+};
+
+export interface PaymentReport {
+  total: number;
+  refunded: number;
+  byMethod: PaymentReportByMethodItem[];
+}
+
+export interface EventReportItem {
+  id: string;
+  name: string;
+  date: string;
+  capacity: number;
+  status: string;
+  reservations: number;
+  guests: number;
+  revenue: number;
+  utilisation: number;
+}
+
+export type HqReportBranchesItem = {
+  id: string;
+  name: string;
+  city: string;
+  status: string;
+  revenue: number;
+  orders: number;
+  tables: number;
+  inventoryAlerts: number;
+};
+
+export interface HqReport {
+  totalRevenue: number;
+  totalOrders: number;
+  activeBranches: number;
+  inventoryAlerts: number;
+  upcomingEvents: number;
+  activeStaff: number;
+  branches: HqReportBranchesItem[];
 }
 
 export type GetProductsParams = {
@@ -297,10 +1109,77 @@ export type GetOrdersStatus = typeof GetOrdersStatus[keyof typeof GetOrdersStatu
 
 
 export const GetOrdersStatus = {
-  NEW: 'NEW',
+  DRAFT: 'DRAFT',
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
   PREPARING: 'PREPARING',
   READY: 'READY',
   SERVED: 'SERVED',
   COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
 } as const;
+
+export type GetCustomersParams = {
+search?: string;
+};
+
+export type GetSalesReportParams = {
+dateFrom?: string;
+dateTo?: string;
+};
+
+export type GetProductReportParams = {
+dateFrom?: string;
+dateTo?: string;
+};
+
+export type GetAuditLogsParams = {
+entity?: string;
+action?: string;
+};
+
+export type GetFloorsParams = {
+branchId?: string;
+};
+
+export type GetFloorTablesParams = {
+branchId?: string;
+};
+
+export type GetPaymentsParams = {
+orderId?: string;
+};
+
+export type GetNotificationsParams = {
+unread?: boolean;
+limit?: number;
+};
+
+export type GetNotificationUnreadCount200 = {
+  count: number;
+};
+
+export type GlobalSearchParams = {
+q: string;
+};
+
+export type GetInventoryReportParams = {
+branchId?: string;
+};
+
+export type GetStaffReportParams = {
+branchId?: string;
+};
+
+export type GetTableReportParams = {
+branchId?: string;
+};
+
+export type GetPaymentReportParams = {
+branchId?: string;
+};
+
+export type GetEventReportParams = {
+branchId?: string;
+};
 

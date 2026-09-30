@@ -5,7 +5,9 @@ import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
-const rawPort = process.env.PORT;
+// These were hard-required because the original scaffold ran only on Replit.
+// Locally they default so `pnpm build` works without extra env setup.
+const rawPort = process.env.PORT ?? '5173';
 
 if (!rawPort) {
   throw new Error(
@@ -19,16 +21,15 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
-
-if (!basePath) {
-  throw new Error(
-    'BASE_PATH environment variable is required but was not provided.',
-  );
-}
+const basePath = process.env.BASE_PATH ?? '/';
 
 export default defineConfig({
   base: basePath,
+  // The single .env lives at the repo root, and this app historically used
+  // NEXT_PUBLIC_* names. Point Vite at that file and expose both prefixes so
+  // the Clerk keys and DATABASE_URL-backed settings resolve in development.
+  envDir: path.resolve(import.meta.dirname, '../..'),
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   plugins: [
     react(),
     tailwindcss({ optimize: false }),
@@ -69,6 +70,16 @@ export default defineConfig({
     strictPort: true,
     host: '0.0.0.0',
     allowedHosts: true,
+    // The web client calls relative `/api` URLs, so in development those have to
+    // be forwarded to the Express server. WebSocket upgrades are proxied too so
+    // the realtime bus works without extra configuration.
+    proxy: {
+      '/api': {
+        target: `http://localhost:${process.env.API_PORT ?? '3000'}`,
+        changeOrigin: true,
+        ws: true,
+      },
+    },
     fs: {
       strict: true,
     },

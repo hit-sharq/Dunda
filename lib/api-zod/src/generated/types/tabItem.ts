@@ -14,4 +14,10 @@ export interface TabItem {
   unitPrice: number;
   total: number;
   category: string;
+  /** @nullable */
+  unitId?: string | null;
+  /** @nullable */
+  unitName?: string | null;
+  /** @nullable */
+  notes?: string | null;
 }

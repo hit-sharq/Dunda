@@ -17,6 +17,12 @@ export interface DashboardSummary {
   poolRevenue: number;
   foodRevenue: number;
   drinkRevenue: number;
+  /** @nullable */
+  lowStockItems?: number | null;
+  /** @nullable */
+  upcomingEvents?: number | null;
+  /** @nullable */
+  reservations?: number | null;
   outstandingPayments: number;
   revenueSeries: MetricPoint[];
   categoryBreakdown: MetricPoint[];

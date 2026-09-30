@@ -10,10 +10,14 @@ import type { ReservationStatus } from './reservationStatus';
 export interface Reservation {
   id: string;
   customer: string;
+  /** @nullable */
+  customerName?: string | null;
   phone: string;
   date: Date;
   time: string;
   table: string;
   guests: number;
   status: ReservationStatus;
+  /** @nullable */
+  notes?: string | null;
 }
