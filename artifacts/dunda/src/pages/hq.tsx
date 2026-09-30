@@ -12,9 +12,9 @@ import {
   Button,
   Metric,
   PageIntro,
-  QueryNotice,
   money,
 } from "../components/ui";
+import { QueryNotice } from "../components/query-notice";
 
 // Same window as the other report screens, so the two never disagree.
 const DEFAULT_REPORT_DAYS = 30;
@@ -90,7 +90,7 @@ export function Hq() {
         <h3 className="mb-4 font-display text-xl font-bold">Branch comparison</h3>
         <QueryNotice
           loading={hq.isLoading}
-          error={hq.isError}
+          error={hq.error}
           empty={!hq.isLoading && !hq.isError && !branchesData.length}
           onRetry={() => hq.refetch()}
           emptyTitle="No branches yet"
@@ -149,7 +149,7 @@ export function Hq() {
           <h3 className="mb-4 font-display text-xl font-bold">Payment mix</h3>
           <QueryNotice
             loading={payments.isLoading}
-            error={payments.isError}
+            error={payments.error}
             empty={!payments.isLoading && !payments.isError && !payments.data?.byMethod.length}
             onRetry={() => payments.refetch()}
             emptyTitle="No payments recorded"
@@ -208,7 +208,7 @@ export function Hq() {
           </h4>
           <QueryNotice
             loading={inventory.isLoading}
-            error={inventory.isError}
+            error={inventory.error}
             empty={
               !inventory.isLoading &&
               !inventory.isError &&
@@ -239,7 +239,7 @@ export function Hq() {
           <h3 className="mb-4 font-display text-xl font-bold">Staff sales</h3>
           <QueryNotice
             loading={staff.isLoading}
-            error={staff.isError}
+            error={staff.error}
             empty={!staff.isLoading && !staff.isError && !staff.data?.length}
             onRetry={() => staff.refetch()}
             emptyTitle="No completed orders in range"
@@ -269,7 +269,7 @@ export function Hq() {
           <h3 className="mb-4 font-display text-xl font-bold">Events</h3>
           <QueryNotice
             loading={events.isLoading}
-            error={events.isError}
+            error={events.error}
             empty={!events.isLoading && !events.isError && !events.data?.length}
             onRetry={() => events.refetch()}
             emptyTitle="No events scheduled"

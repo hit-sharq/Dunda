@@ -112,64 +112,6 @@ export function Metric({
   );
 }
 
-export function QueryNotice({
-  loading,
-  error,
-  empty,
-  onRetry,
-  emptyTitle = "Nothing on the floor yet.",
-  emptyHint = "New records will appear here as they come in.",
-  emptyAction,
-}: {
-  loading?: boolean;
-  error?: boolean;
-  empty?: boolean;
-  onRetry?: () => void;
-  emptyTitle?: string;
-  emptyHint?: string;
-  emptyAction?: ReactNode;
-}) {
-  if (loading) {
-    return (
-      <div className="grid gap-3 p-5">
-        <Skeleton className="h-4 w-2/5" />
-        <Skeleton className="h-4 w-4/5" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div
-        className="flex items-center justify-between gap-3 p-5 text-sm text-[#9b4930]"
-        data-testid="status-error"
-      >
-        <span>Couldn’t load this data.</span>
-        {onRetry && (
-          <Button variant="outline" onClick={onRetry}>
-            Retry
-          </Button>
-        )}
-      </div>
-    );
-  }
-  if (empty) {
-    return (
-      <div
-        className="grid place-items-center gap-2 p-10 text-center text-sm text-[#69736f]"
-        data-testid="status-empty"
-      >
-        <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#e8f0ed] text-[#397f71]">
-          <span className="text-lg">◦</span>
-        </div>
-        <p className="font-semibold text-[#273239]">{emptyTitle}</p>
-        <p className="max-w-xs text-xs text-[#859089]">{emptyHint}</p>
-        {emptyAction}
-      </div>
-    );
-  }
-  return null;
-}
 
 export function Modal({
   title,

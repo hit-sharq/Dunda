@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { colors } from "../lib/theme";
+import { describeError } from "../lib/errors";
 
 export function Screen({
   title,
@@ -128,7 +129,7 @@ export function State({
   onRetry,
 }: {
   loading?: boolean;
-  error?: string | null;
+  error?: unknown;
   empty?: boolean;
   emptyTitle?: string;
   emptyHint?: string;
@@ -142,13 +143,20 @@ export function State({
     );
   }
   if (error) {
+    const info = describeError(error);
     return (
-      <View style={{ padding: 24, alignItems: "center", gap: 12 }}>
-        <Text style={{ color: colors.red, textAlign: "center" }}>{error}</Text>
-        {onRetry ? <Button label="Retry" variant="outline" onPress={onRetry} /> : null}
+      <View style={{ padding: 24, alignItems: "center", gap: 8 }} accessibilityRole="alert">
+        <Text style={{ fontWeight: "700", fontSize: 16, color: colors.ink }}>{info.title}</Text>
+        <Text style={{ color: colors.muted, textAlign: "center", fontSize: 13, lineHeight: 19 }}>
+          {info.detail}
+        </Text>
+        {info.canRetry && onRetry ? (
+          <Button label="Try again" variant="outline" onPress={onRetry} style={{ marginTop: 8 }} />
+        ) : null}
       </View>
     );
   }
+
   if (empty) {
     return (
       <View style={{ padding: 32, alignItems: "center", gap: 6 }}>

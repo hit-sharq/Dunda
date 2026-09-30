@@ -5,7 +5,8 @@ import {
   useGetOrders,
   useUpdateOrderStatus,
 } from "@workspace/api-client-react";
-import { Button, PageIntro, QueryNotice, timeAgo } from "../components/ui";
+import { Button, PageIntro, timeAgo } from "../components/ui";
+import { QueryNotice } from '../components/query-notice';
 
 const lanes = [
   { key: "PENDING", label: "New", color: "bg-[#4b927d]" },
@@ -63,7 +64,7 @@ export function ServiceBoard({ station }: { station: "bar" | "kitchen" }) {
 
       <QueryNotice
         loading={orders.isLoading}
-        error={orders.isError}
+        error={orders.error}
         empty={!orders.isLoading && !orders.isError && !live.length}
         onRetry={() => orders.refetch()}
         emptyTitle="No open tickets"

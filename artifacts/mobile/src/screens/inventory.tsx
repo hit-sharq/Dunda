@@ -70,7 +70,7 @@ export default function InventoryScreen() {
 
       <State
         loading={inventory.isLoading}
-        error={inventory.isError ? "Couldn't load stock." : null}
+        error={inventory.error}
         empty={!inventory.isLoading && !inventory.isError && rows.length === 0}
         emptyTitle="No stock records"
         emptyHint="Stock appears once products are received."

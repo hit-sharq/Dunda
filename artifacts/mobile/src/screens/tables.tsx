@@ -31,7 +31,7 @@ export default function TablesScreen() {
     <Screen title="Tables" eyebrow="Floor">
       <State
         loading={tables.isLoading}
-        error={tables.isError ? "Couldn't load the floor." : null}
+        error={tables.error}
         empty={!tables.isLoading && !tables.isError && rows.length === 0}
         emptyTitle="No tables yet"
         emptyHint="Tables appear once a manager designs the floor."

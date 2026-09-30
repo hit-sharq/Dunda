@@ -66,7 +66,7 @@ export default function HomeScreen() {
     >
       <State
         loading={summary.isLoading}
-        error={summary.isError ? "Couldn't load the shift summary." : null}
+        error={summary.error}
         onRetry={() => summary.refetch()}
       />
 

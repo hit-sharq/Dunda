@@ -16,11 +16,11 @@ import {
   Field,
   Modal,
   PageIntro,
-  QueryNotice,
   inputClass,
   money,
 } from "../components/ui";
 import { useMoney } from "../lib/money";
+import { QueryNotice } from '../components/query-notice';
 
 export function Products() {
   const products = useGetProducts();
@@ -72,7 +72,7 @@ export function Products() {
       <section className="surface overflow-hidden rounded-2xl">
         <QueryNotice
           loading={products.isLoading}
-          error={products.isError}
+          error={products.error}
           empty={!products.isLoading && !products.isError && !filtered.length}
           onRetry={() => products.refetch()}
           emptyTitle="No products yet"
@@ -363,7 +363,7 @@ function UnitManager({
 
         <QueryNotice
           loading={units.isLoading}
-          error={units.isError}
+          error={units.error}
           empty={!units.isLoading && !units.isError && !units.data?.length}
           onRetry={() => units.refetch()}
           emptyTitle="No selling units"

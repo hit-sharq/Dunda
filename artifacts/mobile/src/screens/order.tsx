@@ -118,7 +118,7 @@ export default function OrderScreen() {
           </Card>
           <State
             loading={tabs.isLoading}
-            error={tabs.isError ? "Couldn't load open tabs." : null}
+            error={tabs.error}
             empty={!tabs.isLoading && !tabs.isError && !tabs.data?.length}
             emptyTitle="No open tabs"
             emptyHint="Open a table on the Floor screen to start a tab."

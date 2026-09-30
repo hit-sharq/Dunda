@@ -11,7 +11,8 @@ import {
   useGetTabs,
   type Product,
 } from "@workspace/api-client-react";
-import { Button, Field, Modal, QueryNotice, inputClass, money } from "../components/ui";
+import { Button, Field, Modal, inputClass, money } from "../components/ui";
+import { QueryNotice } from '../components/query-notice';
 
 export function Pos() {
   const products = useGetProducts();
@@ -266,7 +267,7 @@ export function Pos() {
 
           <QueryNotice
             loading={products.isLoading}
-            error={products.isError}
+            error={products.error}
             empty={!products.isLoading && !products.isError && !filtered.length}
             onRetry={() => products.refetch()}
             emptyTitle="No products match"

@@ -14,10 +14,10 @@ import {
   Field,
   Modal,
   PageIntro,
-  QueryNotice,
   inputClass,
   money,
 } from "../components/ui";
+import { QueryNotice } from "../components/query-notice";
 
 const statusStyles: Record<string, string> = {
   AVAILABLE: "border-[#b9d9c9] bg-[#e4f1e9] text-[#397460]",
@@ -136,7 +136,7 @@ export function FloorDesigner() {
 
       <QueryNotice
         loading={tables.isLoading}
-        error={tables.isError}
+        error={tables.error}
         empty={!tables.isLoading && !tables.isError && !rows.length}
         onRetry={() => tables.refetch()}
         emptyTitle="No tables yet"
