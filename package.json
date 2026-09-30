@@ -21,9 +21,6 @@
     "api:codegen": "pnpm --filter @workspace/api-spec codegen"
   },
   "private": true,
-  "dependencies": {
-    "@replit/connectors-sdk": "^0.4.3"
-  },
   "devDependencies": {
     "concurrently": "^9.1.0",
     "prettier": "^3.9.6",
