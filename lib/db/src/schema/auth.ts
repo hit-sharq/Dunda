@@ -1,5 +1,6 @@
 import { createInsertSchema } from "drizzle-zod";
 import {
+  boolean,
   integer,
   pgTable,
   text,
@@ -13,6 +14,9 @@ export const rolesTable = pgTable("dunda_roles", {
   name: text("name").notNull().unique(),
   description: text("description"),
   sortOrder: integer("sort_order").notNull().default(0),
+  // Owner rights are a property of the role, not of how it happens to be
+  // named. Renaming a role must not silently strip owner access.
+  isOwner: boolean("is_owner").notNull().default(false),
 });
 
 export const staffTable = pgTable("dunda_staff", {
@@ -22,7 +26,9 @@ export const staffTable = pgTable("dunda_staff", {
     .references(() => organizationsTable.id, { onDelete: "cascade" }),
   branchId: text("branch_id")
     .references(() => branchesTable.id, { onDelete: "cascade" }),
-  clerkUserId: text("clerk_user_id").notNull().unique(),
+  // Nullable until the invite is accepted; an unclaimed staff record has no
+  // external identity yet and must not be given a fabricated one.
+  clerkUserId: text("clerk_user_id").unique(),
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),

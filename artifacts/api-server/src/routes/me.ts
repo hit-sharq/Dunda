@@ -9,6 +9,7 @@ import {
   staffTable,
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
+import { getTenantSettings } from "../lib/tenantSettings";
 import type { StaffContext } from "../lib/permissions";
 
 const router: IRouter = Router();
@@ -87,8 +88,10 @@ router.get("/me", async (req, res): Promise<void> => {
     branchId: tenant.branchId,
     branches,
     role: role?.name ?? null,
+    roleId: staff?.roleId ?? null,
     permissions: permissionRows.map((p) => p.name),
     isOwner: ctx.isOwner,
+    settings: await getTenantSettings(tenant.organizationId),
   });
 });
 

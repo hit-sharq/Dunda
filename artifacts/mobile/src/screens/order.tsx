@@ -44,17 +44,7 @@ interface OpenTab {
   }[];
 }
 
-const CATEGORIES = [
-  "All",
-  "Beer",
-  "Spirits",
-  "Cocktails",
-  "Wine",
-  "Food",
-  "Soft Drinks",
-  "Cigars",
-  "Cigarettes",
-];
+
 
 export default function OrderScreen() {
   const { branchId } = useSession();
@@ -98,6 +88,9 @@ export default function OrderScreen() {
   });
 
   const list = products.data ?? [];
+  // Derived from the catalog: a fixed taxonomy showed tabs for categories the
+  // tenant does not sell and hid the ones it does.
+  const categories = ["All", ...Array.from(new Set(list.map((p) => p.category)))];
   const filtered = list.filter(
     (p) =>
       (category === "All" || p.category === category) &&
@@ -174,7 +167,7 @@ export default function OrderScreen() {
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={{ flexDirection: "row", gap: 8, paddingRight: 8 }}>
-              {CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <Pressable
                   key={c}
                   onPress={() => setCategory(c)}

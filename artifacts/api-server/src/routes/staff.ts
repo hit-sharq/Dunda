@@ -47,7 +47,7 @@ router.get("/", async (req, res): Promise<void> => {
         name: s.name,
         email: s.email ?? null,
         phone: s.phone ?? null,
-        role: role?.name ?? "staff",
+        role: role?.name ?? null,
         roleId: s.roleId,
         status: s.status as "ACTIVE" | "INACTIVE",
         branchId: s.branchId,
@@ -76,13 +76,18 @@ router.post("/", async (req, res): Promise<void> => {
     return;
   }
   const id = `staff-${Date.now()}`;
+  // A staff record is created before the invite is accepted, so the external
+  // identity may be unknown. It stays null until the person signs in; it is
+  // never filled with a placeholder that looks like a real Clerk id.
+  const clerkUserId = parsed.data.clerkUserId ?? null;
+
   const [staff] = await db
     .insert(staffTable)
     .values({
       id,
       organizationId: tenant.organizationId,
       branchId: parsed.data.branchId ?? tenant.branchId ?? null,
-      clerkUserId: parsed.data.clerkUserId ?? `clerk-${id}`,
+      clerkUserId,
       name: parsed.data.name,
       email: parsed.data.email ?? null,
       phone: parsed.data.phone ?? null,
@@ -90,20 +95,25 @@ router.post("/", async (req, res): Promise<void> => {
     })
     .returning();
 
-  await db.insert(organizationMembersTable).values({
-    id: `om-${id}`,
-    organizationId: tenant.organizationId,
-    clerkUserId: staff.clerkUserId,
-    roleId: parsed.data.roleId,
-  });
-  if (staff.branchId) {
-    await db.insert(branchMembersTable).values({
-      id: `bm-${id}`,
+  // Membership rows are keyed by the external identity, so they can only exist
+  // once the account is known. An unclaimed invite is a staff record with no
+  // membership yet.
+  if (staff.clerkUserId) {
+    await db.insert(organizationMembersTable).values({
+      id: `om-${id}`,
       organizationId: tenant.organizationId,
-      branchId: staff.branchId,
       clerkUserId: staff.clerkUserId,
       roleId: parsed.data.roleId,
     });
+    if (staff.branchId) {
+      await db.insert(branchMembersTable).values({
+        id: `bm-${id}`,
+        organizationId: tenant.organizationId,
+        branchId: staff.branchId,
+        clerkUserId: staff.clerkUserId,
+        roleId: parsed.data.roleId,
+      });
+    }
   }
 
   await logAuditEntry({
@@ -123,7 +133,7 @@ router.post("/", async (req, res): Promise<void> => {
     name: staff.name,
     email: staff.email ?? null,
     phone: staff.phone ?? null,
-    role: role?.name ?? "staff",
+    role: role?.name ?? null,
     roleId: staff.roleId,
     status: staff.status as "ACTIVE" | "INACTIVE",
     branchId: staff.branchId,
@@ -163,7 +173,7 @@ router.get("/:staffId", async (req, res): Promise<void> => {
       name: staff.name,
       email: staff.email ?? null,
       phone: staff.phone ?? null,
-      role: role?.name ?? "staff",
+      role: role?.name ?? null,
       roleId: staff.roleId,
       status: staff.status as "ACTIVE" | "INACTIVE",
       branchId: staff.branchId,
@@ -233,8 +243,11 @@ router.patch("/:staffId", async (req, res): Promise<void> => {
   if (parsed.data.roleId || parsed.data.branchId) {
     const patch: Record<string, string> = {};
     if (parsed.data.roleId) patch.roleId = parsed.data.roleId;
-    if (parsed.data.branchId !== undefined) patch.branchId = parsed.data.branchId ?? "";
-    if (parsed.data.roleId || parsed.data.branchId !== undefined) {
+    if (parsed.data.branchId !== undefined && parsed.data.branchId !== null) {
+      patch.branchId = parsed.data.branchId;
+    }
+    // An unclaimed invite has no membership rows to keep in step.
+    if (existing.clerkUserId && (parsed.data.roleId || parsed.data.branchId !== undefined)) {
       await db
         .update(branchMembersTable)
         .set(patch)
@@ -245,7 +258,7 @@ router.patch("/:staffId", async (req, res): Promise<void> => {
         .where(eq(organizationMembersTable.clerkUserId, existing.clerkUserId));
     }
   }
-  if (parsed.data.status) {
+  if (parsed.data.status && existing.clerkUserId) {
     await db
       .update(branchMembersTable)
       .set({ status: parsed.data.status })
@@ -269,7 +282,7 @@ router.patch("/:staffId", async (req, res): Promise<void> => {
     name: row.name,
     email: row.email ?? null,
     phone: row.phone ?? null,
-    role: role?.name ?? "staff",
+    role: role?.name ?? null,
     roleId: row.roleId,
     status: row.status,
     branchId: row.branchId,

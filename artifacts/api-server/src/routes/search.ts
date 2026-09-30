@@ -16,6 +16,7 @@ import {
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
 import type { StaffContext } from "../lib/permissions";
+import { formatMoney, getTenantSettings } from "../lib/tenantSettings";
 
 const router: IRouter = Router();
 
@@ -45,6 +46,7 @@ router.get("/", async (req, res): Promise<void> => {
     res.status(400).json({ error: "A search term is required" });
     return;
   }
+  const tenantSettings = await getTenantSettings(tenant.organizationId);
   const term = parsed.data.q.trim();
   if (term.length < 2) {
     res.json({ results: [] });
@@ -80,7 +82,7 @@ router.get("/", async (req, res): Promise<void> => {
         type: "product",
         id: p.id,
         title: p.name,
-        subtitle: `${p.category} · KES ${p.price}`,
+        subtitle: `${p.category} · ${formatMoney(p.price, tenantSettings)}`,
         href: "/products",
       })),
     );
@@ -108,7 +110,7 @@ router.get("/", async (req, res): Promise<void> => {
         type: "order",
         id: o.id,
         title: o.number,
-        subtitle: `${o.table ?? "No table"} · ${o.status} · KES ${o.total}`,
+        subtitle: `${o.table ?? "No table"} · ${o.status} · ${formatMoney(o.total, tenantSettings)}`,
         href: "/orders",
       })),
     );
@@ -227,7 +229,7 @@ router.get("/", async (req, res): Promise<void> => {
         type: "customer",
         id: c.id,
         title: c.name,
-        subtitle: `${c.vipLevel} · KES ${c.totalSpend} lifetime`,
+        subtitle: `${c.vipLevel} · ${formatMoney(c.totalSpend, tenantSettings)} lifetime`,
         href: "/customers",
       })),
     );

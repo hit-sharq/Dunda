@@ -20,6 +20,7 @@ import {
   inputClass,
   money,
 } from "../components/ui";
+import { useMoney } from "../lib/money";
 
 export function Products() {
   const products = useGetProducts();
@@ -154,7 +155,7 @@ export function Products() {
                     categories.data?.find((c) => c.id === newProduct.categoryId)?.name ??
                     newProduct.category ??
                     "Other",
-                  baseUnit: newProduct.baseUnit || "piece",
+                  baseUnit: newProduct.baseUnit?.trim() || "piece",
                   sku: newProduct.sku || null,
                   barcode: newProduct.barcode || null,
                   description: newProduct.description || null,
@@ -232,6 +233,7 @@ function ProductForm({
   onClose: () => void;
   busy: boolean;
 }) {
+  const { currency } = useMoney();
   const set = (k: string, v: string) => onChange({ ...value, [k]: v });
   return (
     <Modal title="New product" onClose={onClose}>
@@ -278,7 +280,7 @@ function ProductForm({
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Cost (KES)">
+          <Field label={`Cost (${currency})`}>
             <input
               type="number"
               min={0}
@@ -287,7 +289,7 @@ function ProductForm({
               className={inputClass}
             />
           </Field>
-          <Field label="Selling price (KES)">
+          <Field label={`Selling price (${currency})`}>
             <input
               required
               type="number"
@@ -336,6 +338,7 @@ function UnitManager({
   onUpdate: (unitId: string, v: ProductUnitInput) => void;
   busy: boolean;
 }) {
+  const { currency } = useMoney();
   const units = useGetProductUnits(product.id);
   const [draft, setDraft] = useState({
     name: "",
@@ -484,7 +487,7 @@ function UnitManager({
                 data-testid="input-unit-factor"
               />
             </Field>
-            <Field label="Price (KES)">
+            <Field label={`Price (${currency})`}>
               <input
                 required
                 type="number"

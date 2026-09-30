@@ -8,6 +8,7 @@ import {
   inventoryAlertsTable,
   ordersTable,
   orderItemsTable,
+  categoriesTable,
   paymentsTable,
   productsTable,
   reservationsTable,
@@ -167,12 +168,22 @@ router.get("/summary", async (req, res): Promise<void> => {
       ),
   ]);
 
-  const drinks = ["Beer", "Spirits", "Cocktails", "Wine", "Soft Drinks"].reduce(
-    (sum, cat) => sum + (categoryTotals.get(cat) ?? 0),
-    0,
-  );
-  const food = ["Food"].reduce((sum, cat) => sum + (categoryTotals.get(cat) ?? 0), 0);
-  const other = revenue - drinks - food;
+  // Group revenue by the tenant's own category grouping. This previously matched
+  // a fixed list of category names, so a venue that called them "Beverages" or
+  // "Grill" booked 100% of revenue to "other" with no error.
+  const categories = await db
+    .select({ name: categoriesTable.name, group: categoriesTable.group })
+    .from(categoriesTable)
+    .where(eq(categoriesTable.organizationId, org));
+  const groupByCategoryName = new Map(categories.map((c) => [c.name, c.group]));
+
+  const grouped = { drinks: 0, food: 0, other: 0 };
+  for (const [name, value] of categoryTotals) {
+    const group = groupByCategoryName.get(name);
+    if (group === "drinks") grouped.drinks += value;
+    else if (group === "food") grouped.food += value;
+    else grouped.other += value;
+  }
 
   res.json({
     date: today.toISOString().slice(0, 10),
@@ -184,9 +195,9 @@ router.get("/summary", async (req, res): Promise<void> => {
     activeTables: allTables.filter((t) => t.status === "OCCUPIED").length,
     totalTables: allTables.length,
     activeTabs: openTabs.length,
-    drinkRevenue: drinks,
-    foodRevenue: food,
-    otherRevenue: other,
+    drinkRevenue: grouped.drinks,
+    foodRevenue: grouped.food,
+    otherRevenue: grouped.other,
     lowStockItems: alerts.length,
     outOfStockItems: lowStockCount.length,
     upcomingEvents: events.length,

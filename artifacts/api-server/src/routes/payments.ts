@@ -17,6 +17,7 @@ import {
   staffTable,
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
+import { formatMoney, getTenantSettings } from "../lib/tenantSettings";
 import type { StaffContext } from "../lib/permissions";
 
 const router: IRouter = Router();
@@ -183,7 +184,7 @@ router.post("/", async (req, res): Promise<void> => {
     action: "CREATE",
     entity: "PAYMENT",
     entityId: result.payment.id,
-    detail: `KES ${data.amount} by ${data.method} on ${order.number}`,
+    detail: `${formatMoney(data.amount, await getTenantSettings(order.organizationId))} by ${data.method} on ${order.number}`,
   });
 
   res.status(201).json({
@@ -270,7 +271,7 @@ router.post("/refunds", async (req, res): Promise<void> => {
     action: "REFUND",
     entity: "PAYMENT",
     entityId: payment.id,
-    detail: `Refund KES ${data.amount} (${data.status})`,
+    detail: `Refund ${formatMoney(data.amount, await getTenantSettings(payment.organizationId))} (${data.status})`,
     reason: data.reason,
   });
 

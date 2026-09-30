@@ -17,6 +17,10 @@ export const categoriesTable = pgTable("dunda_categories", {
     .references(() => organizationsTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   color: text("color").notNull().default("#6f9fb2"),
+  // Reporting group (drinks | food | anything else). Left null the category
+  // rolls up into the "other" bucket, so a tenant's own taxonomy is respected
+  // rather than being forced into a fixed drink/food split.
+  group: text("group"),
   sortOrder: integer("sort_order").notNull().default(0),
 });
 

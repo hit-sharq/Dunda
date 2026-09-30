@@ -55,7 +55,10 @@ export function FloorDesigner() {
   const [dragging, setDragging] = useState<string | null>(null);
 
   function setNewTabTable() {
-    setNewTable({ name: "", section: sections[0] ?? "Main Floor", seats: "4" });
+    // A table must be placed in a section the venue actually has; a fabricated
+    // name would be written to the floor and then group the view.
+    if (!sections.length) return;
+    setNewTable({ name: "", section: sections[0], seats: "" });
   }
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -121,11 +124,7 @@ export function FloorDesigner() {
             </select>
             <Button
               onClick={() =>
-                setNewTable({
-                  name: "",
-                  section: sections[0] ?? "Main Floor",
-                  seats: "4",
-                })
+                setNewTabTable()
               }
               data-testid="button-new-table"
             >

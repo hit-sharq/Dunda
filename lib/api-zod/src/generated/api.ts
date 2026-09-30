@@ -1847,8 +1847,15 @@ export const GetMeResponse = zod.object({
   "status": zod.string().optional()
 })).optional(),
   "role": zod.string().nullish(),
+  "roleId": zod.string().nullish(),
   "permissions": zod.array(zod.string()),
-  "isOwner": zod.boolean()
+  "isOwner": zod.boolean(),
+  "settings": zod.object({
+  "currency": zod.string(),
+  "locale": zod.string(),
+  "taxRate": zod.number().int(),
+  "serviceChargeRate": zod.number().int()
+}).optional()
 })
 
 

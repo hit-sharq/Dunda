@@ -70,6 +70,7 @@ export * from './inventoryReport';
 export * from './inventoryReportDiscrepanciesItem';
 export * from './me';
 export * from './meBranchesItem';
+export * from './meSettings';
 export * from './meStaff';
 export * from './metricPoint';
 export * from './notification';

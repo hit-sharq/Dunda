@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "./api";
+import { configureMoney } from "./theme";
 
 export interface MobileBranch {
   id: string;
@@ -25,8 +26,15 @@ export interface MeResponse {
   branchId: string | null;
   branches: MobileBranch[];
   role: string | null;
+  roleId: string | null;
   permissions: string[];
   isOwner: boolean;
+  settings: {
+    currency: string;
+    locale: string;
+    taxRate: number;
+    serviceChargeRate: number;
+  };
 }
 
 interface SessionValue {
@@ -61,6 +69,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return apiFetch<MeResponse>("/me", { token });
     },
   });
+
+  // Keep every money formatter in the app on the tenant's own currency.
+  useMemo(() => {
+    configureMoney(me.data?.settings?.locale ?? "en-KE", me.data?.settings?.currency ?? "KES");
+  }, [me.data?.settings?.locale, me.data?.settings?.currency]);
 
   const value = useMemo<SessionValue>(() => {
     const data = me.data ?? null;

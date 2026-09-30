@@ -680,6 +680,13 @@ export type MeBranchesItem = {
   status?: string;
 };
 
+export type MeSettings = {
+  currency: string;
+  locale: string;
+  taxRate: number;
+  serviceChargeRate: number;
+};
+
 export interface Me {
   organizationId: string;
   /** @nullable */
@@ -691,8 +698,11 @@ export interface Me {
   branches?: MeBranchesItem[];
   /** @nullable */
   role?: string | null;
+  /** @nullable */
+  roleId?: string | null;
   permissions: string[];
   isOwner: boolean;
+  settings?: MeSettings;
 }
 
 export type StockTransferStatusInputStatus = typeof StockTransferStatusInputStatus[keyof typeof StockTransferStatusInputStatus];

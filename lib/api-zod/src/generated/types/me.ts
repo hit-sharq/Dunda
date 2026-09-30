@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MeBranchesItem } from './meBranchesItem';
+import type { MeSettings } from './meSettings';
 import type { MeStaff } from './meStaff';
 
 export interface Me {
@@ -19,6 +20,9 @@ export interface Me {
   branches?: MeBranchesItem[];
   /** @nullable */
   role?: string | null;
+  /** @nullable */
+  roleId?: string | null;
   permissions: string[];
   isOwner: boolean;
+  settings?: MeSettings;
 }

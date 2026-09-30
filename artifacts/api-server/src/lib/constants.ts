@@ -1,5 +1,9 @@
-export const SERVICE_CHARGE_RATE = 0.1;
-export const TAX_RATE = 0.16;
+/**
+ * Default reporting window. This was spelled out in three places with
+ * two different values (30 and 29 days), so two report pages silently
+ * covered different periods.
+ */
+export const DEFAULT_REPORT_DAYS = 30;
 
 export const productAccentColors: Record<string, string> = {
   lime: "#8ea7f2",

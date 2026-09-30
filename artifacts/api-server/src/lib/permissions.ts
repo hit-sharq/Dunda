@@ -85,7 +85,10 @@ export async function getStaffContext(req: any): Promise<StaffContext> {
     .from(rolesTable)
     .where(eq(rolesTable.id, staff.roleId));
 
-  const isOwner = role?.name === "Owner" || role?.name === "owner";
+  // A role's owner status is stored on the role. Matching on the display name
+  // meant renaming a role silently stripped owner access, and naming any other
+  // role "Owner" granted full access.
+  const isOwner = role?.isOwner ?? false;
 
   const permRows = await db
     .select({ name: permissionsTable.name })

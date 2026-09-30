@@ -49,7 +49,9 @@ import {
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
 import { BranchScopeError, requireBranchScope } from "../lib/branchScope";
-import { SERVICE_CHARGE_RATE, TAX_RATE } from "../lib/constants";
+import { calculateTotals, formatMoney, getTenantSettings } from "../lib/tenantSettings";
+import { productAccentColors } from "../lib/constants";
+import { nextDocumentNumber } from "../lib/numbering";
 import { logAuditEntry } from "../lib/auditLogger";
 import { publish } from "../lib/realtime";
 
@@ -293,7 +295,9 @@ router.post("/tabs", async (req, res): Promise<void> => {
     return;
   }
   const id = `tab-${Date.now()}`;
-  const number = `#${1048 + Math.floor(Math.random() * 100)}`;
+  // Allocated per branch so two tabs opened in one shift can never share the
+  // number printed on the receipt.
+  const number = `#${await nextDocumentNumber(db, tenant.organizationId, branchId, "tab", "", 4)}`;
   const [tab] = await db
     .insert(tabsTable)
     .values({
@@ -466,11 +470,14 @@ router.post("/tabs/:tabId", async (req, res): Promise<void> => {
     .from(tabItemsTable)
     .where(eq(tabItemsTable.tabId, tab.id));
   const subtotal = itemRows.reduce((sum, item) => sum + item.total, 0);
-  const serviceCharge = Math.round(subtotal * SERVICE_CHARGE_RATE);
-  const tax = Math.round((subtotal + serviceCharge) * TAX_RATE);
+  const totals = calculateTotals(
+    subtotal,
+    0,
+    await getTenantSettings(tab.organizationId),
+  );
   await db
     .update(tabsTable)
-    .set({ subtotal, serviceCharge, tax, total: subtotal + serviceCharge + tax })
+    .set(totals)
     .where(eq(tabsTable.id, tab.id));
   const response = await getTabWithItems(tab.id);
   res.json(AddTabItemResponse.parse(response));
@@ -644,7 +651,7 @@ router.post("/tabs/:tabId/checkout", async (req, res): Promise<void> => {
 
     return {
       tab: tabResponse(closed, items),
-      receiptNumber: `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`,
+      receiptNumber: `RCP-${new Date().getFullYear()}-${await nextDocumentNumber(db, tenant.organizationId, tab.branchId, "receipt", "", 6)}`,
       paymentMethod: body.data.method,
       paidAt: new Date().toISOString(),
     };
@@ -661,7 +668,7 @@ router.post("/tabs/:tabId/checkout", async (req, res): Promise<void> => {
     action: "CREATE",
     entity: "PAYMENT",
     entityId: response.tab.id,
-    detail: `Checkout ${response.tab.number} · KES ${body.data.amount} by ${body.data.method} · receipt ${response.receiptNumber}`,
+    detail: `Checkout ${response.tab.number} · ${formatMoney(body.data.amount, await getTenantSettings(tenant.organizationId))} by ${body.data.method} · receipt ${response.receiptNumber}`,
   });
 
   publish({
@@ -783,18 +790,6 @@ router.get("/inventory/alerts", async (req, res): Promise<void> => {
   res.json(GetInventoryAlertsResponse.parse(response));
 });
 
-const productAccentColors: Record<string, string> = {
-  lime: "#8ea75f",
-  sky: "#6f9fb2",
-  mint: "#6ea493",
-  violet: "#8f80a6",
-  rose: "#b67d8c",
-  orange: "#c77c4e",
-  red: "#b75b56",
-  cyan: "#5da3a3",
-  gold: "#b08d49",
-  amber: "#f07a4b",
-};
 
 router.patch("/reservations/:reservationId", async (req, res): Promise<void> => {
   const ctx = req.clerk?.__staffContext as

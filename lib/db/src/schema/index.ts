@@ -9,4 +9,5 @@ export * from "./orders";
 export * from "./customers";
 export * from "./events";
 export * from "./payments";
+export * from "./counters";
 export * from "./system";

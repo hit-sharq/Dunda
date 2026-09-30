@@ -220,12 +220,8 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 export const inputClass =
   "min-h-10 w-full rounded-xl border border-[#ded8cd] bg-[#fffefb] px-3 text-sm text-[#182127] outline-none focus:border-[#f07a4b]";
 
-export const money = (value = 0) =>
-  new Intl.NumberFormat("en-KE", {
-    style: "currency",
-    currency: "KES",
-    maximumFractionDigits: 0,
-  }).format(value);
+// Money formatting is the organization's own currency, configured by MoneyProvider.
+export { money } from "../lib/money";
 
 export const timeAgo = (stamp: string | Date) => {
   const mins = Math.max(

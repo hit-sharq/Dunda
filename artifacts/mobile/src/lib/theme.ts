@@ -16,10 +16,23 @@ export const colors = {
   mutedSoft: "#859089",
 } as const;
 
+/**
+ * Money formatting follows the organization's own currency, published by the
+ * session after /me resolves. It was pinned to en-KE / KES, so every tenant saw
+ * Kenyan shillings regardless of how their organization was configured.
+ */
+let activeLocale = "en-KE";
+let activeCurrency = "KES";
+
+export function configureMoney(locale: string, currency: string): void {
+  activeLocale = locale;
+  activeCurrency = currency;
+}
+
 export const money = (value = 0) =>
-  new Intl.NumberFormat("en-KE", {
+  new Intl.NumberFormat(activeLocale, {
     style: "currency",
-    currency: "KES",
+    currency: activeCurrency,
     maximumFractionDigits: 0,
   }).format(value);
 

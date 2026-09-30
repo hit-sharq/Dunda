@@ -20,6 +20,7 @@ import {
   tabsTable,
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
+import { DEFAULT_REPORT_DAYS } from "../lib/constants";
 import type { StaffContext } from "../lib/permissions";
 
 const router: IRouter = Router();
@@ -45,7 +46,7 @@ function range(query: Record<string, unknown>): { from: Date; to: Date } {
   const to = query.dateTo ? new Date(`${String(query.dateTo)}T23:59:59.999Z`) : now;
   const from = query.dateFrom
     ? new Date(`${String(query.dateFrom)}T00:00:00.000Z`)
-    : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+    : new Date(to.getTime() - DEFAULT_REPORT_DAYS * 24 * 60 * 60 * 1000);
   return { from, to };
 }
 

@@ -13,6 +13,7 @@ import {
   auditLogsTable,
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
+import { formatMoney, getTenantSettings } from "../lib/tenantSettings";
 import { hasPermission, type StaffContext } from "../lib/permissions";
 import { productAccentColors } from "../lib/constants";
 
@@ -216,7 +217,7 @@ router.post("/", async (req, res): Promise<void> => {
     "CREATE",
     "PRODUCT",
     productId,
-    `Created product ${data.name} (base unit ${data.baseUnit}, KES ${data.price})`,
+    `Created product ${data.name} (base unit ${data.baseUnit}, ${formatMoney(data.price, await getTenantSettings(tenant.organizationId))})`,
   );
 
   res.status(201).json(serializeProduct(row));
@@ -397,7 +398,7 @@ router.post("/:productId/units", async (req, res): Promise<void> => {
     "CREATE",
     "PRODUCT_UNIT",
     row.id,
-    `Added unit ${row.name} (${row.abbreviation}) to ${product.name}: ${row.conversionFactor} ${product.baseUnit} = 1 unit, KES ${row.sellingPrice}`,
+    `Added unit ${row.name} (${row.abbreviation}) to ${product.name}: ${row.conversionFactor} ${product.baseUnit} = 1 unit, ${formatMoney(row.sellingPrice, await getTenantSettings(tenant.organizationId))}`,
   );
 
   res.status(201).json(row);
@@ -444,7 +445,7 @@ router.patch("/:productId/units/:unitId", async (req, res): Promise<void> => {
     "UPDATE",
     "PRODUCT_UNIT",
     row.id,
-    `Updated unit ${row.name} price to KES ${row.sellingPrice}`,
+    `Updated unit ${row.name} price to ${formatMoney(row.sellingPrice, await getTenantSettings(tenant.organizationId))}`,
   );
 
   res.json(row);

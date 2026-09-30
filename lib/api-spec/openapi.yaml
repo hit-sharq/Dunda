@@ -1938,10 +1938,19 @@ components:
               city: { type: string }
               status: { type: string }
         role: { type: ["string", "null"] }
+        roleId: { type: ["string", "null"] }
         permissions:
           type: array
           items: { type: string }
         isOwner: { type: boolean }
+        settings:
+          type: object
+          required: [currency, locale, taxRate, serviceChargeRate]
+          properties:
+            currency: { type: string }
+            locale: { type: string }
+            taxRate: { type: integer }
+            serviceChargeRate: { type: integer }
     StockTransferStatusInput:
       type: object
       required: [status]

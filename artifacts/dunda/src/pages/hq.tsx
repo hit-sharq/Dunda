@@ -16,8 +16,10 @@ import {
   money,
 } from "../components/ui";
 
+// Same window as the other report screens, so the two never disagree.
+const DEFAULT_REPORT_DAYS = 30;
 const today = new Date();
-const from = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000)
+const from = new Date(today.getTime() - DEFAULT_REPORT_DAYS * 24 * 60 * 60 * 1000)
   .toISOString()
   .slice(0, 10);
 const to = today.toISOString().slice(0, 10);

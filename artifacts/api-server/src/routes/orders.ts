@@ -22,9 +22,11 @@ import {
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
 import { BranchScopeError, requireBranchScope } from "../lib/branchScope";
-import { SERVICE_CHARGE_RATE, TAX_RATE } from "../lib/constants";
+import { calculateTotals, formatMoney, getTenantSettings } from "../lib/tenantSettings";
+import { nextDocumentNumber } from "../lib/numbering";
 import { logAuditEntry } from "../lib/auditLogger";
 import { publish } from "../lib/realtime";
+import { InvalidTransitionError, ORDER_STATUS_TRANSITIONS } from "../lib/orderWorkflow";
 import { hasPermission, type StaffContext } from "../lib/permissions";
 
 const router: IRouter = Router();
@@ -226,7 +228,9 @@ router.post("/", async (req, res): Promise<void> => {
     return;
   }
   const id = `ord-${Date.now()}`;
-  const number = `#${String(Date.now()).slice(-6)}`;
+  // Allocated per branch; the previous epoch-millisecond slice wrapped roughly
+  // every eleven days and could collide.
+  const number = `#${await nextDocumentNumber(db, tenant.organizationId, branchId, "order", "", 6)}`;
   const order = await db.transaction(async (tx) => {
     const [order] = await tx
       .insert(ordersTable)
@@ -303,15 +307,18 @@ router.post("/", async (req, res): Promise<void> => {
       });
     }
 
-    const serviceCharge = Math.round(subtotal * SERVICE_CHARGE_RATE);
-    const tax = Math.round((subtotal + serviceCharge) * TAX_RATE);
+    // Orders are always created with no discount; discounts are applied later
+    // through a dedicated flow. The breakdown still comes from the tenant's
+    // configured rates rather than module-level constants.
+    const totals = calculateTotals(
+      subtotal,
+      0,
+      await getTenantSettings(tenant.organizationId),
+    );
     const [updated] = await tx
       .update(ordersTable)
       .set({
-        subtotal,
-        serviceCharge,
-        tax,
-        total: subtotal + serviceCharge + tax,
+        ...totals,
         status: "PENDING",
       })
       .where(eq(ordersTable.id, order.id))
@@ -332,7 +339,7 @@ router.post("/", async (req, res): Promise<void> => {
     action: "CREATE",
     entity: "ORDER",
     entityId: order.id,
-    detail: `${order.number} · ${items.length} item(s) · KES ${order.total}`,
+    detail: `${order.number} · ${items.length} item(s) · ${formatMoney(order.total, await getTenantSettings(order.organizationId))}`,
   });
 
   publish({
@@ -383,7 +390,9 @@ router.patch("/:orderId/status", async (req, res): Promise<void> => {
     return;
   }
 
-  const updated = await db.transaction(async (tx) => {
+  let updated: typeof ordersTable.$inferSelect | null = null;
+  try {
+    updated = await db.transaction(async (tx) => {
     const [existing] = await tx
       .select()
       .from(ordersTable)
@@ -396,6 +405,13 @@ router.patch("/:orderId/status", async (req, res): Promise<void> => {
     if (!existing) return null;
 
     if (existing.status === body.data.status) return existing;
+
+    // The kitchen workflow is enforced here rather than in each client, so a
+    // ticket cannot skip a stage because a caller used a different UI.
+    const allowed = ORDER_STATUS_TRANSITIONS[existing.status];
+    if (allowed && !allowed.includes(body.data.status)) {
+      throw new InvalidTransitionError(existing.status, body.data.status);
+    }
 
     // Inventory is deducted exactly once, on the transition into COMPLETED.
     if (body.data.status === "COMPLETED" && existing.status !== "COMPLETED") {
@@ -413,7 +429,14 @@ router.patch("/:orderId/status", async (req, res): Promise<void> => {
       )
       .returning();
     return row ?? existing;
-  });
+    });
+  } catch (err) {
+    if (err instanceof InvalidTransitionError) {
+      res.status(err.status).json({ error: err.message, code: "INVALID_STATUS_TRANSITION" });
+      return;
+    }
+    throw err;
+  }
 
   if (!updated) {
     res.status(404).json({ error: "Order not found" });

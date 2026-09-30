@@ -184,7 +184,7 @@ export function Pos() {
         onSuccess: (result) => {
           setNotice({
             tone: "ok",
-            text: `Receipt ${result.receiptNumber} · KES ${money(tab.total)} closed`,
+            text: `Receipt ${result.receiptNumber} · ${money(tab.total)} closed`,
           });
           setSelectedTabId(undefined);
           qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: "OPEN" }) });
