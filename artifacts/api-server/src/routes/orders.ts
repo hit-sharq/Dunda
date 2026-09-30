@@ -13,6 +13,7 @@ import { db } from "@workspace/db";
 import {
   orderItemsTable,
   orderItemUnitsTable,
+  tablesTable,
   ordersTable,
   productsTable,
   productUnitsTable,
@@ -231,6 +232,31 @@ router.post("/", async (req, res): Promise<void> => {
   // Allocated per branch; the previous epoch-millisecond slice wrapped roughly
   // every eleven days and could collide.
   const number = `#${await nextDocumentNumber(db, tenant.organizationId, branchId, "order", "", 6)}`;
+  // Reject early if the table is taken, rather than creating an order for a
+  // table the floor already shows as busy.
+  if (parsed.data.tableId) {
+    const [table] = await db
+      .select({ name: tablesTable.name, status: tablesTable.status, branchId: tablesTable.branchId })
+      .from(tablesTable)
+      .where(
+        and(
+          eq(tablesTable.id, parsed.data.tableId),
+          eq(tablesTable.organizationId, tenant.organizationId),
+        ),
+      );
+    if (!table || table.branchId !== branchId) {
+      res.status(404).json({ error: "That table does not exist in this branch." });
+      return;
+    }
+    if (table.status !== "AVAILABLE") {
+      res.status(409).json({
+        error: `${table.name} is already ${table.status.toLowerCase().replace("_", " ")}.`,
+        code: "TABLE_NOT_AVAILABLE",
+      });
+      return;
+    }
+  }
+
   const order = await db.transaction(async (tx) => {
     const [order] = await tx
       .insert(ordersTable)
@@ -240,6 +266,7 @@ router.post("/", async (req, res): Promise<void> => {
         branchId,
         number,
         tableName: parsed.data.table,
+        tableId: parsed.data.tableId ?? null,
         customerId: parsed.data.customerId ?? null,
         staffId: parsed.data.staffId ?? null,
         status: "PENDING",
@@ -251,6 +278,19 @@ router.post("/", async (req, res): Promise<void> => {
         notes: null,
       })
       .returning();
+
+    // Mark the table busy for as long as the ticket is open.
+    if (order.tableId) {
+      await tx
+        .update(tablesTable)
+        .set({ status: "OCCUPIED" })
+        .where(
+          and(
+            eq(tablesTable.id, order.tableId),
+            eq(tablesTable.organizationId, tenant.organizationId),
+          ),
+        );
+    }
 
     let subtotal = 0;
     for (const item of parsed.data.items) {
@@ -416,6 +456,24 @@ router.patch("/:orderId/status", async (req, res): Promise<void> => {
     // Inventory is deducted exactly once, on the transition into COMPLETED.
     if (body.data.status === "COMPLETED" && existing.status !== "COMPLETED") {
       await deductInventoryForOrder(tx, existing, ctx ?? null);
+    }
+
+    // The table is released once the ticket has been served, completed, or
+    // cancelled, so the floor stops showing a seat that is no longer being used.
+    if (
+      existing.tableId &&
+      ["SERVED", "COMPLETED", "CANCELLED"].includes(body.data.status) &&
+      !["SERVED", "COMPLETED", "CANCELLED"].includes(existing.status)
+    ) {
+      await tx
+        .update(tablesTable)
+        .set({ status: "AVAILABLE", tabId: null, customer: null, total: 0 })
+        .where(
+          and(
+            eq(tablesTable.id, existing.tableId),
+            eq(tablesTable.organizationId, tenant.organizationId),
+          ),
+        );
     }
 
     const [row] = await tx

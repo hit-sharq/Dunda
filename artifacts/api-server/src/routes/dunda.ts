@@ -307,6 +307,7 @@ router.post("/tabs", async (req, res): Promise<void> => {
       number,
       customer: parsed.data.customer,
       tableName: parsed.data.table,
+      tableId: parsed.data.tableId ?? null,
       status: "OPEN",
       subtotal: 0,
       serviceCharge: 0,
@@ -315,15 +316,45 @@ router.post("/tabs", async (req, res): Promise<void> => {
       total: 0,
     })
     .returning();
-  await db
-    .update(tablesTable)
-    .set({ status: "OCCUPIED", tabId: id, customer: parsed.data.customer })
-    .where(
-      and(
-        eq(tablesTable.name, parsed.data.table),
-        eq(tablesTable.branchId, branchId),
-      ),
-    );
+  // Claim the table by its id. The previous code matched on the display name,
+  // which silently did nothing when the text did not match a row, allowed a
+  // second tab to overwrite the first, and left the table stuck on OCCUPIED
+  // when the orphaned tab was later closed.
+  if (parsed.data.tableId) {
+    const claimed = await db
+      .update(tablesTable)
+      .set({ status: "OCCUPIED", tabId: id, customer: parsed.data.customer })
+      .where(
+        and(
+          eq(tablesTable.id, parsed.data.tableId),
+          eq(tablesTable.branchId, branchId),
+          eq(tablesTable.organizationId, tenant.organizationId),
+        ),
+      )
+      .returning({ id: tablesTable.id });
+
+    if (!claimed.length) {
+      // Either the table does not exist in this branch, or it is already taken.
+      const [existing] = await db
+        .select({ name: tablesTable.name, status: tablesTable.status })
+        .from(tablesTable)
+        .where(
+          and(
+            eq(tablesTable.id, parsed.data.tableId),
+            eq(tablesTable.organizationId, tenant.organizationId),
+          ),
+        );
+      if (!existing) {
+        res.status(404).json({ error: "That table does not exist." });
+        return;
+      }
+      res.status(409).json({
+        error: `${existing.name} is already ${existing.status.toLowerCase().replace("_", " ")}. Close its current tab first.`,
+        code: "TABLE_NOT_AVAILABLE",
+      });
+      return;
+    }
+  }
   publish({
     topic: "TABLE_STATUS_CHANGED",
     organizationId: tenant.organizationId,
@@ -524,10 +555,30 @@ router.post("/tabs/:tabId/checkout", async (req, res): Promise<void> => {
       .set({ status: "CLOSED", closedAt: new Date() })
       .where(eq(tabsTable.id, tab.id))
       .returning();
-    await tx
+    const released = await tx
       .update(tablesTable)
       .set({ status: "AVAILABLE", tabId: null, customer: null, total: 0 })
-      .where(eq(tablesTable.tabId, tab.id));
+      .where(
+        tab.tableId
+          ? eq(tablesTable.id, tab.tableId)
+          : eq(tablesTable.tabId, tab.id),
+      )
+      .returning({ id: tablesTable.id });
+    if (!released.length && !tab.tableId) {
+      // The table is still marked OCCUPIED but no longer points at this tab,
+      // which happens when a second tab overwrote it. Free it rather than
+      // leaving the floor permanently blocked.
+      await tx
+        .update(tablesTable)
+        .set({ status: "AVAILABLE", tabId: null, customer: null, total: 0 })
+        .where(
+          and(
+            eq(tablesTable.name, tab.tableName),
+            eq(tablesTable.branchId, tab.branchId),
+            eq(tablesTable.status, "OCCUPIED"),
+          ),
+        );
+    }
     await tx.insert(activityTable).values({
       id: `activity-${Date.now()}`,
       organizationId: tenant.organizationId,

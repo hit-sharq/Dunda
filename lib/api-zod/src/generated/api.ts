@@ -338,6 +338,7 @@ export const GetTabsResponse = zod.array(GetTabsResponseItem)
 export const CreateTabBody = zod.object({
   "customer": zod.string().min(1),
   "table": zod.string().min(1),
+  "tableId": zod.string().nullish(),
   "branchId": zod.string().nullish()
 })
 
@@ -527,6 +528,7 @@ export const GetOrdersResponse = zod.array(GetOrdersResponseItem)
 
 export const CreateOrderBody = zod.object({
   "table": zod.string(),
+  "tableId": zod.string().nullish(),
   "customerId": zod.string().nullish(),
   "staffId": zod.string().nullish(),
   "items": zod.array(zod.object({

@@ -12,5 +12,7 @@ export interface TabInput {
   /** @minLength 1 */
   table: string;
   /** @nullable */
+  tableId?: string | null;
+  /** @nullable */
   branchId?: string | null;
 }

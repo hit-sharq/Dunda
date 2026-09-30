@@ -44,6 +44,10 @@ export const tabsTable = pgTable("dunda_tabs", {
   number: text("number").notNull().unique(),
   customer: text("customer").notNull(),
   tableName: text("table_name").notNull(),
+  // The table this tab is on. A real foreign key rather than matching on the
+  // display name, so a tab cannot attach to a table that does not exist, two
+  // tables can share a name, and a tab cannot be orphaned.
+  tableId: text("table_id").references(() => tablesTable.id, { onDelete: "set null" }),
   status: text("status").notNull().default("OPEN"),
   subtotal: integer("subtotal").notNull().default(0),
   serviceCharge: integer("service_charge").notNull().default(0),

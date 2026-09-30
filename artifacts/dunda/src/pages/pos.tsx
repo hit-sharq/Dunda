@@ -7,6 +7,8 @@ import {
   useCreateTab,
   useGetProductByBarcode,
   useGetProductUnits,
+  useGetBranchFloor,
+  useGetBranches,
   useGetProducts,
   useGetTabs,
   type Product,
@@ -17,10 +19,23 @@ import { QueryNotice } from '../components/query-notice';
 export function Pos() {
   const products = useGetProducts();
   const openTabs = useGetTabs({ status: "OPEN" });
+  const branches = useGetBranches();
+  const activeBranchId = branches.data?.[0]?.id ?? "";
+  const floor = useGetBranchFloor(activeBranchId, {
+    query: {
+      enabled: Boolean(activeBranchId),
+      queryKey: ["getBranchFloor", activeBranchId],
+    },
+  });
+  // Only genuinely free tables can be picked, so a double-booking is refused
+  // at the point of choice rather than after the fact.
+  const freeTables = (floor.data?.sections ?? []).flatMap((section) =>
+    section.tables.filter((t) => t.status === "AVAILABLE"),
+  );
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [selectedTabId, setSelectedTabId] = useState<string>();
-  const [newTab, setNewTab] = useState<{ customer: string; table: string } | null>(null);
+  const [newTab, setNewTab] = useState<{ customer: string; table: string; tableId: string | null } | null>(null);
   const [unitPicker, setUnitPicker] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState("");
@@ -165,7 +180,7 @@ export function Pos() {
     e.preventDefault();
     if (!newTab?.customer || !newTab?.table) return;
     openTab.mutate(
-      { data: { customer: newTab.customer, table: newTab.table, branchId: null } },
+      { data: { customer: newTab.customer, table: newTab.table, tableId: newTab.tableId, branchId: null } },
       {
         onSuccess: (created) => {
           setSelectedTabId(created.id);
@@ -310,7 +325,7 @@ export function Pos() {
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-display text-lg font-bold">Current tab</h3>
             <Button
-              onClick={() => setNewTab({ customer: "", table: "" })}
+              onClick={() => setNewTab({ customer: "", table: "", tableId: null })}
               data-testid="button-new-tab"
             >
               + New
@@ -442,16 +457,34 @@ export function Pos() {
                 data-testid="input-tab-customer"
               />
             </Field>
-            <Field label="Table or seat">
-              <input
+            <Field label="Table">
+              <select
                 required
-                value={newTab.table}
-                onChange={(e) => setNewTab({ ...newTab, table: e.target.value })}
-                placeholder="e.g. T-14"
+                value={newTab.tableId ?? ""}
+                onChange={(e) => {
+                  const chosen = freeTables.find((t) => t.id === e.target.value);
+                  setNewTab({
+                    ...newTab,
+                    tableId: chosen?.id ?? null,
+                    table: chosen?.name ?? newTab.table,
+                  });
+                }}
                 className={inputClass}
-                data-testid="input-tab-table"
-              />
+                data-testid="select-tab-table"
+              >
+                <option value="" disabled>Select a free table</option>
+                {freeTables.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} · {t.section} ({t.seats} seats)
+                  </option>
+                ))}
+              </select>
             </Field>
+            {freeTables.length === 0 && (
+              <p className="-mt-2 text-xs text-[#a3452e]">
+                Every table is currently occupied. Close a tab to free one.
+              </p>
+            )}
             <Button
               className="mt-2 w-full"
               disabled={openTab.isPending}

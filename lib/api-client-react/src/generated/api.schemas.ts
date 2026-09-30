@@ -154,6 +154,8 @@ export interface TabInput {
   /** @minLength 1 */
   table: string;
   /** @nullable */
+  tableId?: string | null;
+  /** @nullable */
   branchId?: string | null;
 }
 
@@ -241,6 +243,8 @@ export type CreateOrderInputItemsItem = {
 
 export interface CreateOrderInput {
   table: string;
+  /** @nullable */
+  tableId?: string | null;
   /** @nullable */
   customerId?: string | null;
   /** @nullable */

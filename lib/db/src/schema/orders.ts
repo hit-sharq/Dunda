@@ -12,6 +12,7 @@ import { organizationsTable, branchesTable } from "./organization";
 import { productsTable } from "./products";
 import { staffTable } from "./auth";
 import { customersTable } from "./customers";
+import { tablesTable } from "./tables";
 
 export const orderStatusEnum = pgEnum("dunda_order_status", [
   "DRAFT",
@@ -35,6 +36,9 @@ export const ordersTable = pgTable("dunda_orders", {
     .references(() => branchesTable.id),
   number: text("number").notNull().unique(),
   tableName: text("table_name"),
+  // Foreign key to the table the order is served to. Orders occupy their table
+  // for the life of the ticket, exactly as a tab does.
+  tableId: text("table_id").references(() => tablesTable.id, { onDelete: "set null" }),
   customerId: text("customer_id").references(() => customersTable.id),
   staffId: text("staff_id").references(() => staffTable.id),
   status: text("status").notNull().default("DRAFT"),

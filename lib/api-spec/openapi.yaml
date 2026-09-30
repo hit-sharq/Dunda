@@ -1577,6 +1577,9 @@ components:
       properties:
         customer: { type: string, minLength: 1 }
         table: { type: string, minLength: 1 }
+        # The table the tab occupies. Supplying this claims the table and
+        # rejects the request with 409 if it is already taken.
+        tableId: { type: ["string", "null"] }
         branchId: { type: ["string", "null"] }
     TabItemInput:
       type: object
@@ -1622,6 +1625,9 @@ components:
       required: [table, items]
       properties:
         table: { type: string }
+        # The table the order is served to. Supplying this occupies the table
+        # until the order is served or completed.
+        tableId: { type: ["string", "null"] }
         customerId: { type: ["string", "null"] }
         staffId: { type: ["string", "null"] }
         items:

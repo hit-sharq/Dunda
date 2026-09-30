@@ -10,6 +10,8 @@ import type { CreateOrderInputItemsItem } from './createOrderInputItemsItem';
 export interface CreateOrderInput {
   table: string;
   /** @nullable */
+  tableId?: string | null;
+  /** @nullable */
   customerId?: string | null;
   /** @nullable */
   staffId?: string | null;
