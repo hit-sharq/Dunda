@@ -1,4 +1,19 @@
-export const PERMISSIONS = [
+export interface PermissionSeed {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+}
+
+export interface RoleSeed {
+  id: string;
+  name: string;
+  description: string;
+  sortOrder: number;
+  isOwner: boolean;
+}
+
+export const PERMISSIONS: PermissionSeed[] = [
   { id: "perm_view_pos", name: "view_pos", description: "Open the point of sale", category: "pos" },
   { id: "perm_create_order", name: "create_order", description: "Create new orders", category: "pos" },
   { id: "perm_modify_order", name: "modify_order", description: "Edit order items and status", category: "pos" },
@@ -24,22 +39,22 @@ export const PERMISSIONS = [
   { id: "perm_view_reports", name: "view_reports", description: "View reports and analytics", category: "reporting" },
   { id: "perm_view_audit_logs", name: "view_audit_logs", description: "View the audit log", category: "reporting" },
   { id: "perm_manage_branches", name: "manage_branches", description: "Create and manage branches", category: "admin" },
-] as const;
+];
 
-export const ALL_PERMISSIONS = PERMISSIONS.map((p) => p.name);
+export const ALL_PERMISSIONS: string[] = PERMISSIONS.map((p) => p.name);
 
-export const ROLES = [
-  { id: "role_owner", name: "Organization Owner", description: "Full organization access", sortOrder: 1 },
-  { id: "role_admin", name: "Administrator", description: "System administration", sortOrder: 2 },
-  { id: "role_gm", name: "General Manager", description: "Operational management across branches", sortOrder: 3 },
-  { id: "role_branch_manager", name: "Branch Manager", description: "Manages an assigned branch", sortOrder: 4 },
-  { id: "role_event_manager", name: "Event Manager", description: "Events and reservations", sortOrder: 5 },
-  { id: "role_inventory_manager", name: "Inventory Manager", description: "Stock and inventory", sortOrder: 6 },
-  { id: "role_cashier", name: "Cashier", description: "POS and payment operations", sortOrder: 7 },
-  { id: "role_waiter", name: "Waiter", description: "Tables and orders", sortOrder: 8 },
-  { id: "role_bartender", name: "Bartender", description: "Bar operations", sortOrder: 9 },
-  { id: "role_kitchen", name: "Kitchen Staff", description: "Kitchen operations", sortOrder: 10 },
-  { id: "role_floor", name: "Floor Staff", description: "Floor operations", sortOrder: 11 },
+export const ROLES: RoleSeed[] = [
+  { id: "role_owner", name: "Organization Owner", description: "Full organization access", sortOrder: 1 , isOwner: true },
+  { id: "role_admin", name: "Administrator", description: "System administration", sortOrder: 2 , isOwner: false },
+  { id: "role_gm", name: "General Manager", description: "Operational management across branches", sortOrder: 3 , isOwner: false },
+  { id: "role_branch_manager", name: "Branch Manager", description: "Manages an assigned branch", sortOrder: 4 , isOwner: false },
+  { id: "role_event_manager", name: "Event Manager", description: "Events and reservations", sortOrder: 5 , isOwner: false },
+  { id: "role_inventory_manager", name: "Inventory Manager", description: "Stock and inventory", sortOrder: 6 , isOwner: false },
+  { id: "role_cashier", name: "Cashier", description: "POS and payment operations", sortOrder: 7 , isOwner: false },
+  { id: "role_waiter", name: "Waiter", description: "Tables and orders", sortOrder: 8 , isOwner: false },
+  { id: "role_bartender", name: "Bartender", description: "Bar operations", sortOrder: 9 , isOwner: false },
+  { id: "role_kitchen", name: "Kitchen Staff", description: "Kitchen operations", sortOrder: 10 , isOwner: false },
+  { id: "role_floor", name: "Floor Staff", description: "Floor operations", sortOrder: 11 , isOwner: false },
 ] as const;
 
 const viewOnly = ["view_pos", "view_inventory"];

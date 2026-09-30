@@ -13,7 +13,8 @@
     "generate": "drizzle-kit generate --config ./drizzle.config.ts",
     "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
     "studio": "drizzle-kit studio --config ./drizzle.config.ts",
-    "seed": "tsx ../../scripts/src/seed.ts"
+    "seed": "tsx ../../scripts/src/seed.ts",
+    "sync:roles": "tsx ../../scripts/src/syncRoles.ts"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
