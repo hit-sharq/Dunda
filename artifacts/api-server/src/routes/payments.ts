@@ -30,8 +30,10 @@ function can(req: any, permission: string): boolean {
 
 function deny(res: any, permission: string): void {
   res.status(403).json({
-    error: `You do not have permission to perform this action. Required: ${permission}`,
-  });
+      error: "You do not have permission to perform this action.",
+      code: "INSUFFICIENT_PERMISSION",
+      required: permission,
+    });
 }
 
 function uid(prefix: string): string {

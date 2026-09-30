@@ -278,8 +278,10 @@ router.post("/tabs", async (req, res): Promise<void> => {
     | undefined;
   if (!ctx || (!ctx.isOwner && !ctx.permissions.has("view_pos"))) {
     res.status(403).json({
-      error: "You do not have permission to perform this action. Required: view_pos",
-    });
+        error: "You do not have permission to perform this action.",
+        code: "INSUFFICIENT_PERMISSION",
+        required: "view_pos",
+      });
     return;
   }
   const tenant = getTenant(req);
@@ -397,8 +399,10 @@ router.post("/tabs/:tabId", async (req, res): Promise<void> => {
     | undefined;
   if (!ctx || (!ctx.isOwner && !ctx.permissions.has("create_order"))) {
     res.status(403).json({
-      error: "You do not have permission to perform this action. Required: create_order",
-    });
+        error: "You do not have permission to perform this action.",
+        code: "INSUFFICIENT_PERMISSION",
+        required: "create_order",
+      });
     return;
   }
   const tenant = getTenant(req);
@@ -533,9 +537,10 @@ router.post("/tabs/:tabId/checkout", async (req, res): Promise<void> => {
     | undefined;
   if (!ctx || (!ctx.isOwner && !ctx.permissions.has("manage_payments"))) {
     res.status(403).json({
-      error:
-        "You do not have permission to perform this action. Required: manage_payments",
-    });
+        error: "You do not have permission to perform this action.",
+        code: "INSUFFICIENT_PERMISSION",
+        required: "manage_payments",
+      });
     return;
   }
   const tenant = getTenant(req);
@@ -865,9 +870,10 @@ router.patch("/reservations/:reservationId", async (req, res): Promise<void> => 
     | undefined;
   if (!ctx || (!ctx.isOwner && !ctx.permissions.has("manage_reservations"))) {
     res.status(403).json({
-      error:
-        "You do not have permission to perform this action. Required: manage_reservations",
-    });
+        error: "You do not have permission to perform this action.",
+        code: "INSUFFICIENT_PERMISSION",
+        required: "manage_reservations",
+      });
     return;
   }
   const tenant = getTenant(req);

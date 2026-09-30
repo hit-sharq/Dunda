@@ -178,7 +178,9 @@ router.patch("/:customerId", async (req, res): Promise<void> => {
       | undefined;
     if (!ctx || (!ctx.isOwner && !ctx.permissions.has("manage_vip"))) {
       res.status(403).json({
-        error: "You do not have permission to perform this action. Required: manage_vip",
+        error: "You do not have permission to perform this action.",
+        code: "INSUFFICIENT_PERMISSION",
+        required: "manage_vip",
       });
       return;
     }

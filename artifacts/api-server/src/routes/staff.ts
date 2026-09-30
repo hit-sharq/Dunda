@@ -65,8 +65,10 @@ router.post("/", async (req, res): Promise<void> => {
     | undefined;
   if (!ctx || (!ctx.isOwner && !ctx.permissions.has("manage_staff"))) {
     res.status(403).json({
-      error: "You do not have permission to perform this action. Required: manage_staff",
-    });
+        error: "You do not have permission to perform this action.",
+        code: "INSUFFICIENT_PERMISSION",
+        required: "manage_staff",
+      });
     return;
   }
   const tenant = getTenant(req);
@@ -188,8 +190,10 @@ router.patch("/:staffId", async (req, res): Promise<void> => {
     | undefined;
   if (!ctx || (!ctx.isOwner && !ctx.permissions.has("manage_staff"))) {
     res.status(403).json({
-      error: "You do not have permission to perform this action. Required: manage_staff",
-    });
+        error: "You do not have permission to perform this action.",
+        code: "INSUFFICIENT_PERMISSION",
+        required: "manage_staff",
+      });
     return;
   }
   const tenant = getTenant(req);

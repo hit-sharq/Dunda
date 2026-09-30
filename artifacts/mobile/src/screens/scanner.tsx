@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "ex
 import { Pressable, Text, View } from "react-native";
 import { apiFetch } from "../lib/api";
 import { colors, money } from "../lib/theme";
+import { describeError } from "../lib/errors";
 import { Button, Card, Screen, State } from "../components/ui";
 
 interface Lookup {
@@ -33,9 +34,13 @@ export default function ScannerScreen() {
       setLast(data);
       setError(null);
     },
-    onError: (e: Error) => {
+    onError: (e: unknown) => {
       setLast(null);
-      setError(`${e.message}. An authorized user can register this barcode.`);
+      // The raw error carries HTTP status text, so it is resolved to something
+      // a person can read.
+      setError(
+        `${describeError(e).detail} An authorized user can register this barcode.`,
+      );
     },
   });
 

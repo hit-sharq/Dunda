@@ -65,9 +65,10 @@ router.post("/", async (req, res): Promise<void> => {
   const ctx = req.clerk?.__staffContext;
   if (!ctx || (!ctx.isOwner && !ctx.permissions.has("adjust_inventory"))) {
     res.status(403).json({
-      error:
-        "You do not have permission to perform this action. Required: adjust_inventory",
-    });
+        error: "You do not have permission to perform this action.",
+        code: "INSUFFICIENT_PERMISSION",
+        required: "adjust_inventory",
+      });
     return;
   }
   const tenant = getTenant(req);

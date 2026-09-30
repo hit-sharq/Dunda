@@ -23,9 +23,42 @@ export interface FriendlyError {
 interface ErrorLike {
   status?: number;
   code?: string;
-  data?: { error?: string; code?: string } | null;
+  data?: { error?: string; code?: string; required?: string } | null;
   message?: string;
 }
+
+/**
+ * What each permission is called on screen.
+ *
+ * The API works in keys such as create_order. A waiter being refused needs to
+ * hear what is being asked for, not the key it is stored under.
+ */
+export const PERMISSION_LABELS: Record<string, string> = {
+  view_pos: "Access the point of sale",
+  create_order: "Take orders",
+  modify_order: "Amend orders",
+  update_ticket: "Work the station tickets",
+  apply_discount: "Apply discounts",
+  void_order: "Void orders",
+  refund_payment: "Issue refunds",
+  close_order: "Close orders",
+  manage_payments: "Take payment",
+  view_inventory: "View stock",
+  adjust_inventory: "Adjust stock",
+  approve_transfer: "Approve transfers",
+  manage_products: "Manage the catalog",
+  manage_prices: "Change prices",
+  manage_staff: "Manage staff",
+  manage_roles: "Manage roles",
+  clock_shift: "Clock in and out",
+  manage_events: "Manage events",
+  manage_reservations: "Manage reservations",
+  manage_vip: "Manage VIP guests",
+  manage_floor: "Edit the floor",
+  view_reports: "View reports",
+  view_audit_logs: "View the audit log",
+  manage_branches: "Manage branches",
+};
 
 function asErrorLike(error: unknown): ErrorLike {
   if (error && typeof error === "object") return error as ErrorLike;
@@ -67,11 +100,15 @@ export function describeError(
   }
 
   if (status === 403) {
+    // The server names the permission it wanted; render that as something a
+    // person can act on rather than a developer key.
+    const required = e.data?.required as string | undefined;
+    const label = required ? PERMISSION_LABELS[required] : undefined;
     return {
-      title: "You don't have access",
-      detail: serverMessage
-        ? `Ask a manager to grant you the right permissions. ${serverMessage}`
-        : "This action needs a permission your role does not have. Ask a manager to grant it.",
+      title: label ? `Needs "${label}"` : "You don't have access",
+      detail: label
+        ? `Your role doesn't include this. Ask a manager for the "${label}" permission.`
+        : "Your role doesn't include this. Ask a manager to grant you access.",
       tone: "warning",
       canRetry: false,
       code,
@@ -166,4 +203,21 @@ export function isGenuinelyEmpty(
   if (query.isError) return false;
   if (query.data === undefined || query.data === null) return true;
   return isEmpty(query.data);
+}
+
+/**
+ * A one-line message for a failed action.
+ *
+ * Failures from queries render through QueryNotice, but a mutation reports
+ * through its own error handler and used to surface ApiError's message
+ * directly, which reads "HTTP 403 Forbidden: ... Required: create_order".
+ * That leaked HTTP status text and a permission key at somebody standing in
+ * front of a customer.
+ */
+export function describeActionError(error: unknown, context?: { what?: string }): string {
+  const info = describeError(error, context);
+  if (info.canRetry) {
+    return `${info.title}. ${info.detail}`;
+  }
+  return info.detail;
 }

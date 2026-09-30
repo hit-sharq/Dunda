@@ -16,6 +16,7 @@ import {
 } from "@workspace/api-client-react";
 import { Button, Field, Modal, inputClass, money } from "../components/ui";
 import { QueryNotice } from '../components/query-notice';
+import { describeActionError } from '../lib/errors';
 
 export function Pos() {
   const products = useGetProducts();
@@ -125,7 +126,7 @@ export function Pos() {
           qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: "OPEN" }) });
           setNotice({ tone: "ok", text: `${found.name} added` });
         },
-        onError: (e: Error) => setNotice({ tone: "err", text: e.message }),
+        onError: (e: unknown) => setNotice({ tone: "err", text: describeActionError(e) }),
       },
     );
     setScanned(null);
@@ -172,7 +173,7 @@ export function Pos() {
           });
           setUnitPicker(null);
         },
-        onError: (e: Error) => setNotice({ tone: "err", text: e.message }),
+        onError: (e: unknown) => setNotice({ tone: "err", text: describeActionError(e) }),
       },
     );
   }
@@ -188,7 +189,7 @@ export function Pos() {
           setNewTab(null);
           qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: "OPEN" }) });
         },
-        onError: (err: Error) => setNotice({ tone: "err", text: err.message }),
+        onError: (err: unknown) => setNotice({ tone: "err", text: describeActionError(err) }),
       },
     );
   }
@@ -206,7 +207,7 @@ export function Pos() {
           setSelectedTabId(undefined);
           qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: "OPEN" }) });
         },
-        onError: (e: Error) => setNotice({ tone: "err", text: e.message }),
+        onError: (e: unknown) => setNotice({ tone: "err", text: describeActionError(e) }),
       },
     );
   }
