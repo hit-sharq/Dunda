@@ -587,11 +587,11 @@ export const UpdateOrderStatusResponse = zod.object({
  */
 export const GetStaffResponseItem = zod.object({
   "id": zod.string(),
-  "clerkUserId": zod.string().optional(),
+  "clerkUserId": zod.string().nullish(),
   "name": zod.string(),
   "email": zod.string().nullable(),
   "phone": zod.string().nullish(),
-  "role": zod.string(),
+  "role": zod.string().nullish(),
   "roleId": zod.string().nullish(),
   "status": zod.enum(['ACTIVE', 'INACTIVE']),
   "branchId": zod.string().nullish(),
@@ -614,11 +614,11 @@ export const CreateStaffBody = zod.object({
 
 export const CreateStaffResponse = zod.object({
   "id": zod.string(),
-  "clerkUserId": zod.string().optional(),
+  "clerkUserId": zod.string().nullish(),
   "name": zod.string(),
   "email": zod.string().nullable(),
   "phone": zod.string().nullish(),
-  "role": zod.string(),
+  "role": zod.string().nullish(),
   "roleId": zod.string().nullish(),
   "status": zod.enum(['ACTIVE', 'INACTIVE']),
   "branchId": zod.string().nullish(),
@@ -635,11 +635,11 @@ export const GetStaffMemberParams = zod.object({
 
 export const GetStaffMemberResponse = zod.object({
   "id": zod.string(),
-  "clerkUserId": zod.string().optional(),
+  "clerkUserId": zod.string().nullish(),
   "name": zod.string(),
   "email": zod.string().nullable(),
   "phone": zod.string().nullish(),
-  "role": zod.string(),
+  "role": zod.string().nullish(),
   "roleId": zod.string().nullish(),
   "status": zod.enum(['ACTIVE', 'INACTIVE']),
   "branchId": zod.string().nullish(),
@@ -666,11 +666,11 @@ export const UpdateStaffBody = zod.object({
 
 export const UpdateStaffResponse = zod.object({
   "id": zod.string(),
-  "clerkUserId": zod.string().optional(),
+  "clerkUserId": zod.string().nullish(),
   "name": zod.string(),
   "email": zod.string().nullable(),
   "phone": zod.string().nullish(),
-  "role": zod.string(),
+  "role": zod.string().nullish(),
   "roleId": zod.string().nullish(),
   "status": zod.enum(['ACTIVE', 'INACTIVE']),
   "branchId": zod.string().nullish(),

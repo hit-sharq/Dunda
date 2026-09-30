@@ -324,6 +324,9 @@ router.post("/tabs", async (req, res): Promise<void> => {
   // second tab to overwrite the first, and left the table stuck on OCCUPIED
   // when the orphaned tab was later closed.
   if (parsed.data.tableId) {
+    // The status condition is what actually prevents double booking: an
+    // already-taken table matches no row, so the claim falls through to the
+    // refusal below rather than overwriting the first tab.
     const claimed = await db
       .update(tablesTable)
       .set({ status: "OCCUPIED", tabId: id, customer: parsed.data.customer })
@@ -332,6 +335,7 @@ router.post("/tabs", async (req, res): Promise<void> => {
           eq(tablesTable.id, parsed.data.tableId),
           eq(tablesTable.branchId, branchId),
           eq(tablesTable.organizationId, tenant.organizationId),
+          eq(tablesTable.status, "AVAILABLE"),
         ),
       )
       .returning({ id: tablesTable.id });

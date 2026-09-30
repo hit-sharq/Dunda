@@ -49,7 +49,7 @@ function deny(res: any, permission: string): void {
  * workflow, so serving the first round does not clear the food from the pass.
  */
 router.get("/", async (req, res): Promise<void> => {
-  if (!can(req, "view_pos")) return deny(res, "view_pos");
+  if (!can(req, "update_ticket")) return deny(res, "update_ticket");
   const tenant = getTenant(req);
 
   const station = String(req.query.station ?? "").toUpperCase();

@@ -74,4 +74,22 @@ app.use(
 
 app.use("/api", router);
 
+// A route that throws must not surface as an empty 500. The user is told the
+// request failed and the cause is recorded, without leaking internals.
+app.use(
+  (
+    err: unknown,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    logger.error({ err }, "Unhandled route error");
+    if (res.headersSent) return;
+    res.status(500).json({
+      error: "Something went wrong on our side. Please try again.",
+      code: "INTERNAL_ERROR",
+    });
+  },
+);
+
 export default app;

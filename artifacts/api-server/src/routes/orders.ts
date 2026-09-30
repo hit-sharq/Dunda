@@ -30,6 +30,7 @@ import { calculateTotals, formatMoney, getTenantSettings } from "../lib/tenantSe
 import { nextDocumentNumber } from "../lib/numbering";
 import { logAuditEntry } from "../lib/auditLogger";
 import { publish } from "../lib/realtime";
+import { withTransactionRetry } from "../lib/retry";
 import { InvalidTransitionError, ORDER_STATUS_TRANSITIONS } from "../lib/orderWorkflow";
 import {
   isClosed,
@@ -184,7 +185,10 @@ router.post("/", async (req, res): Promise<void> => {
     }
   }
 
-  const order = await db.transaction(async (tx) => {
+  // A dropped connection mid-order would otherwise return a failure and lose the
+  // guest's items. The transaction is atomic, so retrying it is safe.
+  const order = await withTransactionRetry(() =>
+    db.transaction(async (tx) => {
     const [order] = await tx
       .insert(ordersTable)
       .values({
@@ -349,7 +353,8 @@ router.post("/", async (req, res): Promise<void> => {
       .returning();
 
     return updated;
-  });
+    }),
+  );
 
   const items = await db
     .select()

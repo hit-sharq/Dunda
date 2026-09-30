@@ -13,7 +13,7 @@ export default defineConfig({
     // These suites exercise decision logic and the database layer. They touch a
     // real database where they need one, so they must not run concurrently
     // against the same rows.
-    include: ["tests/**/*.test.ts", "lib/*/tests/**/*.test.ts"],
+    include: ["tests/**/*.test.ts", "lib/*/tests/**/*.test.ts", "artifacts/*/tests/**/*.test.ts"],
     testTimeout: 60_000,
     hookTimeout: 60_000,
     pool: "forks",

@@ -1843,14 +1843,17 @@ components:
         categoryId: { type: ["string", "null"] }
     StaffMember:
       type: object
-      required: [id, name, email, role, status]
+      required: [id, name, email, status]
       properties:
         id: { type: string }
-        clerkUserId: { type: string }
+        # Both of these are null until the account exists: a staff record can be
+        # created before the person signs in, and a role is only absent if the
+        # row points at one that no longer exists.
+        clerkUserId: { type: ["string", "null"] }
         name: { type: string }
         email: { type: ["string", "null"] }
         phone: { type: ["string", "null"] }
-        role: { type: string }
+        role: { type: ["string", "null"] }
         roleId: { type: ["string", "null"] }
         status: { type: string, enum: [ACTIVE, INACTIVE] }
         branchId: { type: ["string", "null"] }

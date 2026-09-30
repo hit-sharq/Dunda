@@ -295,13 +295,15 @@ export const StaffMemberStatus = {
 
 export interface StaffMember {
   id: string;
-  clerkUserId?: string;
+  /** @nullable */
+  clerkUserId?: string | null;
   name: string;
   /** @nullable */
   email: string | null;
   /** @nullable */
   phone?: string | null;
-  role: string;
+  /** @nullable */
+  role?: string | null;
   /** @nullable */
   roleId?: string | null;
   status: StaffMemberStatus;

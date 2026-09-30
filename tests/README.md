@@ -2,12 +2,15 @@
 
 `pnpm test` runs everything. `pnpm verify` typechecks, tests, then builds.
 
-Two kinds of suite live here:
+Suites live beside the code they exercise, so their dependencies resolve:
 
 - **`tests/`** — decision logic with no database: the role grant boundary, the
   station split, the order status machine, money arithmetic, token hashing.
-- **`lib/db/tests/`** — the same rules exercised against the real database,
-  inside transactions, because that is where stock and identity actually change.
+- **`lib/db/tests/`** — stock deduction and email-claim refusal, run against the
+  real database because that is where stock and identity actually change.
+- **`artifacts/api-server/tests/`** — the routes over real HTTP. Only the Clerk
+  token check is stubbed; tenancy, permissions, transactions and database writes
+  all run for real.
 
 ## What is pinned, and why
 
@@ -22,6 +25,10 @@ The suites cover the cases where being wrong is expensive rather than visible:
   claims nothing at all when two records share an address.
 - A realtime ticket is single use, because a URL gets copied.
 - A setup token is never recoverable from what is stored.
+- A table cannot be double booked, and an order for a busy table is refused.
+- A waiter cannot read or advance a station ticket.
+- Tax and service charge come from the organization, not from a constant.
+- Stock is deducted when a station serves a ticket, not when the order closes.
 
 ## The database
 
@@ -31,4 +38,5 @@ internet and drops pooled connections intermittently, so those calls are
 retried — a transport failure is not a test failure, and is never reported as
 one.
 
-They create rows under a `test-` prefix and delete them in `afterAll`.
+They create rows under a `test-` prefix and delete them in `afterAll`, including
+after a failed run.
