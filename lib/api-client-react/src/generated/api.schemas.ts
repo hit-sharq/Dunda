@@ -657,6 +657,44 @@ export interface ProductReportItem {
   revenue: number;
 }
 
+/**
+ * @nullable
+ */
+export type MeStaff = {
+  id?: string;
+  name?: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  roleId?: string;
+  /** @nullable */
+  branchId?: string | null;
+  status?: string;
+} | null;
+
+export type MeBranchesItem = {
+  id?: string;
+  name?: string;
+  city?: string;
+  status?: string;
+};
+
+export interface Me {
+  organizationId: string;
+  /** @nullable */
+  clerkUserId?: string | null;
+  /** @nullable */
+  staff?: MeStaff;
+  /** @nullable */
+  branchId?: string | null;
+  branches?: MeBranchesItem[];
+  /** @nullable */
+  role?: string | null;
+  permissions: string[];
+  isOwner: boolean;
+}
+
 export type StockTransferStatusInputStatus = typeof StockTransferStatusInputStatus[keyof typeof StockTransferStatusInputStatus];
 
 

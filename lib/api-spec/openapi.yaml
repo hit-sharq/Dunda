@@ -1305,6 +1305,17 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SearchResult" }
+  /me:
+    get:
+      operationId: getMe
+      tags: [health]
+      summary: The caller's identity, role and resolved permissions
+      responses:
+        "200":
+          description: Current session context
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
   /reports/inventory:
     get:
       operationId: getInventoryReport
@@ -1900,6 +1911,37 @@ components:
       properties:
         label: { type: string }
         value: { type: number }
+    Me:
+      type: object
+      required: [organizationId, permissions, isOwner]
+      properties:
+        organizationId: { type: string }
+        clerkUserId: { type: ["string", "null"] }
+        staff:
+          type: ["object", "null"]
+          properties:
+            id: { type: string }
+            name: { type: string }
+            email: { type: ["string", "null"] }
+            phone: { type: ["string", "null"] }
+            roleId: { type: string }
+            branchId: { type: ["string", "null"] }
+            status: { type: string }
+        branchId: { type: ["string", "null"] }
+        branches:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+              city: { type: string }
+              status: { type: string }
+        role: { type: ["string", "null"] }
+        permissions:
+          type: array
+          items: { type: string }
+        isOwner: { type: boolean }
     StockTransferStatusInput:
       type: object
       required: [status]

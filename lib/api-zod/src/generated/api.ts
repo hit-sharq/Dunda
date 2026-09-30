@@ -1825,6 +1825,34 @@ export const GlobalSearchResponse = zod.object({
 
 
 /**
+ * @summary The caller's identity, role and resolved permissions
+ */
+export const GetMeResponse = zod.object({
+  "organizationId": zod.string(),
+  "clerkUserId": zod.string().nullish(),
+  "staff": zod.object({
+  "id": zod.string().optional(),
+  "name": zod.string().optional(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "roleId": zod.string().optional(),
+  "branchId": zod.string().nullish(),
+  "status": zod.string().optional()
+}).nullish(),
+  "branchId": zod.string().nullish(),
+  "branches": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "name": zod.string().optional(),
+  "city": zod.string().optional(),
+  "status": zod.string().optional()
+})).optional(),
+  "role": zod.string().nullish(),
+  "permissions": zod.array(zod.string()),
+  "isOwner": zod.boolean()
+})
+
+
+/**
  * @summary Inventory position, movements and discrepancies
  */
 export const GetInventoryReportQueryParams = zod.object({

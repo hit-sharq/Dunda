@@ -14,7 +14,7 @@ import {
   getGetInventoryAlertsQueryKey, getGetOrdersQueryKey, getGetProductsQueryKey, getGetReservationsQueryKey, getGetStaffQueryKey, getGetTabsQueryKey, getGetCustomersQueryKey, getGetEventsQueryKey, getGetSalesReportQueryKey, getGetAuditLogsQueryKey, getGetInventoryQueryKey,
   useAddTabItem,   useAdjustInventory, useCheckoutTab, useCreateCustomer, useCreateEvent, useCreateOrder,
   useCreateReservation, useCreateShift, useCreateStaff, useCreateTab, useCreateSupplier, useGetBranchFloor,
-  useGetBranches, useGetCategories, useGetDashboardActivity, useGetDashboardSummary, useGetEvents, useGetInventory, useGetInventoryAlerts,
+  useGetBranches, useGetCategories, useGetMe, useGetDashboardActivity, useGetDashboardSummary, useGetEvents, useGetInventory, useGetInventoryAlerts,
   useGetOrders, useGetProducts, useGetReservations, useGetStaff, useGetTabs, useUpdateOrderStatus,
   useGetTab, useGetCustomer, useGetCustomers, useGetEvent, useGetShifts, useGetSalesReport, useGetAuditLogs,
   type CheckoutInputMethod, type Customer, type Event, type Product, type StaffMember, type InventoryAlert,
@@ -22,6 +22,7 @@ import {
 import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch, NotificationBell } from '@/components/chrome';
 import { useRealtime } from '@/hooks/use-realtime';
+import { useApiAuth } from '@/hooks/use-api-auth';
 import { Pos as NewPos } from '@/pages/pos';
 import { Products } from '@/pages/products';
 import { FloorDesigner } from '@/pages/floor-designer';
@@ -199,10 +200,29 @@ function AppShell({ children }: { children: ReactNode }) {
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
-  const { signOut } = useClerk();
+  const { signOut, openUserProfile } = useClerk();
   const branches = useGetBranches();
   const openOrders = useGetOrders();
   const openOrderCount = (openOrders.data ?? []).filter((o) => !['COMPLETED', 'CANCELLED'].includes(o.status)).length;
+  const { user } = useUser();
+  const me = useGetMe();
+
+  const displayName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+    user?.primaryEmailAddress?.emailAddress ||
+    user?.username ||
+    'Signed in';
+
+  const roleLabel = me.data?.role ?? (me.data?.staff ? 'Staff' : 'No role assigned');
+
+  const initials =
+    displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || '?';
+
   const pulseSummary = useGetDashboardSummary();
   const shiftPulse = (() => {
     const d = pulseSummary.data;
@@ -230,7 +250,7 @@ function AppShell({ children }: { children: ReactNode }) {
       <div className="mt-5 rounded-xl border border-[#385158] bg-[#22343a] p-3"><div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[.16em] text-[#90a69f]"><span>Table occupancy</span><span className="text-[#8bd1b2]">Live</span></div><div className="mb-2 flex items-end justify-between"><span className="font-display text-2xl font-bold">{pulseSummary.data ? `${shiftPulse.summary.occupancy}%` : '—'}</span><Activity size={17} className="text-[#f07a4b]" /></div><div className="h-1.5 overflow-hidden rounded-full bg-[#3b5054]"><div className="h-full rounded-full bg-[#f07a4b]" style={{ width: `${shiftPulse.summary.occupancy}%` }} /></div><p className="mt-2 text-[11px] text-[#8da29c]">{shiftPulse.summary.label}</p></div>
     </aside>
     {mobileOpen && <button onClick={() => setMobileOpen(false)} className="fixed inset-0 z-30 bg-[#142027]/45 md:hidden" aria-label="Close menu" data-testid="button-overlay-close" />}
-    <main className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-[#e2dcd0] bg-[#f5f1e8]/95 px-4 backdrop-blur md:px-8"><div className="flex items-center gap-3"><Button variant="ghost" className="px-2 md:hidden" onClick={() => setMobileOpen(true)} data-testid="button-open-menu"><Menu size={20} /></Button><div><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#87908b]">Tuesday, 18 June 2024</p><h1 className="font-display text-xl font-bold tracking-tight text-[#182127]">{location === '/overview' ? 'Tonight at a glance' : nav.find((x) => x.href === location)?.label ?? (location === '/settings' ? 'Workspace settings' : 'Dunda')}</h1></div></div><div className="flex items-center gap-2"><GlobalSearch onNavigate={(href) => setLocation(href)} /><NotificationBell /><div className="hidden h-7 w-px bg-[#ded7ca] sm:block" /><button className="flex items-center gap-2 rounded-xl p-1.5 pr-2 hover:bg-[#eae5da]" data-testid="button-user-menu"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#b8d1c7] text-xs font-bold text-[#21433f]">AM</span><span className="hidden text-left sm:block"><span className="block text-xs font-semibold">Amina Mwangi</span><span className="block text-[10px] text-[#7e8983]">Floor manager</span></span></button></div></header><div className="mx-auto max-w-[1500px] p-4 md:p-8">{children}</div></main>
+    <main className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-[#e2dcd0] bg-[#f5f1e8]/95 px-4 backdrop-blur md:px-8"><div className="flex items-center gap-3"><Button variant="ghost" className="px-2 md:hidden" onClick={() => setMobileOpen(true)} data-testid="button-open-menu"><Menu size={20} /></Button><div><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#87908b]">Tuesday, 18 June 2024</p><h1 className="font-display text-xl font-bold tracking-tight text-[#182127]">{location === '/overview' ? 'Tonight at a glance' : nav.find((x) => x.href === location)?.label ?? (location === '/settings' ? 'Workspace settings' : 'Dunda')}</h1></div></div><div className="flex items-center gap-2"><GlobalSearch onNavigate={(href) => setLocation(href)} /><NotificationBell /><div className="hidden h-7 w-px bg-[#ded7ca] sm:block" /><button onClick={() => void openUserProfile()} className="flex items-center gap-2 rounded-xl p-1.5 pr-2 hover:bg-[#eae5da]" data-testid="button-user-menu"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#b8d1c7] text-xs font-bold text-[#21433f]">{initials}</span><span className="hidden text-left sm:block"><span className="block max-w-[16ch] truncate text-xs font-semibold">{displayName}</span><span className="block max-w-[16ch] truncate text-[10px] text-[#7e8983]">{roleLabel}</span></span></button></div></header><div className="mx-auto max-w-[1500px] p-4 md:p-8">{children}</div></main>
   </div>;
 }
 
@@ -341,6 +361,7 @@ function Landing() {
 
 function ProtectedRouter() {
   const { isLoaded, isSignedIn } = useAuth();
+  useApiAuth();
   useRealtime(Boolean(isSignedIn));
   if (!isLoaded) return <div className="grid min-h-[100dvh] place-items-center bg-[#f5f1e8] text-sm text-[#68736d]">Loading your workspace…</div>;
   return isSignedIn ?     <AppShell><Switch><Route path="/overview" component={Overview} /><Route path="/pos" component={NewPos} /><Route path="/floor" component={Floor} /><Route path="/designer" component={FloorDesigner} /><Route path="/orders" component={Orders} /><Route path="/bar" component={() => <ServiceBoard station="bar" />} /><Route path="/kitchen" component={() => <ServiceBoard station="kitchen" />} /><Route path="/products" component={Products} /><Route path="/inventory" component={Inventory} /><Route path="/staff" component={Staff} /><Route path="/customers" component={Customers} /><Route path="/events" component={Events} /><Route path="/reservations" component={Reservations} /><Route path="/reports" component={Reports} /><Route path="/hq" component={Hq} /><Route path="/settings" component={Settings} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
