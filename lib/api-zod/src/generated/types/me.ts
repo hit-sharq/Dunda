@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MeBranchesItem } from './meBranchesItem';
+import type { MeRolesItem } from './meRolesItem';
 import type { MeSettings } from './meSettings';
 import type { MeStaff } from './meStaff';
 
@@ -24,5 +25,7 @@ export interface Me {
   roleId?: string | null;
   permissions: string[];
   isOwner: boolean;
+  canGrantStaff?: boolean;
+  roles?: MeRolesItem[];
   settings?: MeSettings;
 }

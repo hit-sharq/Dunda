@@ -38,48 +38,19 @@ export interface StaffContext {
   isOwner: boolean;
 }
 
-export async function getStaffContext(req: any): Promise<StaffContext> {
-  const clerk: any = req.clerk;
-  if (!clerk) {
-    return {
-      staffId: null,
-      organizationId: "",
-      branchId: null,
-      clerkUserId: null,
-      role: null,
-      permissions: new Set(),
-      isOwner: false,
-    };
-  }
-
-  if (!clerk.staffId) {
-    return {
-      staffId: null,
-      organizationId: clerk.organizationId,
-      branchId: clerk.branchId,
-      clerkUserId: clerk.clerkUserId,
-      role: null,
-      permissions: new Set(),
-      isOwner: false,
-    };
-  }
-
-  const [staff] = await db
-    .select()
-    .from(staffTable)
-    .where(eq(staffTable.id, clerk.staffId));
-
-  if (!staff) {
-    return {
-      staffId: null,
-      organizationId: clerk.organizationId,
-      branchId: clerk.branchId,
-      clerkUserId: clerk.clerkUserId,
-      role: null,
-      permissions: new Set(),
-      isOwner: false,
-    };
-  }
+export async function buildStaffContext(
+  staff: typeof staffTable.$inferSelect | undefined,
+): Promise<StaffContext> {
+  const empty: StaffContext = {
+    staffId: null,
+    organizationId: "",
+    branchId: null,
+    clerkUserId: null,
+    role: null,
+    permissions: new Set(),
+    isOwner: false,
+  };
+  if (!staff) return empty;
 
   const [role] = await db
     .select()

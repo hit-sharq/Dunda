@@ -23,7 +23,8 @@
     "pino-http": "^10.5.0",
     "zod": "catalog:",
     "@clerk/backend": "^1.0.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "express-rate-limit": "^7.5.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

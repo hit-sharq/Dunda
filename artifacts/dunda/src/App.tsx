@@ -26,6 +26,8 @@ import { useApiAuth } from '@/hooks/use-api-auth';
 import { useSessionGuard } from '@/hooks/use-session-guard';
 import { MoneyProvider, money } from '@/lib/money';
 import { QueryNotice } from '@/components/query-notice';
+import { StaffManager } from '@/pages/staff-manager';
+import { SetupClaim } from '@/pages/setup-claim';
 import { PERMISSION_LABELS } from '@/lib/errors';
 import { Skeleton } from '@/components/ui';
 import { Pos as NewPos } from '@/pages/pos';
@@ -128,29 +130,21 @@ function Staff() {
   const staff = useGetStaff();
   const shifts = useGetShifts();
   return <div className="rise">
-    <PageIntro eyebrow="Team / people" title="Your crew" detail="Staff members, their roles, and active shifts." action={<Button onClick={() => staff.refetch()} data-testid="button-refresh-staff"><RefreshCw size={15} /> Refresh</Button>} />
+    <PageIntro eyebrow="Team / people" title="Your crew" detail="Add somebody, give them a role, and they're linked the moment they sign up with that email." />
     <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
+      <StaffManager />
       <section className="surface rounded-2xl p-5">
-        <h3 className="font-display text-xl font-bold mb-4">Staff members</h3>
-        <QueryNotice loading={staff.isLoading} error={staff.error} what="staff members" emptyTitle="No staff records yet." emptyHint="Invite your crew to see them here." empty={!staff.isLoading && !staff.isError && !staff.data?.length} onRetry={() => staff.refetch()} />
-        {staff.data?.map((s: StaffMember) => <div key={s.id} className="flex items-center justify-between border-b border-[#eee8de] py-3 last:border-0" data-testid={`row-staff-${s.id}`}>
-          <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#e6f0eb] text-[#438875]">{s.name.slice(0,1)}</div>
-            <div>
-              <p className="font-semibold">{s.name}</p>
-              <p className="text-xs text-[#859087]">{s.role} · {s.email}</p>
-            </div>
-          </div>
-          <span className="text-xs font-semibold text-[#9b762c]">{s.status}</span>
-        </div>)}
-      </section>
-      <section className="surface rounded-2xl p-5">
-        <h3 className="font-display text-xl font-bold mb-4">Active shifts</h3>
+        <h3 className="font-display text-xl font-bold mb-4">Shifts today</h3>
         <QueryNotice loading={shifts.isLoading} error={shifts.error} what="shifts" emptyTitle="No shifts recorded today." emptyHint="Shifts appear when staff clock in." empty={!shifts.isLoading && !shifts.isError && !shifts.data?.length} onRetry={() => shifts.refetch()} />
-        {shifts.data?.map((sh) => <div key={sh.id} className="border-b border-[#eee8de] py-3 last:border-0" data-testid={`row-shift-${sh.id}`}>
-          <p className="font-semibold">{sh.staffId}</p>
-          <p className="text-xs text-[#859087]">{sh.status}</p>
-        </div>)}
+        <ul>
+          {shifts.data?.map((s: { id: string; staffId: string | null; status: string; clockInAt?: string | null; clockOutAt?: string | null }) => {
+            const person = staff.data?.find((m: StaffMember) => m.id === s.staffId);
+            return <li key={s.id} className="flex items-center justify-between border-b border-[#eee8de] py-3 last:border-0">
+              <div><p className="font-semibold">{person?.name ?? 'Unassigned'}</p><p className="text-xs text-[#859087]">{s.clockInAt ? `In since ${new Date(s.clockInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not clocked in'}</p></div>
+              <span className="text-xs font-semibold text-[#3c7e69]">{s.status}</span>
+            </li>;
+          })}
+        </ul>
       </section>
     </div>
   </div>;
@@ -463,10 +457,11 @@ function ProtectedRouter() {
   const unlinked = me.isError && (me.error as { status?: number })?.status === 403;
   if (!isLoaded) return <div className="grid min-h-[100dvh] place-items-center bg-[#f5f1e8] text-sm text-[#68736d]">Loading your workspace…</div>;
   if (isSignedIn && unlinked) {
-    return <div className="grid min-h-[100dvh] place-items-center bg-[#f5f1e8] p-6">
+    return <div className="grid min-h-[100dvh] place-items-center gap-4 bg-[#f5f1e8] p-6">
+      <SetupClaim />
       <div className="surface max-w-md rounded-2xl p-6 text-center">
         <h1 className="font-display text-2xl font-bold">No workspace yet</h1>
-        <p className="mt-2 text-sm text-[#68736d]">Your account is signed in, but it is not linked to a Dunda organization yet. Ask an organization owner to invite this account, then reload.</p>
+        <p className="mt-2 text-sm text-[#68736d]">Your account is signed in, but it is not linked to a Dunda organization. Claim this workspace with the setup token, or ask an owner to add you as staff, then reload.</p>
         <p className="mt-4 rounded-lg bg-[#f5f1e8] p-3 text-left font-mono text-[11px] text-[#68736d]">Your account: {user?.primaryEmailAddress?.emailAddress ?? user?.id}</p>
       </div>
     </div>;

@@ -92,6 +92,18 @@ router.get("/me", async (req, res): Promise<void> => {
     permissions: permissionRows.map((p) => p.name),
     isOwner: ctx.isOwner,
     settings: await getTenantSettings(tenant.organizationId),
+    roles: (
+      await db
+        .select({ id: rolesTable.id, name: rolesTable.name, isOwner: rolesTable.isOwner })
+        .from(rolesTable)
+        .orderBy(rolesTable.sortOrder)
+    ).map((r) => ({
+      id: r.id,
+      name: r.name,
+      // Only an owner may hand out the owner role, and only while nobody holds it.
+      grantable: !r.isOwner || ctx.isOwner,
+    })),
+    canGrantStaff: ctx.isOwner || permissionRows.some((p) => p.name === "manage_staff"),
   });
 });
 

@@ -1,5 +1,6 @@
 import type { Server } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
+import { redeemRealtimeTicket } from "./realtimeTickets";
 
 /**
  * Dunda's realtime bus.
@@ -34,6 +35,7 @@ export interface RealtimeEvent {
 
 interface Client {
   socket: WebSocket;
+  clerkUserId: string;
   organizationId: string;
   branchId: string | null;
 }
@@ -54,18 +56,28 @@ function send(client: Client, payload: unknown) {
 export function attachRealtime(
   server: Server,
   verifyToken: (token: string) => Promise<{ organizationId: string; branchId: string | null } | null>,
+  /** Called on an interval so a revoked account loses its live feed. */
+  reauthorize?: (clerkUserId: string) => Promise<{ organizationId: string; branchId: string | null } | null>,
 ) {
   wss = new WebSocketServer({ server, path: "/realtime" });
 
   wss.on("connection", (socket, request) => {
     const url = new URL(request.url ?? "/", "http://localhost");
-    const token = url.searchParams.get("token");
-    if (!token) {
+    // A short-lived single-use ticket, not the session token. The session token
+    // would otherwise be written to every access log on the way here.
+    const ticket = url.searchParams.get("ticket");
+    if (!ticket) {
       socket.close(1008, "Authentication required");
       return;
     }
 
-    void verifyToken(token)
+    const clerkUserId = redeemRealtimeTicket(ticket);
+    if (!clerkUserId) {
+      socket.close(1008, "Authentication required");
+      return;
+    }
+
+    void verifyToken(clerkUserId)
       .then((identity) => {
         if (!identity) {
           socket.close(1008, "Authentication required");
@@ -73,16 +85,44 @@ export function attachRealtime(
         }
         const client: Client = {
           socket,
+          clerkUserId,
           organizationId: identity.organizationId,
           branchId: identity.branchId,
         };
         clients.add(client);
         send(client, { type: "ready", at: new Date().toISOString() });
 
-        socket.on("close", () => clients.delete(client));
-        socket.on("error", () => clients.delete(client));
+        // A socket authenticated once and then lived forever, so deactivating
+        // somebody or changing their role left their feed open. Re-check
+        // periodically and drop them the moment they lose access.
+        let lastCheck = Date.now();
+        const keepalive = setInterval(() => {
+          if (Date.now() - lastCheck < REAUTHORIZE_INTERVAL_MS) return;
+          lastCheck = Date.now();
+          if (!reauthorize) return;
+          void reauthorize(clerkUserId).then((current) => {
+            if (!current) {
+              socket.close(1008, "Access revoked");
+              return;
+            }
+            if (
+              current.organizationId !== client.organizationId ||
+              current.branchId !== client.branchId
+            ) {
+              // Moved to another tenant or branch: rescope rather than drop.
+              client.organizationId = current.organizationId;
+              client.branchId = current.branchId;
+            }
+          });
+        }, REAUTHORIZE_POLL_MS);
+
+        const drop = () => {
+          clearInterval(keepalive);
+          clients.delete(client);
+        };
+        socket.on("close", drop);
+        socket.on("error", drop);
         socket.on("message", (raw) => {
-          // The only supported client message is a keepalive.
           if (raw.toString() === "ping") send(client, { type: "pong" });
         });
       })
@@ -91,6 +131,9 @@ export function attachRealtime(
 
   return wss;
 }
+
+const REAUTHORIZE_POLL_MS = 30_000;
+const REAUTHORIZE_INTERVAL_MS = 60_000;
 
 /** Broadcasts to every client in the organization, honouring branch scoping. */
 export function publish(event: RealtimeEvent): void {

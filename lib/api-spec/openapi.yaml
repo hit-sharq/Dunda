@@ -428,6 +428,97 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StaffMember"
+    patch:
+      operationId: updateStaff
+      tags: [staff]
+      summary: Update a staff member
+      description: >
+        Promoting somebody to the owner role obeys the same rule as creating
+        one: only an owner may do it, and only while nobody holds it.
+      parameters:
+        - in: path
+          name: staffId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateStaffInput" }
+      responses:
+        "200":
+          description: Updated staff member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffMember"
+        "403":
+          description: Not permitted to grant that role
+  /staff/{staffId}/transfer-ownership:
+    post:
+      operationId: transferOwnership
+      tags: [staff]
+      summary: Hand ownership to another staff member
+      description: >
+        There is exactly one owner. This demotes the current owner to
+        Administrator rather than leaving two people with identical authority.
+      parameters:
+        - in: path
+          name: staffId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ownership transferred
+  /setup/status:
+    get:
+      operationId: getSetupStatus
+      tags: [staff]
+      summary: Whether an organization still has nobody signed in as owner
+      responses:
+        "200":
+          description: Setup state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SetupStatus" }
+  /setup/claim:
+    post:
+      operationId: claimOwnership
+      tags: [staff]
+      summary: Claim ownership with a single-use setup token
+      description: >
+        Signing in alone never grants anything. A token, issued out of band and
+        stored only as a digest, binds the signed-in account to the owner role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClaimOwnershipInput" }
+      responses:
+        "200":
+          description: Ownership claimed
+  /realtime/ticket:
+    post:
+      operationId: createRealtimeTicket
+      tags: [staff]
+      summary: Exchange the session token for a short-lived realtime ticket
+      description: >
+        A WebSocket handshake cannot carry an Authorization header, so the
+        session token used to travel in the URL. This keeps it in a header and
+        puts a 30-second single-use code in the URL instead.
+      responses:
+        "200":
+          description: A realtime ticket
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ticket, expiresInSeconds]
+                properties:
+                  ticket: { type: string }
+                  expiresInSeconds: { type: integer }
   /staff/shifts:
     get:
       operationId: getShifts
@@ -2008,6 +2099,28 @@ components:
       properties:
         label: { type: string }
         value: { type: number }
+    UpdateStaffInput:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        roleId: { type: string }
+        branchId: { type: ["string", "null"] }
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+    SetupStatus:
+      type: object
+      required: [claimable]
+      properties:
+        claimable: { type: boolean }
+        reason: { type: ["string", "null"] }
+    ClaimOwnershipInput:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, minLength: 8 }
     UpdateTicketInput:
       type: object
       required: [status]
@@ -2078,6 +2191,17 @@ components:
           type: array
           items: { type: string }
         isOwner: { type: boolean }
+        canGrantStaff: { type: boolean }
+        roles:
+          type: array
+          items:
+            type: object
+            required: [id, name, grantable]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              isOwner: { type: boolean }
+              grantable: { type: boolean }
         settings:
           type: object
           required: [currency, locale, taxRate, serviceChargeRate]

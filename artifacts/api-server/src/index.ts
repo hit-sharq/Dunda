@@ -16,10 +16,27 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 /**
- * Resolves a Clerk session token to the Dunda tenant it belongs to, so realtime
+ * Resolves a Clerk account id to the Dunda tenant it belongs to, so realtime
  * sockets are scoped exactly like REST requests.
  */
-async function resolveIdentity(token: string) {
+async function resolveIdentity(userId: string) {
+  const secretKey = process.env.CLERK_SECRET_KEY;
+  if (!secretKey) return null;
+  try {
+    const [staff] = await db
+      .select()
+      .from(staffTable)
+      .where(eq(staffTable.clerkUserId, userId));
+    if (!staff || staff.status !== "ACTIVE") return null;
+    return { organizationId: staff.organizationId, branchId: staff.branchId ?? null };
+  } catch (err) {
+    logger.warn({ err }, "Realtime identity lookup failed");
+    return null;
+  }
+}
+
+/** Verifies a raw session token, used only by the ticket exchange path. */
+async function verifySessionToken(token: string) {
   try {
     const secretKey = process.env.CLERK_SECRET_KEY;
     if (!secretKey) {
@@ -34,19 +51,7 @@ async function resolveIdentity(token: string) {
           ? session.sub
           : undefined;
     if (!userId) return null;
-
-    const [staff] = await db
-      .select()
-      .from(staffTable)
-      .where(eq(staffTable.clerkUserId, userId));
-
-    if (staff) {
-      return {
-        organizationId: staff.organizationId,
-        branchId: staff.branchId ?? null,
-      };
-    }
-    return null;
+    return resolveIdentity(userId);
   } catch (err) {
     logger.warn({ err }, "Realtime token verification failed");
     return null;
@@ -56,7 +61,9 @@ async function resolveIdentity(token: string) {
 const server = createServer(app);
 
 if (process.env.ENABLE_REALTIME === "true") {
-  attachRealtime(server, resolveIdentity);
+  // The same resolver re-checks on an interval, so deactivating a member closes
+  // their live feed rather than leaving it open for the rest of the shift.
+  attachRealtime(server, resolveIdentity, resolveIdentity);
   logger.info("Realtime enabled on /realtime");
 }
 

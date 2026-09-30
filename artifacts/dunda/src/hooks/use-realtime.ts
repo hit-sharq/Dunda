@@ -25,6 +25,12 @@ export function useRealtime(enabled: boolean) {
   const qc = useQueryClient();
   const socketRef = useRef<WebSocket | null>(null);
 
+  /** The same bearer header every other API call uses. */
+  async function authHeaders(): Promise<Record<string, string>> {
+    const token = await getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
   useEffect(() => {
     if (!enabled || !isSignedIn) return;
 
@@ -32,12 +38,29 @@ export function useRealtime(enabled: boolean) {
     let retry: ReturnType<typeof setTimeout> | undefined;
 
     async function connect() {
-      const token = await getToken();
-      if (!token || closed) return;
+      if (closed) return;
+
+      // Exchange the session token for a short-lived ticket. A WebSocket
+      // handshake cannot carry an Authorization header, so passing the session
+      // token in the URL would write it to every access log on the way through.
+      let ticket: string;
+      try {
+        const res = await fetch("/api/realtime/ticket", {
+          method: "POST",
+          credentials: "include",
+          headers: await authHeaders(),
+        });
+        if (!res.ok) throw new Error("ticket refused");
+        ticket = (await res.json()).ticket;
+      } catch {
+        if (!closed) retry = setTimeout(() => void connect(), 8000);
+        return;
+      }
+      if (closed) return;
 
       const base = window.location.origin;
       const protocol = base.startsWith("https") ? "wss" : "ws";
-      const url = `${protocol}://${base.replace(/^https?:\/\//, "")}/realtime?token=${encodeURIComponent(token)}`;
+      const url = `${protocol}://${base.replace(/^https?:\/\//, "")}/realtime?ticket=${encodeURIComponent(ticket)}`;
 
       const socket = new WebSocket(url);
       socketRef.current = socket;

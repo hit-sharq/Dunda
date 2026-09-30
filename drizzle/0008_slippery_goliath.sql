@@ -1,0 +1,1 @@
+ALTER TABLE "dunda_staff" DROP COLUMN "pin";

@@ -28,9 +28,11 @@ import type {
   Category,
   CheckoutInput,
   CheckoutResult,
+  ClaimOwnershipInput,
   CreateCustomerInput,
   CreateEventInput,
   CreateOrderInput,
+  CreateRealtimeTicket200,
   CreateShiftInput,
   CreateStaffInput,
   CreateSupplierInput,
@@ -87,6 +89,7 @@ import type {
   ReservationInput,
   SalesReport,
   SearchResult,
+  SetupStatus,
   StaffMember,
   StaffReportItem,
   StaffShift,
@@ -104,6 +107,7 @@ import type {
   TableInput,
   TableReportItem,
   UpdateOrderStatusInput,
+  UpdateStaffInput,
   UpdateTicketInput
 } from './api.schemas';
 
@@ -1941,6 +1945,412 @@ export function useGetStaffMember<TData = Awaited<ReturnType<typeof getStaffMemb
 
 
 
+
+export const getUpdateStaffUrl = (staffId: string,) => {
+
+
+
+
+  return `/api/staff/${staffId}`
+}
+
+/**
+ * Promoting somebody to the owner role obeys the same rule as creating one: only an owner may do it, and only while nobody holds it.
+ * @summary Update a staff member
+ */
+export const updateStaff = async (staffId: string,
+    updateStaffInput: UpdateStaffInput, options?: Parameters<typeof customFetch>[1]): Promise<StaffMember> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<StaffMember>(getUpdateStaffUrl(staffId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateStaffInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateStaffMutationKey = () => ['updateStaff'] as const;
+
+export const getUpdateStaffMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateStaff>>, TError,UpdateStaffMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateStaff>>, TError,UpdateStaffMutationVariables, TContext> => {
+
+const mutationKey = getUpdateStaffMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateStaff>>, UpdateStaffMutationVariables> = (props) => {
+          const {staffId,data} = props ?? {};
+
+          return  updateStaff(staffId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateStaffMutationResult = NonNullable<Awaited<ReturnType<typeof updateStaff>>>
+    export type UpdateStaffMutationBody = BodyType<UpdateStaffInput>
+    export type UpdateStaffMutationError = ErrorType<void>
+    export type UpdateStaffMutationVariables = {staffId: string;data: BodyType<UpdateStaffInput>}
+
+    /**
+ * @summary Update a staff member
+ */
+export const useUpdateStaff = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateStaff>>, TError,UpdateStaffMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateStaff>>,
+        TError,
+        UpdateStaffMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateStaffMutationOptions(options));
+    }
+
+export const getTransferOwnershipUrl = (staffId: string,) => {
+
+
+
+
+  return `/api/staff/${staffId}/transfer-ownership`
+}
+
+/**
+ * There is exactly one owner. This demotes the current owner to Administrator rather than leaving two people with identical authority.
+ * @summary Hand ownership to another staff member
+ */
+export const transferOwnership = async (staffId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getTransferOwnershipUrl(staffId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getTransferOwnershipMutationKey = () => ['transferOwnership'] as const;
+
+export const getTransferOwnershipMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transferOwnership>>, TError,TransferOwnershipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof transferOwnership>>, TError,TransferOwnershipMutationVariables, TContext> => {
+
+const mutationKey = getTransferOwnershipMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transferOwnership>>, TransferOwnershipMutationVariables> = (props) => {
+          const {staffId} = props ?? {};
+
+          return  transferOwnership(staffId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TransferOwnershipMutationResult = NonNullable<Awaited<ReturnType<typeof transferOwnership>>>
+
+    export type TransferOwnershipMutationError = ErrorType<unknown>
+    export type TransferOwnershipMutationVariables = {staffId: string}
+
+    /**
+ * @summary Hand ownership to another staff member
+ */
+export const useTransferOwnership = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transferOwnership>>, TError,TransferOwnershipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof transferOwnership>>,
+        TError,
+        TransferOwnershipMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTransferOwnershipMutationOptions(options));
+    }
+
+export const getGetSetupStatusUrl = () => {
+
+
+
+
+  return `/api/setup/status`
+}
+
+/**
+ * @summary Whether an organization still has nobody signed in as owner
+ */
+export const getSetupStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<SetupStatus> => {
+
+  return customFetch<SetupStatus>(getGetSetupStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSetupStatusQueryKey = () => {
+    return [
+    `/api/setup/status`
+    ] as const;
+    }
+
+
+export const getGetSetupStatusQueryOptions = <TData = Awaited<ReturnType<typeof getSetupStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSetupStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSetupStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSetupStatus>>> = ({ signal }) => getSetupStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSetupStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSetupStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getSetupStatus>>>
+export type GetSetupStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Whether an organization still has nobody signed in as owner
+ */
+
+export function useGetSetupStatus<TData = Awaited<ReturnType<typeof getSetupStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSetupStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSetupStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getClaimOwnershipUrl = () => {
+
+
+
+
+  return `/api/setup/claim`
+}
+
+/**
+ * Signing in alone never grants anything. A token, issued out of band and stored only as a digest, binds the signed-in account to the owner role.
+ * @summary Claim ownership with a single-use setup token
+ */
+export const claimOwnership = async (claimOwnershipInput: ClaimOwnershipInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getClaimOwnershipUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(claimOwnershipInput)
+  }
+);}
+
+
+
+
+
+export const getClaimOwnershipMutationKey = () => ['claimOwnership'] as const;
+
+export const getClaimOwnershipMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimOwnership>>, TError,ClaimOwnershipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimOwnership>>, TError,ClaimOwnershipMutationVariables, TContext> => {
+
+const mutationKey = getClaimOwnershipMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimOwnership>>, ClaimOwnershipMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  claimOwnership(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimOwnershipMutationResult = NonNullable<Awaited<ReturnType<typeof claimOwnership>>>
+    export type ClaimOwnershipMutationBody = BodyType<ClaimOwnershipInput>
+    export type ClaimOwnershipMutationError = ErrorType<unknown>
+    export type ClaimOwnershipMutationVariables = {data: BodyType<ClaimOwnershipInput>}
+
+    /**
+ * @summary Claim ownership with a single-use setup token
+ */
+export const useClaimOwnership = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimOwnership>>, TError,ClaimOwnershipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimOwnership>>,
+        TError,
+        ClaimOwnershipMutationVariables,
+        TContext
+      > => {
+      return useMutation(getClaimOwnershipMutationOptions(options));
+    }
+
+export const getCreateRealtimeTicketUrl = () => {
+
+
+
+
+  return `/api/realtime/ticket`
+}
+
+/**
+ * A WebSocket handshake cannot carry an Authorization header, so the session token used to travel in the URL. This keeps it in a header and puts a 30-second single-use code in the URL instead.
+ * @summary Exchange the session token for a short-lived realtime ticket
+ */
+export const createRealtimeTicket = async ( options?: Parameters<typeof customFetch>[1]): Promise<CreateRealtimeTicket200> => {
+
+  return customFetch<CreateRealtimeTicket200>(getCreateRealtimeTicketUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateRealtimeTicketMutationKey = () => ['createRealtimeTicket'] as const;
+
+export const getCreateRealtimeTicketMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRealtimeTicket>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRealtimeTicket>>, TError,void, TContext> => {
+
+const mutationKey = getCreateRealtimeTicketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRealtimeTicket>>, void> = () => {
+
+
+          return  createRealtimeTicket(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRealtimeTicketMutationResult = NonNullable<Awaited<ReturnType<typeof createRealtimeTicket>>>
+
+    export type CreateRealtimeTicketMutationError = ErrorType<unknown>
+
+
+    /**
+ * @summary Exchange the session token for a short-lived realtime ticket
+ */
+export const useCreateRealtimeTicket = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRealtimeTicket>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRealtimeTicket>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCreateRealtimeTicketMutationOptions(options));
+    }
 
 export const getGetShiftsUrl = () => {
 

@@ -37,7 +37,6 @@ export const staffTable = pgTable("dunda_staff", {
     .notNull()
     .references(() => rolesTable.id),
   status: text("status").notNull().default("ACTIVE"),
-  pin: text("pin"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

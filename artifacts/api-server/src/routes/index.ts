@@ -17,6 +17,8 @@ import notificationsRouter from "./notifications";
 import searchRouter from "./search";
 import dashboardRouter from "./dashboard";
 import meRouter from "./me";
+import setupRouter from "./setup";
+import realtimeRouter from "./realtime";
 import reportsRouter from "./reports";
 import { tenantMiddleware } from "../middlewares/tenantMiddleware";
 import { logAuditEntry } from "../lib/auditLogger";
@@ -49,6 +51,10 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   res.json({ ok: true });
 });
 
+// Claiming ownership and reading identity must work before a caller has a
+// staff record, so they sit ahead of the tenant guard.
+router.use("/setup", setupRouter);
+router.use("/realtime", realtimeRouter);
 router.use("/me", meRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/products", productsRouter);

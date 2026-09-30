@@ -648,6 +648,82 @@ export const GetStaffMemberResponse = zod.object({
 
 
 /**
+ * Promoting somebody to the owner role obeys the same rule as creating one: only an owner may do it, and only while nobody holds it.
+ * @summary Update a staff member
+ */
+export const UpdateStaffParams = zod.object({
+  "staffId": zod.coerce.string()
+})
+
+export const UpdateStaffBody = zod.object({
+  "name": zod.string().optional(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "roleId": zod.string().optional(),
+  "branchId": zod.string().nullish(),
+  "status": zod.enum(['ACTIVE', 'INACTIVE']).optional()
+})
+
+export const UpdateStaffResponse = zod.object({
+  "id": zod.string(),
+  "clerkUserId": zod.string().optional(),
+  "name": zod.string(),
+  "email": zod.string().nullable(),
+  "phone": zod.string().nullish(),
+  "role": zod.string(),
+  "roleId": zod.string().nullish(),
+  "status": zod.enum(['ACTIVE', 'INACTIVE']),
+  "branchId": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * There is exactly one owner. This demotes the current owner to Administrator rather than leaving two people with identical authority.
+ * @summary Hand ownership to another staff member
+ */
+export const TransferOwnershipParams = zod.object({
+  "staffId": zod.coerce.string()
+})
+
+export const TransferOwnershipResponse = zod.unknown()
+
+
+/**
+ * @summary Whether an organization still has nobody signed in as owner
+ */
+export const GetSetupStatusResponse = zod.object({
+  "claimable": zod.boolean(),
+  "reason": zod.string().nullish()
+})
+
+
+/**
+ * Signing in alone never grants anything. A token, issued out of band and stored only as a digest, binds the signed-in account to the owner role.
+ * @summary Claim ownership with a single-use setup token
+ */
+export const claimOwnershipBodyTokenMin = 8;
+
+
+
+export const ClaimOwnershipBody = zod.object({
+  "token": zod.string().min(claimOwnershipBodyTokenMin)
+})
+
+export const ClaimOwnershipResponse = zod.unknown()
+
+
+/**
+ * A WebSocket handshake cannot carry an Authorization header, so the session token used to travel in the URL. This keeps it in a header and puts a 30-second single-use code in the URL instead.
+ * @summary Exchange the session token for a short-lived realtime ticket
+ */
+export const CreateRealtimeTicketResponse = zod.object({
+  "ticket": zod.string(),
+  "expiresInSeconds": zod.number().int()
+})
+
+
+/**
  * @summary List staff shifts
  */
 export const GetShiftsResponseItem = zod.object({
@@ -1852,6 +1928,13 @@ export const GetMeResponse = zod.object({
   "roleId": zod.string().nullish(),
   "permissions": zod.array(zod.string()),
   "isOwner": zod.boolean(),
+  "canGrantStaff": zod.boolean().optional(),
+  "roles": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "isOwner": zod.boolean().optional(),
+  "grantable": zod.boolean()
+})).optional(),
   "settings": zod.object({
   "currency": zod.string(),
   "locale": zod.string(),

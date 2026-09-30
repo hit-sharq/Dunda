@@ -661,6 +661,37 @@ export interface ProductReportItem {
   revenue: number;
 }
 
+export type UpdateStaffInputStatus = typeof UpdateStaffInputStatus[keyof typeof UpdateStaffInputStatus];
+
+
+export const UpdateStaffInputStatus = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+} as const;
+
+export interface UpdateStaffInput {
+  name?: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  roleId?: string;
+  /** @nullable */
+  branchId?: string | null;
+  status?: UpdateStaffInputStatus;
+}
+
+export interface SetupStatus {
+  claimable: boolean;
+  /** @nullable */
+  reason?: string | null;
+}
+
+export interface ClaimOwnershipInput {
+  /** @minLength 8 */
+  token: string;
+}
+
 export type UpdateTicketInputStatus = typeof UpdateTicketInputStatus[keyof typeof UpdateTicketInputStatus];
 
 
@@ -749,6 +780,13 @@ export type MeBranchesItem = {
   status?: string;
 };
 
+export type MeRolesItem = {
+  id: string;
+  name: string;
+  isOwner?: boolean;
+  grantable: boolean;
+};
+
 export type MeSettings = {
   currency: string;
   locale: string;
@@ -771,6 +809,8 @@ export interface Me {
   roleId?: string | null;
   permissions: string[];
   isOwner: boolean;
+  canGrantStaff?: boolean;
+  roles?: MeRolesItem[];
   settings?: MeSettings;
 }
 
@@ -1242,6 +1282,11 @@ export const GetOrdersStatus = {
   COMPLETED: 'COMPLETED',
   CANCELLED: 'CANCELLED',
 } as const;
+
+export type CreateRealtimeTicket200 = {
+  ticket: string;
+  expiresInSeconds: number;
+};
 
 export type GetCustomersParams = {
 search?: string;

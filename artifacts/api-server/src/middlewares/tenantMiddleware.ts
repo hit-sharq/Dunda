@@ -10,7 +10,8 @@ import {
   rolesTable,
   staffTable,
 } from "@workspace/db";
-import { getStaffContext } from "../lib/permissions";
+import { buildStaffContext } from "../lib/permissions";
+import { claimStaffByEmail } from "../lib/claimStaff";
 import { logger } from "../lib/logger";
 
 export interface TenantContext {
@@ -23,6 +24,25 @@ export interface TenantContext {
 
 export function getTenant(req: { clerk: TenantContext }): TenantContext {
   return req.clerk;
+}
+
+/**
+ * The signed-in account's primary email, used only to match a pending staff
+ * record. The claim path only runs when no record matched the account id, so
+ * this lookup is uncommon rather than on the hot path.
+ */
+async function primaryEmailFor(userId: string): Promise<string | null> {
+  const secretKey = process.env.CLERK_SECRET_KEY;
+  if (!secretKey) return null;
+  try {
+    const { createClerkClient } = await import("@clerk/backend");
+    const client = createClerkClient({ secretKey });
+    const user = await client.users.getUser(userId);
+    return user.emailAddresses?.[0]?.emailAddress ?? null;
+  } catch (err) {
+    logger.warn({ err, userId }, "Could not read the account email for staff matching");
+    return null;
+  }
 }
 
 export const tenantMiddleware: RequestHandler = async (req, res, next) => {
@@ -54,7 +74,7 @@ export const tenantMiddleware: RequestHandler = async (req, res, next) => {
   }
 
   if (staff) {
-    const ctx = await getStaffContext(req);
+    const ctx = await buildStaffContext(staff);
     req.clerk = {
       organizationId: staff.organizationId,
       branchId: staff.branchId ?? null,
@@ -87,6 +107,31 @@ export const tenantMiddleware: RequestHandler = async (req, res, next) => {
     };
     next();
     return;
+  }
+
+  // Somebody the owner invited has a pending staff record with their email but
+  // no linked account yet. Claim it on their first authenticated request, which
+  // is what makes an invitation work without a webhook. Only reached when no
+  // record matched the account, so the extra lookup is rare.
+  if (!staff) {
+    const email = await primaryEmailFor(userId);
+    if (email) {
+      const claimedId = await claimStaffByEmail(userId, email);
+      if (claimedId) {
+        const claimed = (
+          await db.select().from(staffTable).where(eq(staffTable.id, claimedId))
+        )[0];
+        req.clerk = {
+          organizationId: claimed.organizationId,
+          branchId: claimed.branchId ?? null,
+          staffId: claimed.id,
+          clerkUserId: claimed.clerkUserId,
+          __staffContext: await buildStaffContext(claimed),
+        };
+        next();
+        return;
+      }
+    }
   }
 
   // An authenticated account with no Dunda staff record and no organization

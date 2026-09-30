@@ -34,7 +34,33 @@ app.use(
   }),
 );
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-app.use(cors());
+/**
+ * Cross-origin access is limited to origins we actually serve from.
+ *
+ * This was `cors()`, which answers yes to any origin on the internet. The
+ * bearer token in the Authorization header means a hostile page cannot read
+ * responses, but it could still make requests, which matters for the endpoints
+ * below the rate limits.
+ */
+const ALLOWED_ORIGINS = (
+  process.env.ALLOWED_ORIGINS ??
+  "http://localhost:5173,http://localhost:3000,http://localhost:8081,http://localhost:19006"
+)
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Same-origin and server-to-server requests carry no Origin header.
+      if (!origin) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      callback(new Error(`Origin ${origin} is not allowed`));
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
