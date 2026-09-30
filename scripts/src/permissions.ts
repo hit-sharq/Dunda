@@ -14,6 +14,7 @@ export const PERMISSIONS = [
   { id: "perm_manage_prices", name: "manage_prices", description: "Change prices and selling units", category: "catalog" },
   { id: "perm_manage_staff", name: "manage_staff", description: "Invite and manage staff", category: "people" },
   { id: "perm_manage_roles", name: "manage_roles", description: "Manage roles and permissions", category: "people" },
+  { id: "perm_manage_customers", name: "manage_customers", description: "Manage guest and VIP records", category: "people" },
   { id: "perm_update_ticket", name: "update_ticket", description: "Accept, prepare and hand over station tickets", category: "pos" },
   { id: "perm_clock_shift", name: "clock_shift", description: "Clock in and out of shifts", category: "people" },
   { id: "perm_manage_events", name: "manage_events", description: "Manage events", category: "club" },
@@ -41,7 +42,7 @@ export const ROLES = [
   { id: "role_floor", name: "Floor Staff", description: "Floor operations", sortOrder: 11 },
 ] as const;
 
-const viewOnly = ["view_pos", "view_inventory", "view_reports"];
+const viewOnly = ["view_pos", "view_inventory"];
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   role_owner: [...ALL_PERMISSIONS],
@@ -50,6 +51,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_PERMISSIONS.filter((p) => p !== "manage_branches"),
   ],
   role_branch_manager: [
+    "manage_customers",
     "view_pos",
     "update_ticket",
     "create_order",
@@ -74,6 +76,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "view_audit_logs",
   ],
   role_event_manager: [
+    "manage_customers",
     "view_pos",
     "view_inventory",
     "manage_events",
@@ -90,6 +93,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "view_reports",
   ],
   role_cashier: [
+    "manage_customers",
     "view_pos",
     "create_order",
     "modify_order",
@@ -98,6 +102,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "view_inventory",
   ],
   role_waiter: [
+    "manage_customers",
     "view_pos",
     "create_order",
     "modify_order",
@@ -108,5 +113,11 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   // must not be able to mark it served and free the table early.
   role_bartender: [...viewOnly, "update_ticket"],
   role_kitchen: [...viewOnly, "update_ticket"],
-  role_floor: ["view_pos", "create_order", "modify_order", "manage_reservations"],
+  role_floor: [
+    "manage_customers",
+    "view_pos",
+    "create_order",
+    "modify_order",
+    "manage_reservations",
+  ],
 };

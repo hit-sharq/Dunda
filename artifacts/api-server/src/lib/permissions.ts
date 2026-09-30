@@ -132,3 +132,21 @@ export function setStaffContext(req: any, ctx: StaffContext): void {
   if (!req.clerk) req.clerk = {};
   req.clerk.__staffContext = ctx;
 }
+
+
+/**
+ * Whether this caller may hand out a role.
+ *
+ * The rule that matters is the owner boundary: anyone may assign an ordinary
+ * role, but only an owner may create or promote another owner. Handing someone
+ * the owner role is therefore an explicit owner action, which is what stops a
+ * Branch Manager escalating a colleague.
+ */
+export function canGrantRole(
+  ctx: StaffContext | null | undefined,
+  target: { isOwner: boolean },
+): boolean {
+  if (!ctx) return false;
+  if (!target.isOwner) return true;
+  return ctx.isOwner;
+}

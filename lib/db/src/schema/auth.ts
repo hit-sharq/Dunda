@@ -1,4 +1,5 @@
 import { createInsertSchema } from "drizzle-zod";
+import { uniqueIndex } from "drizzle-orm/pg-core";
 import {
   boolean,
   integer,
@@ -26,8 +27,8 @@ export const staffTable = pgTable("dunda_staff", {
     .references(() => organizationsTable.id, { onDelete: "cascade" }),
   branchId: text("branch_id")
     .references(() => branchesTable.id, { onDelete: "cascade" }),
-  // Nullable until the invite is accepted; an unclaimed staff record has no
-  // external identity yet and must not be given a fabricated one.
+  // An unclaimed staff record is one the owner created but that has never been
+  // linked to a signed-in account. Only these may be claimed by email match.
   clerkUserId: text("clerk_user_id").unique(),
   name: text("name").notNull(),
   email: text("email"),
@@ -58,7 +59,7 @@ export const organizationMembersTable = pgTable("dunda_organization_members", {
   joinedAt: timestamp("joined_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [uniqueIndex("dunda_org_members_org_user").on(t.organizationId, t.clerkUserId)]);
 
 export const branchMembersTable = pgTable("dunda_branch_members", {
   id: text("id").primaryKey(),

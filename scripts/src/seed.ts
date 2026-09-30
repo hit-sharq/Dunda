@@ -138,6 +138,7 @@ async function seed() {
   // --- Roles and permissions -------------------------------------------------
   await db.insert(permissionsTable).values(PERMISSIONS.map((p) => ({ ...p })));
   await db.insert(rolesTable).values(ROLES.map((r) => ({ ...r })));
+  // is_owner is set explicitly; ranking is what enforces who may grant what.
 
   const rolePermissionRows = Object.entries(ROLE_PERMISSIONS).flatMap(
     ([roleId, permissionNames]) =>

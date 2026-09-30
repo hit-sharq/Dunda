@@ -10,4 +10,5 @@ export * from "./customers";
 export * from "./events";
 export * from "./payments";
 export * from "./counters";
+export * from "./setupTokens";
 export * from "./system";

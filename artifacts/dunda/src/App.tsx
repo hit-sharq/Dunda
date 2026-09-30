@@ -26,6 +26,7 @@ import { useApiAuth } from '@/hooks/use-api-auth';
 import { useSessionGuard } from '@/hooks/use-session-guard';
 import { MoneyProvider, money } from '@/lib/money';
 import { QueryNotice } from '@/components/query-notice';
+import { PERMISSION_LABELS } from '@/lib/errors';
 import { Skeleton } from '@/components/ui';
 import { Pos as NewPos } from '@/pages/pos';
 import { Products } from '@/pages/products';
@@ -93,22 +94,30 @@ function Button({ children, className = '', variant = 'primary', ...props }: { c
 }
 
 
-const nav = [
+/**
+ * Each screen declares the permission that opens it.
+ *
+ * The server already refuses a call the role is not entitled to, but showing a
+ * waiter fifteen links and answering with 403 on the three they cannot use is
+ * poor. The list is filtered to what the signed-in role can actually do, and an
+ * owner sees all of it.
+ */
+const nav: Array<{ href: string; label: string; icon: typeof LayoutDashboard; permission?: string }> = [
   { href: '/overview', label: 'Overview', icon: LayoutDashboard },
-  { href: '/pos', label: 'Point of sale', icon: ShoppingBag },
-  { href: '/floor', label: 'Floor', icon: Grid2X2 },
-  { href: '/designer', label: 'Floor designer', icon: SlidersHorizontal },
-  { href: '/orders', label: 'Orders', icon: ClipboardList },
-  { href: '/bar', label: 'Bar / Kitchen', icon: Utensils },
-  { href: '/products', label: 'Products', icon: Package },
-  { href: '/inventory', label: 'Inventory', icon: WalletCards },
-  { href: '/staff', label: 'Staff', icon: UserRound },
-  { href: '/customers', label: 'Customers', icon: Users },
-  { href: '/events', label: 'Events', icon: CalendarDays },
-  { href: '/reservations', label: 'Reservations', icon: Ticket },
-  { href: '/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/hq', label: 'HQ', icon: Store },
-  { href: '/settings', label: 'Settings', icon: Settings2 },
+  { href: '/pos', label: 'Point of sale', icon: ShoppingBag, permission: 'view_pos' },
+  { href: '/floor', label: 'Floor', icon: Grid2X2, permission: 'view_pos' },
+  { href: '/orders', label: 'Orders', icon: ClipboardList, permission: 'view_pos' },
+  { href: '/bar', label: 'Bar / Kitchen', icon: Utensils, permission: 'update_ticket' },
+  { href: '/designer', label: 'Floor designer', icon: SlidersHorizontal, permission: 'manage_floor' },
+  { href: '/products', label: 'Products', icon: Package, permission: 'manage_products' },
+  { href: '/inventory', label: 'Inventory', icon: WalletCards, permission: 'view_inventory' },
+  { href: '/reservations', label: 'Reservations', icon: Ticket, permission: 'manage_reservations' },
+  { href: '/customers', label: 'Customers', icon: Users, permission: 'manage_customers' },
+  { href: '/events', label: 'Events', icon: CalendarDays, permission: 'manage_events' },
+  { href: '/staff', label: 'Staff', icon: UserRound, permission: 'manage_staff' },
+  { href: '/reports', label: 'Reports', icon: BarChart3, permission: 'view_reports' },
+  { href: '/hq', label: 'HQ', icon: Store, permission: 'view_reports' },
+  { href: '/settings', label: 'Settings', icon: Settings2, permission: 'manage_roles' },
 ];
 
 function Staff() {
@@ -221,6 +230,21 @@ function AppShell({ children }: { children: ReactNode }) {
   const { user } = useUser();
   const me = useGetMe();
 
+  const isOwner = me.data?.isOwner ?? false;
+  const granted = me.data?.permissions;
+  const visibleNav = useMemo(
+    () =>
+      nav.filter((item) => {
+        if (!item.permission) return true;
+        if (isOwner) return true;
+        // While /me is still loading, show nothing rather than everything; the
+        // server refuses these routes anyway, so an empty list is the honest
+        // answer.
+        if (!granted) return false;
+        return granted.includes(item.permission);
+      }),
+    [granted, isOwner],
+  );
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
     user?.primaryEmailAddress?.emailAddress ||
@@ -259,7 +283,7 @@ function AppShell({ children }: { children: ReactNode }) {
           {branches.data?.map((branch) => <div key={branch.id} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm" data-testid={`button-branch-${branch.id}`}><span className="truncate">{branch.name}{branch.city ? <span className="ml-1 text-xs text-[#8b9a94]">{branch.city}</span> : null}</span><span className={branch.status === 'LIVE' ? 'text-xs text-[#91b9a5]' : 'text-xs text-[#8b9a94]'}>{branch.status}</span></div>)}
         </div>}
       </div>
-      <nav className="grid gap-1" aria-label="Main navigation">{nav.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => setMobileOpen(false)} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors ${location === href ? 'bg-[#f07a4b] font-semibold text-[#182127]' : 'text-[#aebdb6] hover:bg-[#2a3c42] hover:text-[#f6efe2]'}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}><Icon size={17} strokeWidth={1.8} /><span>{label}</span>{label === 'Orders' && openOrderCount > 0 && <span className="ml-auto rounded-full bg-[#db6950] px-1.5 py-0.5 text-[10px] text-[#fff4e8]">{openOrderCount}</span>}</Link>)}</nav>
+      <nav className="grid gap-1" aria-label="Main navigation">{visibleNav.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => setMobileOpen(false)} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors ${location === href ? 'bg-[#f07a4b] font-semibold text-[#182127]' : 'text-[#aebdb6] hover:bg-[#2a3c42] hover:text-[#f6efe2]'}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}><Icon size={17} strokeWidth={1.8} /><span>{label}</span>{label === 'Orders' && openOrderCount > 0 && <span className="ml-auto rounded-full bg-[#db6950] px-1.5 py-0.5 text-[10px] text-[#fff4e8]">{openOrderCount}</span>}</Link>)}</nav>
        <div className="mt-auto grid gap-1 border-t border-[#35484d] pt-4"><button onClick={signOutAndReturn} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-[#aebdb6] hover:bg-[#2a3c42] hover:text-[#f6efe2]" data-testid="button-sign-out"><DoorOpen size={17} /> Sign out</button></div>
       <div className="mt-5 rounded-xl border border-[#385158] bg-[#22343a] p-3"><div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[.16em] text-[#90a69f]"><span>Table occupancy</span><span className="text-[#8bd1b2]">Live</span></div><div className="mb-2 flex items-end justify-between"><span className="font-display text-2xl font-bold">{pulseSummary.data ? `${shiftPulse.summary.occupancy}%` : '—'}</span><Activity size={17} className="text-[#f07a4b]" /></div><div className="h-1.5 overflow-hidden rounded-full bg-[#3b5054]"><div className="h-full rounded-full bg-[#f07a4b]" style={{ width: `${shiftPulse.summary.occupancy}%` }} /></div><p className="mt-2 text-[11px] text-[#8da29c]">{shiftPulse.summary.label}</p></div>
     </aside>
@@ -365,6 +389,42 @@ function Settings() {
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) { return <div className="fixed inset-0 z-50 grid place-items-center bg-[#162329]/45 p-4"><div className="w-full max-w-md rounded-2xl border border-[#ded7ca] bg-[#fbf9f3] p-5 shadow-2xl md:p-6" role="dialog" aria-modal="true"><div className="mb-5 flex items-center justify-between"><h3 className="font-display text-2xl font-bold">{title}</h3><button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-[#7f8982] hover:bg-[#eee9df]" data-testid="button-close-modal"><X size={18} /></button></div>{children}</div></div>; }
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="grid gap-1.5 text-xs font-semibold text-[#5d6963]">{label}{children}</label>; }
 
+/**
+ * Blocks a screen the signed-in role may not use.
+ *
+ * Hiding the link is a courtesy; this is the actual guard, so a typed path or a
+ * bookmark cannot reach it. The server still refuses the underlying calls.
+ */
+const wrap =
+  (permission: string, element: ReactNode) =>
+  function GuardedRoute() {
+    return <Require permission={permission}>{element}</Require>;
+  };
+
+function Require({
+  permission,
+  children,
+}: {
+  permission: string;
+  children: ReactNode;
+}) {
+  const me = useGetMe();
+  if (me.isLoading) {
+    return <div className="grid min-h-[60vh] place-items-center text-sm text-[#68736d]">Checking your access…</div>;
+  }
+  if (me.data && !me.data.isOwner && !me.data.permissions.includes(permission)) {
+    return (
+      <div className="surface mx-auto max-w-md rounded-2xl p-6 text-center">
+        <h2 className="font-display text-xl font-bold">This screen is not available to your role</h2>
+        <p className="mt-2 text-sm text-[#68736d]">
+          Ask a manager for the {PERMISSION_LABELS[permission] ?? permission} permission.
+        </p>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 function Auth({ mode }: { mode: 'sign-in' | 'sign-up' }) {
   // A session that ended on its own sends the person here; saying why is the
   // difference between "the app is broken" and "please sign in again".
@@ -407,7 +467,7 @@ function ProtectedRouter() {
       </div>
     </div>;
   }
-  return isSignedIn ?     <AppShell><Switch><Route path="/overview" component={Overview} /><Route path="/pos" component={NewPos} /><Route path="/floor" component={Floor} /><Route path="/designer" component={FloorDesigner} /><Route path="/orders" component={Orders} /><Route path="/bar" component={() => <ServiceBoard station="bar" />} /><Route path="/kitchen" component={() => <ServiceBoard station="kitchen" />} /><Route path="/products" component={Products} /><Route path="/inventory" component={Inventory} /><Route path="/staff" component={Staff} /><Route path="/customers" component={Customers} /><Route path="/events" component={Events} /><Route path="/reservations" component={Reservations} /><Route path="/reports" component={Reports} /><Route path="/hq" component={Hq} /><Route path="/settings" component={Settings} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
+  return isSignedIn ?     <AppShell><Switch><Route path="/overview" component={Overview} /><Route path="/pos" component={wrap("view_pos", <NewPos />)} /><Route path="/floor" component={wrap("view_pos", <Floor />)} /><Route path="/designer" component={wrap("manage_floor", <FloorDesigner />)} /><Route path="/orders" component={wrap("view_pos", <Orders />)} /><Route path="/bar" component={wrap("update_ticket", <ServiceBoard station="bar" />)} /><Route path="/kitchen" component={wrap("update_ticket", <ServiceBoard station="kitchen" />)} /><Route path="/products" component={wrap("manage_products", <Products />)} /><Route path="/inventory" component={wrap("view_inventory", <Inventory />)} /><Route path="/staff" component={wrap("manage_staff", <Staff />)} /><Route path="/customers" component={wrap("manage_customers", <Customers />)} /><Route path="/events" component={wrap("manage_events", <Events />)} /><Route path="/reservations" component={wrap("manage_reservations", <Reservations />)} /><Route path="/reports" component={wrap("view_reports", <Reports />)} /><Route path="/hq" component={wrap("view_reports", <Hq />)} /><Route path="/settings" component={wrap("manage_roles", <Settings />)} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
 }
 
 function Router() { return <Switch><Route path="/" component={Landing} /><Route path="/sign-in/*?" component={() => <Auth mode="sign-in" />} /><Route path="/sign-up/*?" component={() => <Auth mode="sign-up" />} /><Route component={ProtectedRouter} /></Switch>; }

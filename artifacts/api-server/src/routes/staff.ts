@@ -22,10 +22,51 @@ import {
   organizationMembersTable,
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
+import { canGrantRole, type StaffContext } from "../lib/permissions";
 import { BranchScopeError, requireBranchScope } from "../lib/branchScope";
 import { logAuditEntry } from "../lib/auditLogger";
 
 const router: IRouter = Router();
+
+/**
+ * There is exactly one owner, and changing who holds it is a deliberate
+ * transfer rather than something that happens as a side effect of inviting
+ * somebody. This keeps "promote a colleague" from silently producing two owners
+ * with identical authority and no record of which one decided.
+ */
+async function refuseIfOwnerExists(
+  res: any,
+  organizationId: string,
+  action: string,
+  ignoreStaffId?: string | null,
+): Promise<boolean> {
+  const ownerRole = (
+    await db
+      .select({ id: rolesTable.id })
+      .from(rolesTable)
+      .where(eq(rolesTable.isOwner, true))
+  )[0];
+  if (!ownerRole) return false;
+
+  const existing = await db
+    .select({ id: staffTable.id })
+    .from(staffTable)
+    .where(
+      and(
+        eq(staffTable.organizationId, organizationId),
+        eq(staffTable.roleId, ownerRole.id),
+      ),
+    );
+  const claimed = existing.filter((s) => s.id !== ignoreStaffId);
+  if (!claimed.length) return false;
+
+  res.status(409).json({
+    error:
+      "This organization already has an owner. Transfer ownership to them instead of creating a second one.",
+    code: "OWNER_ALREADY_EXISTS",
+  });
+  return true;
+}
 
 router.get("/", async (req, res): Promise<void> => {
   const tenant = getTenant(req);
@@ -60,9 +101,7 @@ router.get("/", async (req, res): Promise<void> => {
 });
 
 router.post("/", async (req, res): Promise<void> => {
-  const ctx = req.clerk?.__staffContext as
-    | { isOwner: boolean; permissions: Set<string> }
-    | undefined;
+  const ctx = req.clerk?.__staffContext as StaffContext | undefined;
   if (!ctx || (!ctx.isOwner && !ctx.permissions.has("manage_staff"))) {
     res.status(403).json({
         error: "You do not have permission to perform this action.",
@@ -77,6 +116,29 @@ router.post("/", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  // Only an owner may hand out the owner role. Without this a Branch Manager
+  // could create an Owner and pass the account to a colleague.
+  const [grantRole] = await db
+    .select({ id: rolesTable.id, isOwner: rolesTable.isOwner, name: rolesTable.name })
+    .from(rolesTable)
+    .where(eq(rolesTable.id, parsed.data.roleId));
+  if (!grantRole) {
+    res.status(400).json({ error: "That role does not exist." });
+    return;
+  }
+  if (!canGrantRole(ctx, grantRole)) {
+    res.status(403).json({
+      error: `You cannot grant the ${grantRole.name} role.`,
+      code: "CANNOT_GRANT_ROLE",
+      required: grantRole.name,
+    });
+    return;
+  }
+  if (grantRole.isOwner) {
+    const refusal = await refuseIfOwnerExists(res, tenant.organizationId, "create another owner");
+    if (refusal) return;
+  }
+
   const id = `staff-${Date.now()}`;
   // A staff record is created before the invite is accepted, so the external
   // identity may be unknown. It stays null until the person signs in; it is
@@ -185,9 +247,7 @@ router.get("/:staffId", async (req, res): Promise<void> => {
 });
 
 router.patch("/:staffId", async (req, res): Promise<void> => {
-  const ctx = req.clerk?.__staffContext as
-    | { isOwner: boolean; permissions: Set<string> }
-    | undefined;
+  const ctx = req.clerk?.__staffContext as StaffContext | undefined;
   if (!ctx || (!ctx.isOwner && !ctx.permissions.has("manage_staff"))) {
     res.status(403).json({
         error: "You do not have permission to perform this action.",
@@ -224,6 +284,35 @@ router.patch("/:staffId", async (req, res): Promise<void> => {
   if (!existing) {
     res.status(404).json({ error: "Staff member not found" });
     return;
+  }
+
+  // Promoting someone is a grant, and obeys the same rank rule as creating one.
+  if (parsed.data.roleId && parsed.data.roleId !== existing.roleId) {
+    const [targetRole] = await db
+      .select({ isOwner: rolesTable.isOwner, name: rolesTable.name })
+      .from(rolesTable)
+      .where(eq(rolesTable.id, parsed.data.roleId));
+    if (!targetRole) {
+      res.status(400).json({ error: "That role does not exist." });
+      return;
+    }
+    if (!canGrantRole(ctx, targetRole)) {
+      res.status(403).json({
+        error: `You cannot grant the ${targetRole.name} role.`,
+        code: "CANNOT_GRANT_ROLE",
+        required: targetRole.name,
+      });
+      return;
+    }
+    if (targetRole.isOwner) {
+      const refusal = await refuseIfOwnerExists(
+        res,
+        tenant.organizationId,
+        "promote somebody to owner",
+        existing.clerkUserId,
+      );
+      if (refusal) return;
+    }
   }
 
   // A branch manager may only move or change people inside their own branch.
@@ -436,6 +525,145 @@ router.post("/shifts/:shiftId/clock", async (req, res): Promise<void> => {
     status: row.status,
     notes: row.notes ?? null,
     createdAt: row.createdAt,
+  });
+});
+
+/**
+ * Hands ownership to another staff member.
+ *
+ * The single-owner rule above means nobody can become a second owner by being
+ * invited or promoted. This is the one deliberate path, and it demotes the
+ * current owner rather than leaving two people with identical authority.
+ */
+router.post("/:staffId/transfer-ownership", async (req, res): Promise<void> => {
+  const ctx = req.clerk?.__staffContext as StaffContext | undefined;
+  if (!ctx || !ctx.isOwner) {
+    res.status(403).json({
+      error: "Only the current owner can transfer ownership.",
+      code: "OWNER_ONLY",
+    });
+    return;
+  }
+  const tenant = getTenant(req);
+
+  const target = (
+    await db
+      .select()
+      .from(staffTable)
+      .where(
+        and(
+          eq(staffTable.id, req.params.staffId),
+          eq(staffTable.organizationId, tenant.organizationId),
+        ),
+      )
+  )[0];
+  if (!target) {
+    res.status(404).json({ error: "Staff member not found" });
+    return;
+  }
+  // Ownership can only be handed to somebody who can actually sign in.
+  if (!target.clerkUserId) {
+    res.status(409).json({
+      error:
+        "That person has not accepted their invite yet, so they cannot take ownership. Ask them to sign in first.",
+      code: "STAFF_NOT_LINKED",
+    });
+    return;
+  }
+  if (target.clerkUserId === tenant.clerkUserId) {
+    res.status(400).json({ error: "You already own this organization." });
+    return;
+  }
+
+  const [ownerRole, administratorRole] = await Promise.all([
+    db.select().from(rolesTable).where(eq(rolesTable.isOwner, true)).then((r) => r[0]),
+    db
+      .select()
+      .from(rolesTable)
+      .where(eq(rolesTable.name, "Administrator"))
+      .then((r) => r[0]),
+  ]);
+  if (!ownerRole) {
+    res.status(500).json({ error: "This organization has no owner role configured." });
+    return;
+  }
+  if (!administratorRole) {
+    res.status(500).json({
+      error: "This organization has no Administrator role to demote the owner into.",
+    });
+    return;
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const previousOwner = (
+      await tx
+        .select()
+        .from(staffTable)
+        .where(
+          and(
+            eq(staffTable.organizationId, tenant.organizationId),
+            eq(staffTable.roleId, ownerRole.id),
+          ),
+        )
+    )[0];
+
+    const [promoted] = await tx
+      .update(staffTable)
+      .set({ roleId: ownerRole.id, updatedAt: new Date() })
+      .where(eq(staffTable.id, target.id))
+      .returning();
+
+    if (previousOwner) {
+      await tx
+        .update(staffTable)
+        .set({ roleId: administratorRole.id, updatedAt: new Date() })
+        .where(eq(staffTable.id, previousOwner.id));
+    }
+
+    // Keep organization membership in step with the staff rows. A staff record
+    // with no linked account has no membership row to update.
+    const moves: Array<{ clerkUserId: string; roleId: string }> = [
+      ...(target.clerkUserId
+        ? [{ clerkUserId: target.clerkUserId, roleId: ownerRole.id }]
+        : []),
+      ...(previousOwner?.clerkUserId
+        ? [{ clerkUserId: previousOwner.clerkUserId, roleId: administratorRole.id }]
+        : []),
+    ];
+    for (const move of moves) {
+      await tx
+        .update(organizationMembersTable)
+        .set({ roleId: move.roleId })
+        .where(
+          and(
+            eq(organizationMembersTable.organizationId, tenant.organizationId),
+            eq(organizationMembersTable.clerkUserId, move.clerkUserId),
+          ),
+        );
+    }
+
+    return { promoted, previousOwner };
+  });
+
+  await logAuditEntry({
+    organizationId: tenant.organizationId,
+    branchId: target.branchId,
+    staffId: tenant.staffId,
+    action: "UPDATE",
+    entity: "OWNERSHIP",
+    entityId: target.id,
+    detail: `Ownership transferred to ${target.name}. The previous owner was demoted to Administrator.`,
+  });
+
+  res.json({
+    owner: {
+      id: result.promoted.id,
+      name: result.promoted.name,
+      email: result.promoted.email ?? null,
+    },
+    previousOwner: result.previousOwner
+      ? { id: result.previousOwner.id, name: result.previousOwner.name }
+      : null,
   });
 });
 
