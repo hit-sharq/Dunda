@@ -301,6 +301,166 @@ router.patch("/organizations/:organizationId", async (req, res): Promise<void> =
   res.json({ ...updated, settings: await getTenantSettings(existing.id) });
 });
 
+/**
+ * Assigns the owner of a client.
+ *
+ * An operator provisions a client, so they are above that tenant rather than
+ * inside it. The setup token exists for the tenant case, where a brand new
+ * organization has nobody to invite its first owner; it is not how an operator
+ * should have to gain access to a club they are onboarding.
+ *
+ * The same endpoint also reassigns ownership, which is how you hand a running
+ * club to the person who actually runs it.
+ */
+const AssignOwnerBody = z.object({
+  clerkUserId: z
+    .string()
+    .min(4)
+    .optional()
+    .describe("Defaults to the administrator making the request."),
+  name: z.string().min(1).optional(),
+  email: z.string().nullable().optional(),
+  roleId: z.string().optional(),
+});
+
+router.post("/organizations/:organizationId/owner", async (req, res): Promise<void> => {
+  const parsed = AssignOwnerBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const data = parsed.data;
+
+  const [org] = await db
+    .select()
+    .from(organizationsTable)
+    .where(eq(organizationsTable.id, req.params.organizationId));
+  if (!org) {
+    res.status(404).json({ error: "That venue does not exist." });
+    return;
+  }
+
+  const [ownerRole, administratorRole] = await Promise.all([
+    db.select().from(rolesTable).where(eq(rolesTable.isOwner, true)).limit(1),
+    db.select().from(rolesTable).where(eq(rolesTable.name, "Administrator")).limit(1),
+  ]);
+  if (!ownerRole[0]) {
+    res.status(500).json({ error: "This database has no owner role configured." });
+    return;
+  }
+
+  const clerkUserId = data.clerkUserId ?? req.platformAdmin?.clerkUserId;
+  if (!clerkUserId) {
+    res.status(400).json({ error: "No account was supplied to assign." });
+    return;
+  }
+
+  // A staff record is keyed by account alone, so one account can hold a role at
+  // only one organization. That is worth saying plainly rather than letting the
+  // unique constraint surface as a 500.
+  const [heldElsewhere] = await db
+    .select({ id: staffTable.id, organizationId: staffTable.organizationId })
+    .from(staffTable)
+    .where(eq(staffTable.clerkUserId, clerkUserId));
+  if (heldElsewhere && heldElsewhere.organizationId !== org.id) {
+    res.status(409).json({
+      error:
+        "That account already holds a staff role at another organization. Give the club a named owner instead, or move that record first.",
+      code: "STAFF_RECORD_EXISTS_ELSEWHERE",
+    });
+    return;
+  }
+
+  // The account may already have a staff record here, or not yet.
+  const [existingForAccount] = await db
+    .select()
+    .from(staffTable)
+    .where(
+      and(
+        eq(staffTable.organizationId, org.id),
+        eq(staffTable.clerkUserId, clerkUserId),
+      ),
+    );
+
+  const result = await db.transaction(async (tx) => {
+    // Whoever holds the owner role now steps down rather than two people
+    // holding identical authority with no record of which one decided.
+    const [previousOwner] = await tx
+      .select()
+      .from(staffTable)
+      .where(
+        and(
+          eq(staffTable.organizationId, org.id),
+          eq(staffTable.roleId, ownerRole[0].id),
+        ),
+      );
+
+    if (previousOwner && previousOwner.clerkUserId !== clerkUserId) {
+      await tx
+        .update(staffTable)
+        .set({
+          roleId: administratorRole[0]?.id ?? previousOwner.roleId,
+          updatedAt: new Date(),
+        })
+        .where(eq(staffTable.id, previousOwner.id));
+    }
+
+    const [branch] = await tx
+      .select({ id: branchesTable.id })
+      .from(branchesTable)
+      .where(eq(branchesTable.organizationId, org.id))
+      .limit(1);
+
+    let owner;
+    if (existingForAccount) {
+      [owner] = await tx
+        .update(staffTable)
+        .set({ roleId: ownerRole[0].id, updatedAt: new Date() })
+        .where(eq(staffTable.id, existingForAccount.id))
+        .returning();
+    } else {
+      [owner] = await tx
+        .insert(staffTable)
+        .values({
+          id: uid("staff"),
+          organizationId: org.id,
+          branchId: branch?.id ?? null,
+          clerkUserId,
+          name: data.name ?? data.email ?? "Owner",
+          email: data.email ?? null,
+          roleId: data.roleId ?? ownerRole[0].id,
+          status: "ACTIVE",
+        })
+        .returning();
+    }
+
+    await tx.insert(auditLogsTable).values({
+      id: uid("audit"),
+      organizationId: org.id,
+      branchId: branch?.id ?? null,
+      staffId: null,
+      action: "UPDATE",
+      entity: "OWNERSHIP",
+      entityId: org.id,
+      detail: `Ownership assigned to ${clerkUserId} by administrator ${req.platformAdmin?.clerkUserId ?? "unknown"}.`,
+    });
+
+    return { owner, previousOwner: previousOwner ?? null };
+  });
+
+  res.json({
+    owner: {
+      id: result.owner.id,
+      name: result.owner.name,
+      clerkUserId: result.owner.clerkUserId,
+    },
+    demoted:
+      result.previousOwner && result.previousOwner.clerkUserId !== clerkUserId
+        ? { id: result.previousOwner.id, name: result.previousOwner.name }
+        : null,
+  });
+});
+
 /** Every staff member on the platform, across every venue. */
 router.get("/staff", async (_req, res): Promise<void> => {
   const rows = await db

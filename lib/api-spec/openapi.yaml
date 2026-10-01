@@ -1584,6 +1584,36 @@ paths:
           description: Updated settings
         "403":
           description: Not a Dunda administrator
+  /admin/organizations/{organizationId}/owner:
+    post:
+      operationId: assignOrganizationOwner
+      tags: [admin]
+      summary: Assign or reassign the owner of a client
+      description: >
+        An operator provisions a client, so they sit above that tenant rather
+        than inside it. This is how they gain access to a club they are
+        onboarding, and how a running club is handed to the person who runs it.
+        The setup token is the tenant path and is not needed here.
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssignOwnerInput" }
+      responses:
+        "200":
+          description: Ownership assigned
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignOwnerResult" }
+        "404":
+          description: That venue does not exist
+        "403":
+          description: Not a Dunda administrator
   /admin/staff:
     get:
       operationId: getAdminStaff
@@ -2445,6 +2475,31 @@ components:
         currency: { type: string, minLength: 3, maxLength: 3 }
         taxRate: { type: integer, minimum: 0, maximum: 100 }
         serviceChargeRate: { type: integer, minimum: 0, maximum: 100 }
+    AssignOwnerInput:
+      type: object
+      properties:
+        clerkUserId:
+          type: string
+          description: Defaults to the administrator making the request.
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        roleId: { type: string }
+    AssignOwnerResult:
+      type: object
+      required: [owner]
+      properties:
+        owner:
+          type: object
+          required: [id, name]
+          properties:
+            id: { type: string }
+            name: { type: string }
+            clerkUserId: { type: ["string", "null"] }
+        demoted:
+          type: ["object", "null"]
+          properties:
+            id: { type: string }
+            name: { type: string }
     AdminStaff:
       type: object
       required: [id, name, linked]

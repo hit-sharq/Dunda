@@ -861,6 +861,36 @@ export interface UpdateOrganizationInput {
   serviceChargeRate?: number;
 }
 
+export interface AssignOwnerInput {
+  /** Defaults to the administrator making the request. */
+  clerkUserId?: string;
+  name?: string;
+  /** @nullable */
+  email?: string | null;
+  roleId?: string;
+}
+
+export type AssignOwnerResultOwner = {
+  id: string;
+  name: string;
+  /** @nullable */
+  clerkUserId?: string | null;
+};
+
+/**
+ * @nullable
+ */
+export type AssignOwnerResultDemoted = {
+  id?: string;
+  name?: string;
+} | null;
+
+export interface AssignOwnerResult {
+  owner: AssignOwnerResultOwner;
+  /** @nullable */
+  demoted?: AssignOwnerResultDemoted;
+}
+
 export interface AdminStaff {
   id: string;
   name: string;

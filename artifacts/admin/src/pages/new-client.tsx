@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useCreateAdminOrganization } from "@workspace/api-client-react";
-import { Card, field, inputStyle, primaryButton } from "./shell";
+import {
+  useAssignOrganizationOwner,
+  useCreateAdminOrganization,
+} from "@workspace/api-client-react";
+import { Card, field, inputStyle, linkButton, primaryButton } from "./shell";
 import { colors } from "../lib/theme";
 
 /**
@@ -13,6 +16,7 @@ import { colors } from "../lib/theme";
  */
 export function NewClient() {
   const create = useCreateAdminOrganization();
+  const assignOwner = useAssignOrganizationOwner();
   const [, setLocation] = useLocation();
   const [form, setForm] = useState({
     name: "",
@@ -23,6 +27,8 @@ export function NewClient() {
     serviceChargeRate: "10",
   });
   const [created, setCreated] = useState<{ id: string; slug: string } | null>(null);
+  const [claimed, setClaimed] = useState(false);
+  const [claimMessage, setClaimMessage] = useState<string | null>(null);
   const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
 
   return (

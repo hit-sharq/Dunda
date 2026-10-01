@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, isNull } from "drizzle-orm";
+import { asc, and, eq, isNull } from "drizzle-orm";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { getAuth } from "@clerk/express";
@@ -44,6 +44,7 @@ router.get("/status", async (_req, res): Promise<void> => {
     .select()
     .from(rolesTable)
     .where(eq(rolesTable.isOwner, true))
+    .orderBy(asc(rolesTable.sortOrder))
     .limit(1);
   if (!ownerRole) {
     res.json({ claimable: false, reason: "NO_OWNER_ROLE" });
@@ -124,6 +125,7 @@ router.post("/claim", claimLimiter, async (req, res): Promise<void> => {
     .select()
     .from(rolesTable)
     .where(eq(rolesTable.isOwner, true))
+    .orderBy(asc(rolesTable.sortOrder))
     .limit(1);
   if (!ownerRole) {
     res.status(500).json({ error: "This deployment has no owner role configured." });

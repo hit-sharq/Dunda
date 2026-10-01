@@ -26,6 +26,8 @@ import type {
   AdminOrganization,
   AdminStaff,
   AdminSummary,
+  AssignOwnerInput,
+  AssignOwnerResult,
   AuditLog,
   BarcodeLookup,
   Branch,
@@ -7569,6 +7571,96 @@ export const useUpdateAdminOrganization = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getUpdateAdminOrganizationMutationOptions(options));
+    }
+
+export const getAssignOrganizationOwnerUrl = (organizationId: string,) => {
+
+
+
+
+  return `/api/admin/organizations/${organizationId}/owner`
+}
+
+/**
+ * An operator provisions a client, so they sit above that tenant rather than inside it. This is how they gain access to a club they are onboarding, and how a running club is handed to the person who runs it. The setup token is the tenant path and is not needed here.
+ * @summary Assign or reassign the owner of a client
+ */
+export const assignOrganizationOwner = async (organizationId: string,
+    assignOwnerInput?: AssignOwnerInput, options?: Parameters<typeof customFetch>[1]): Promise<AssignOwnerResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AssignOwnerResult>(getAssignOrganizationOwnerUrl(organizationId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(assignOwnerInput)
+  }
+);}
+
+
+
+
+
+export const getAssignOrganizationOwnerMutationKey = () => ['assignOrganizationOwner'] as const;
+
+export const getAssignOrganizationOwnerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignOrganizationOwner>>, TError,AssignOrganizationOwnerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignOrganizationOwner>>, TError,AssignOrganizationOwnerMutationVariables, TContext> => {
+
+const mutationKey = getAssignOrganizationOwnerMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignOrganizationOwner>>, AssignOrganizationOwnerMutationVariables> = (props) => {
+          const {organizationId,data} = props ?? {};
+
+          return  assignOrganizationOwner(organizationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignOrganizationOwnerMutationResult = NonNullable<Awaited<ReturnType<typeof assignOrganizationOwner>>>
+    export type AssignOrganizationOwnerMutationBody = BodyType<AssignOwnerInput> | undefined
+    export type AssignOrganizationOwnerMutationError = ErrorType<void>
+    export type AssignOrganizationOwnerMutationVariables = {organizationId: string;data?: BodyType<AssignOwnerInput>}
+
+    /**
+ * @summary Assign or reassign the owner of a client
+ */
+export const useAssignOrganizationOwner = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignOrganizationOwner>>, TError,AssignOrganizationOwnerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignOrganizationOwner>>,
+        TError,
+        AssignOrganizationOwnerMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAssignOrganizationOwnerMutationOptions(options));
     }
 
 export const getGetAdminStaffUrl = () => {

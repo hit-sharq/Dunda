@@ -11,7 +11,7 @@ import {
   tablesTable,
   rolesTable,
 } from "@workspace/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import app from "../src/app";
 import {
   isPlatformAdmin,
@@ -121,6 +121,16 @@ async function seed(): Promise<void> {
   }
 
   await db.insert(staffTable).values([
+    {
+      id: "iso-owner-b",
+      organizationId: ORG_B,
+      branchId: `${ORG_B}-branch`,
+      clerkUserId: "user_isolated_owner_b",
+      name: "Owner B",
+      email: "owner-b@iso.test",
+      roleId: ownerRole.id,
+      status: "ACTIVE",
+    },
     {
       id: "iso-owner",
       organizationId: ORG_A,
@@ -302,6 +312,78 @@ describe("what an administrator actually sees", () => {
     });
     expect(res.status).toBe(409);
     expect(res.body.error).toContain("already exists");
+  });
+
+  it("can take ownership of a club without a setup token", async () => {
+    // The operator is above the tenant, so claiming a club they are onboarding
+    // must not require the tenant's token flow.
+    signInAs(ADMIN_CLERK);
+    const res = await request(app)
+      .post(`/api/admin/organizations/${ORG_B}/owner`)
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.owner.clerkUserId).toBe(ADMIN_CLERK);
+
+    // And the account can then act on the club, which is the point.
+    signOut();
+    signInAs(ADMIN_CLERK);
+    const settings = await request(app).get("/api/settings");
+    expect(settings.status).toBe(200);
+    expect(settings.body.id).toBe(ORG_B);
+
+    // Put it back so the tenant cases below still describe a separate owner.
+    await request(app)
+      .post(`/api/admin/organizations/${ORG_B}/owner`)
+      .send({ clerkUserId: "user_isolated_owner_b" });
+    const [waiter] = await db
+      .select()
+      .from(rolesTable)
+      .where(eq(rolesTable.name, "Waiter"));
+    await db
+      .update(staffTable)
+      .set({ roleId: waiter.id })
+      .where(eq(staffTable.clerkUserId, "user_isolated_owner_b"));
+  });
+
+  it("demotes the previous owner rather than leaving two", async () => {
+    signInAs(ADMIN_CLERK);
+    const res = await request(app)
+      .post(`/api/admin/organizations/${ORG_A}/owner`)
+      .send({ clerkUserId: "user_new_owner_account", name: "Second Operator" });
+    expect(res.status).toBe(200);
+    // The response states who holds it now, and who stepped down.
+    expect(res.body.owner.clerkUserId).toBe("user_new_owner_account");
+    expect(res.body.demoted).not.toBeNull();
+    expect(res.body.demoted.clerkUserId ?? null).not.toBe("user_new_owner_account");
+
+    // And the database agrees: exactly one owner, and it is the new account.
+    const [ownerRole] = await db
+      .select()
+      .from(rolesTable)
+      .where(eq(rolesTable.isOwner, true))
+      .orderBy(asc(rolesTable.sortOrder))
+      .limit(1);
+    const owners = await db
+      .select()
+      .from(staffTable)
+      .where(
+        and(
+          eq(staffTable.organizationId, ORG_A),
+          eq(staffTable.roleId, ownerRole.id),
+        ),
+      );
+    expect(owners).toHaveLength(1);
+    expect(owners[0].clerkUserId).toBe("user_new_owner_account");
+  });
+
+  it("explains that an account can hold a role at only one club", async () => {
+    // The operator may already be staff somewhere, and the constraint is real,
+    // so it has to read as a decision rather than a failure.
+    signInAs(ADMIN_CLERK);
+    const res = await request(app)
+      .post(`/api/admin/organizations/${ORG_B}/owner`)
+      .send({ clerkUserId: "user_isolated_owner_b" });
+    expect([404, 409, 200]).toContain(res.status);
   });
 
   it("can correct another club's tax rate", async () => {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  useAssignOrganizationOwner,
   useGetAdminOrganizations,
   useUpdateAdminOrganization,
 } from "@workspace/api-client-react";
@@ -18,12 +19,14 @@ import { colors, dateOnly, money } from "../lib/theme";
 export function ClientDetail({ id }: { id: string }) {
   const orgs = useGetAdminOrganizations();
   const update = useUpdateAdminOrganization();
+  const assignOwner = useAssignOrganizationOwner();
   const org = orgs.data?.find((o) => o.id === id);
 
   const [currency, setCurrency] = useState("");
   const [taxRate, setTaxRate] = useState("");
   const [serviceChargeRate, setServiceChargeRate] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
+  const [claimed, setClaimed] = useState<string | null>(null);
 
   useEffect(() => {
     if (!org) return;
@@ -170,6 +173,50 @@ export function ClientDetail({ id }: { id: string }) {
               Dismiss
             </button>
           ) : null}
+        </div>
+      </Card>
+
+      <Card style={{ maxWidth: 640, display: "grid", gap: 12 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
+            Ownership
+          </h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: colors.muted }}>
+            You are above this club rather than inside it, so you can take the
+            owner role directly. That is also how you hand a running club to the
+            person who runs it — they step down to Administrator.
+          </p>
+        </div>
+        {claimed && (
+          <p style={{ margin: 0, fontSize: 13, color: colors.green }}>{claimed}</p>
+        )}
+        {assignOwner.isError && (
+          <p style={{ margin: 0, fontSize: 13, color: colors.red }}>
+            {(assignOwner.error as { data?: { error?: string } })?.data?.error ??
+              "Could not assign ownership."}
+          </p>
+        )}
+        <div>
+          <button
+            style={{ ...primaryButton, opacity: assignOwner.isPending ? 0.5 : 1 }}
+            disabled={assignOwner.isPending}
+            onClick={() =>
+              assignOwner.mutate(
+                { organizationId: org.id, data: {} },
+                {
+                  onSuccess: (r) => {
+                    setClaimed(
+                      `You are now the owner of ${org.name}.` +
+                        (r.demoted ? ` ${r.demoted.name} was made an Administrator.` : ""),
+                    );
+                    orgs.refetch();
+                  },
+                },
+              )
+            }
+          >
+            {assignOwner.isPending ? "Assigning…" : "Make me the owner"}
+          </button>
         </div>
       </Card>
 

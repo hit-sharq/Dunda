@@ -2183,6 +2183,34 @@ export const UpdateAdminOrganizationResponse = zod.unknown()
 
 
 /**
+ * An operator provisions a client, so they sit above that tenant rather than inside it. This is how they gain access to a club they are onboarding, and how a running club is handed to the person who runs it. The setup token is the tenant path and is not needed here.
+ * @summary Assign or reassign the owner of a client
+ */
+export const AssignOrganizationOwnerParams = zod.object({
+  "organizationId": zod.coerce.string()
+})
+
+export const AssignOrganizationOwnerBody = zod.object({
+  "clerkUserId": zod.string().optional().describe('Defaults to the administrator making the request.'),
+  "name": zod.string().optional(),
+  "email": zod.string().nullish(),
+  "roleId": zod.string().optional()
+})
+
+export const AssignOrganizationOwnerResponse = zod.object({
+  "owner": zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "clerkUserId": zod.string().nullish()
+}),
+  "demoted": zod.object({
+  "id": zod.string().optional(),
+  "name": zod.string().optional()
+}).nullish()
+})
+
+
+/**
  * @summary Every staff member across every client
  */
 export const GetAdminStaffResponseItem = zod.object({
