@@ -1,0 +1,27 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm run build:vercel",
+  "outputDirectory": "artifacts/dunda/dist",
+  "functions": {
+    "artifacts/api-server/dist/serverless/handler.mjs": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api",
+      "destination": "/artifacts/api-server/dist/serverless/handler.mjs"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/artifacts/api-server/dist/serverless/handler.mjs"
+    },
+    {
+      "source": "/((?!api/|assets/|favicon|logo|robots|.*\\.).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

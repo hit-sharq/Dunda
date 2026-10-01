@@ -16,7 +16,6 @@ import { InvalidTransitionError, ORDER_STATUS_TRANSITIONS } from "../lib/orderWo
 import { isClosed } from "../lib/routing";
 import { tabTickets } from "../lib/tabTickets";
 import type { StaffContext } from "../lib/permissions";
-import { publish } from "../lib/realtime";
 import {
   deductInventoryForOrderItem as deductForItem,
   deductInventoryForTabItem as deductForTabItem,
@@ -325,13 +324,6 @@ router.patch("/:ticketId", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Ticket not found" });
     return;
   }
-
-  publish({
-    topic: "ORDER_STATUS_CHANGED",
-    organizationId: outcome.ticket.organizationId,
-    branchId: outcome.ticket.branchId,
-    entityId: outcome.ticket.orderId,
-  });
 
   const items = await db
     .select()

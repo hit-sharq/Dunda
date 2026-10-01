@@ -21,7 +21,7 @@ import {
 } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch, NotificationBell } from '@/components/chrome';
-import { useRealtime } from '@/hooks/use-realtime';
+import { useLiveRefresh } from '@/hooks/use-live-refresh';
 import { useApiAuth } from '@/hooks/use-api-auth';
 import { useSessionGuard } from '@/hooks/use-session-guard';
 import { MoneyProvider, money } from '@/lib/money';
@@ -448,7 +448,8 @@ function ProtectedRouter() {
   const { isLoaded, isSignedIn } = useAuth();
   useApiAuth();
   useSessionGuard();
-  useRealtime(Boolean(isSignedIn));
+  // Serverless hosting cannot hold a WebSocket open, so live screens poll.
+  useLiveRefresh(Boolean(isSignedIn));
   // 403 STAFF_RECORD_REQUIRED means the account is authenticated but not yet
   // linked to a Dunda staff record. Without this the user just sees empty
   // screens and has no idea why.

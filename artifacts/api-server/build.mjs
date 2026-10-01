@@ -10,7 +10,11 @@ globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 
-async function buildAll() {
+/**
+ * The standalone server, used by `pnpm dev` and any host that runs a long-lived
+ * Node process.
+ */
+async function buildStandalone() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
 
@@ -118,6 +122,50 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+}
+
+/**
+ * The serverless entry, used by Vercel.
+ *
+ * The app is pre-bundled here so the platform receives a single JavaScript file
+ * rather than having to resolve the pnpm workspace and compile the whole
+ * monorepo itself. It exports the Express app without listening on a port,
+ * because a function is invoked per request.
+ */
+async function buildServerless() {
+  // The pino plugin emits its transport workers alongside the entry, so this
+  // writes a directory rather than a single file.
+  const outdir = path.resolve(artifactDir, "dist/serverless");
+  await esbuild({
+    entryPoints: [path.resolve(artifactDir, "api/index.ts")],
+    platform: "node",
+    bundle: true,
+    format: "esm",
+    outdir,
+    outExtension: { ".js": ".mjs" },
+    // Distinct from the plugin's own emitted files, which also use index.
+    entryNames: "handler",
+    logLevel: "info",
+    target: "node20",
+    external: [
+      "*.node", "pg-native", "sharp", "canvas", "bcrypt", "argon2", "bufferutil",
+      "utf-8-validate", "cpu-features", "isolated-vm", "lightningcss", "fsevents",
+    ],
+    sourcemap: "linked",
+    banner: {
+      js: `import { createRequire as __bannerCrReq } from 'node:module';
+import __bannerPath from 'node:path';
+import __bannerUrl from 'node:url';
+globalThis.require = __bannerCrReq(import.meta.url);
+globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
+globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);`,
+    },
+  });
+}
+
+async function buildAll() {
+  await buildStandalone();
+  await buildServerless();
 }
 
 buildAll().catch((err) => {

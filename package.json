@@ -21,7 +21,8 @@
     "api:codegen": "pnpm --filter @workspace/api-spec codegen",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "pnpm run typecheck && pnpm test && pnpm run build"
+    "verify": "pnpm run typecheck && pnpm test && pnpm run build",
+    "build:vercel": "pnpm --filter @workspace/api-server build && pnpm --filter @workspace/dunda build"
   },
   "private": true,
   "devDependencies": {

@@ -29,7 +29,6 @@ import { BranchScopeError, requireBranchScope } from "../lib/branchScope";
 import { calculateTotals, formatMoney, getTenantSettings } from "../lib/tenantSettings";
 import { nextDocumentNumber } from "../lib/numbering";
 import { logAuditEntry } from "../lib/auditLogger";
-import { publish } from "../lib/realtime";
 import { withTransactionRetry } from "../lib/retry";
 import { InvalidTransitionError, ORDER_STATUS_TRANSITIONS } from "../lib/orderWorkflow";
 import {
@@ -371,13 +370,6 @@ router.post("/", async (req, res): Promise<void> => {
     detail: `${order.number} · ${items.length} item(s) · ${formatMoney(order.total, await getTenantSettings(order.organizationId))}`,
   });
 
-  publish({
-    topic: "ORDER_CREATED",
-    organizationId: order.organizationId,
-    branchId: order.branchId,
-    entityId: order.id,
-  });
-
   res.status(201).json(
     CreateOrderResponse.parse({
       id: order.id,
@@ -501,21 +493,8 @@ router.patch("/:orderId/status", async (req, res): Promise<void> => {
     reason: (req.body as any)?.reason ?? null,
   });
 
-  publish({
-    topic: "ORDER_STATUS_CHANGED",
-    organizationId: updated.organizationId,
-    branchId: updated.branchId,
-    entityId: updated.id,
-  });
-
   // Completing an order moved stock, so the room and inventory screens need to know.
   if (body.data.status === "COMPLETED") {
-    publish({
-      topic: "INVENTORY_UPDATED",
-      organizationId: updated.organizationId,
-      branchId: updated.branchId,
-      entityId: updated.id,
-    });
   }
 
   const items = await db

@@ -54,7 +54,6 @@ import { closeTabTickets, raiseStationTicket } from "../lib/tabTickets";
 import { productAccentColors } from "../lib/constants";
 import { nextDocumentNumber } from "../lib/numbering";
 import { logAuditEntry } from "../lib/auditLogger";
-import { publish } from "../lib/realtime";
 
 const router: IRouter = Router();
 
@@ -362,12 +361,6 @@ router.post("/tabs", async (req, res): Promise<void> => {
       return;
     }
   }
-  publish({
-    topic: "TABLE_STATUS_CHANGED",
-    organizationId: tenant.organizationId,
-    branchId,
-    entityId: id,
-  });
 
   const response = tabResponse(tab, []);
   res.status(201).json(CreateTabResponse.parse(response));
@@ -748,25 +741,6 @@ router.post("/tabs/:tabId/checkout", async (req, res): Promise<void> => {
     detail: `Checkout ${response.tab.number} · ${formatMoney(body.data.amount, await getTenantSettings(tenant.organizationId))} by ${body.data.method} · receipt ${response.receiptNumber}`,
   });
 
-  publish({
-    topic: "PAYMENT_COMPLETED",
-    organizationId: tenant.organizationId,
-    branchId: tenant.branchId,
-    entityId: response.tab.id,
-  });
-  publish({
-    topic: "TABLE_STATUS_CHANGED",
-    organizationId: tenant.organizationId,
-    branchId: tenant.branchId,
-    entityId: response.tab.id,
-  });
-  publish({
-    topic: "INVENTORY_UPDATED",
-    organizationId: tenant.organizationId,
-    branchId: tenant.branchId,
-    entityId: response.tab.id,
-  });
-
   res.json(CheckoutTabResponse.parse(response));
 });
 
@@ -839,13 +813,6 @@ router.post("/reservations", async (req, res): Promise<void> => {
     guests: row.guests,
     status: row.status,
   };
-
-  publish({
-    topic: "RESERVATION_CREATED",
-    organizationId: tenant.organizationId,
-    branchId: row.branchId,
-    entityId: row.id,
-  });
 
   res.status(201).json(CreateReservationResponse.parse(response));
 });
