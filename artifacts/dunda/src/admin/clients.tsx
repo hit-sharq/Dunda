@@ -55,12 +55,13 @@ export function Clients() {
       </div>
 
       <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
-        <Metric label="Clients" value={s ? String(s.venues) : "—"} />
+        <Metric label="Clients" value={s ? String(s.clubs) : "—"} />
         <Metric label="Live branches" value={s ? String(s.liveBranches) : "—"} />
-        <Metric label="Active staff" value={s ? String(s.staff) : "—"} />
+        <Metric label="Active staff" value={s ? String(s.activeStaff) : "—"} />
         <Metric
-          label={`Revenue, ${s?.windowDays ?? 30}d`}
-          value={s ? money(s.revenueInWindow) : "—"}
+          label={`Club sales, ${s?.windowDays ?? 30}d`}
+          value={s ? money(s.clubRevenueInWindow) : "—"}
+          note="theirs, not ours"
         />
         <Metric
           label="Quiet clients"

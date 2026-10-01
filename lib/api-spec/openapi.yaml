@@ -1511,6 +1511,32 @@ paths:
               schema: { $ref: "#/components/schemas/AdminSummary" }
         "404":
           description: Not found
+  /admin/subscriptions:
+    get:
+      operationId: getAdminSubscriptions
+      tags: [admin]
+      summary: Subscriptions grouped the way you decide what to do about them
+      responses:
+        "200":
+          description: Counts, renewals due, and every subscription
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSubscriptions" }
+        "404":
+          description: Not found
+  /admin/billing:
+    get:
+      operationId: getAdminBilling
+      tags: [admin]
+      summary: Money clubs have paid Dunda, and what has failed
+      responses:
+        "200":
+          description: Payments, failures and invoices
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminBilling" }
+        "404":
+          description: Not found
   /admin/organizations:
     get:
       operationId: getAdminOrganizations
@@ -2459,19 +2485,36 @@ components:
       type: object
       required:
         [
-          venues,
-          liveBranches,
-          staff,
-          ordersInWindow,
-          revenueInWindow,
-          windowDays,
+          clubs, liveBranches, newClubsThisMonth, activeClubs, trialClubs,
+          suspendedClubs, cancelledClubs, expiredClubs, pastDueClubs,
+          churnedLast30Days, mrr, collected, activeStaff, totalStaff,
+          ordersInWindow, clubRevenueInWindow, windowDays,
         ]
       properties:
-        venues: { type: integer }
+        clubs: { type: integer }
         liveBranches: { type: integer }
-        staff: { type: integer }
+        newClubsThisMonth: { type: integer }
+        activeClubs: { type: integer }
+        trialClubs: { type: integer }
+        suspendedClubs: { type: integer }
+        cancelledClubs: { type: integer }
+        expiredClubs: { type: integer }
+        pastDueClubs: { type: integer }
+        churnedLast30Days: { type: integer }
+        mrr:
+          type: number
+          description: >-
+            What clubs are committed to per month. Annual plans are divided by
+            twelve so a yearly club does not look like twelve monthly ones.
+        collected:
+          type: number
+          description: Money actually received, which is not the same as MRR.
+        activeStaff: { type: integer }
+        totalStaff: { type: integer }
         ordersInWindow: { type: integer }
-        revenueInWindow: { type: number }
+        clubRevenueInWindow:
+          type: number
+          description: The clubs' own sales. Theirs, not ours.
         windowDays: { type: integer }
     CreatedOrganization:
       type: object
@@ -2535,6 +2578,85 @@ components:
         currency: { type: string, minLength: 3, maxLength: 3 }
         taxRate: { type: integer, minimum: 0, maximum: 100 }
         serviceChargeRate: { type: integer, minimum: 0, maximum: 100 }
+    AdminSubscriptionRow:
+      type: object
+      required:
+        [id, organizationId, plan, status, billingCycle, amount, currency, renewalDue]
+      properties:
+        id: { type: string }
+        organizationId: { type: string }
+        organization: { type: ["string", "null"] }
+        plan: { type: string }
+        planCode: { type: string }
+        status: { type: string }
+        billingCycle: { type: string }
+        amount: { type: integer }
+        currency: { type: string }
+        startedAt: { type: ["string", "null"], format: date-time }
+        renewsAt: { type: ["string", "null"], format: date-time }
+        renewalDue: { type: boolean }
+    AdminSubscriptions:
+      type: object
+      required: [counts, renewalsDue, subscriptions]
+      properties:
+        counts:
+          type: object
+          required: [total, active, trial, pastDue, suspended, cancelled, expired]
+          properties:
+            total: { type: integer }
+            active: { type: integer }
+            trial: { type: integer }
+            pastDue: { type: integer }
+            suspended: { type: integer }
+            cancelled: { type: integer }
+            expired: { type: integer }
+        renewalsDue:
+          type: array
+          items: { $ref: "#/components/schemas/AdminSubscriptionRow" }
+        subscriptions:
+          type: array
+          items: { $ref: "#/components/schemas/AdminSubscriptionRow" }
+    AdminBilling:
+      type: object
+      required: [collected, payments, failed, invoices]
+      properties:
+        collected: { type: number }
+        payments:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              organizationId: { type: string }
+              organization: { type: ["string", "null"] }
+              status: { type: string }
+              amount: { type: integer }
+              currency: { type: string }
+              provider: { type: string }
+              paidAt: { type: ["string", "null"], format: date-time }
+              createdAt: { type: string, format: date-time }
+        failed:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              organization: { type: ["string", "null"] }
+              amount: { type: integer }
+              reason: { type: ["string", "null"] }
+              createdAt: { type: string, format: date-time }
+        invoices:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              number: { type: string }
+              organization: { type: ["string", "null"] }
+              total: { type: integer }
+              currency: { type: string }
+              status: { type: string }
+              issuedAt: { type: string, format: date-time }
     Plan:
       type: object
       required:

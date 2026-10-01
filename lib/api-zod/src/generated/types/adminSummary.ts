@@ -7,10 +7,24 @@
  */
 
 export interface AdminSummary {
-  venues: number;
+  clubs: number;
   liveBranches: number;
-  staff: number;
+  newClubsThisMonth: number;
+  activeClubs: number;
+  trialClubs: number;
+  suspendedClubs: number;
+  cancelledClubs: number;
+  expiredClubs: number;
+  pastDueClubs: number;
+  churnedLast30Days: number;
+  /** What clubs are committed to per month. Annual plans are divided by twelve so a yearly club does not look like twelve monthly ones. */
+  mrr: number;
+  /** Money actually received, which is not the same as MRR. */
+  collected: number;
+  activeStaff: number;
+  totalStaff: number;
   ordersInWindow: number;
-  revenueInWindow: number;
+  /** The clubs' own sales. Theirs, not ours. */
+  clubRevenueInWindow: number;
   windowDays: number;
 }

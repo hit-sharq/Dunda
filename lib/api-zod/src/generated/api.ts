@@ -2076,12 +2076,102 @@ export const UpdateTicketResponse = zod.object({
  * @summary Platform totals across every client
  */
 export const GetAdminSummaryResponse = zod.object({
-  "venues": zod.number().int(),
+  "clubs": zod.number().int(),
   "liveBranches": zod.number().int(),
-  "staff": zod.number().int(),
+  "newClubsThisMonth": zod.number().int(),
+  "activeClubs": zod.number().int(),
+  "trialClubs": zod.number().int(),
+  "suspendedClubs": zod.number().int(),
+  "cancelledClubs": zod.number().int(),
+  "expiredClubs": zod.number().int(),
+  "pastDueClubs": zod.number().int(),
+  "churnedLast30Days": zod.number().int(),
+  "mrr": zod.number().describe('What clubs are committed to per month. Annual plans are divided by twelve so a yearly club does not look like twelve monthly ones.'),
+  "collected": zod.number().describe('Money actually received, which is not the same as MRR.'),
+  "activeStaff": zod.number().int(),
+  "totalStaff": zod.number().int(),
   "ordersInWindow": zod.number().int(),
-  "revenueInWindow": zod.number(),
+  "clubRevenueInWindow": zod.number().describe('The clubs\' own sales. Theirs, not ours.'),
   "windowDays": zod.number().int()
+})
+
+
+/**
+ * @summary Subscriptions grouped the way you decide what to do about them
+ */
+export const GetAdminSubscriptionsResponse = zod.object({
+  "counts": zod.object({
+  "total": zod.number().int(),
+  "active": zod.number().int(),
+  "trial": zod.number().int(),
+  "pastDue": zod.number().int(),
+  "suspended": zod.number().int(),
+  "cancelled": zod.number().int(),
+  "expired": zod.number().int()
+}),
+  "renewalsDue": zod.array(zod.object({
+  "id": zod.string(),
+  "organizationId": zod.string(),
+  "organization": zod.string().nullish(),
+  "plan": zod.string(),
+  "planCode": zod.string().optional(),
+  "status": zod.string(),
+  "billingCycle": zod.string(),
+  "amount": zod.number().int(),
+  "currency": zod.string(),
+  "startedAt": zod.coerce.date().nullish(),
+  "renewsAt": zod.coerce.date().nullish(),
+  "renewalDue": zod.boolean()
+})),
+  "subscriptions": zod.array(zod.object({
+  "id": zod.string(),
+  "organizationId": zod.string(),
+  "organization": zod.string().nullish(),
+  "plan": zod.string(),
+  "planCode": zod.string().optional(),
+  "status": zod.string(),
+  "billingCycle": zod.string(),
+  "amount": zod.number().int(),
+  "currency": zod.string(),
+  "startedAt": zod.coerce.date().nullish(),
+  "renewsAt": zod.coerce.date().nullish(),
+  "renewalDue": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Money clubs have paid Dunda, and what has failed
+ */
+export const GetAdminBillingResponse = zod.object({
+  "collected": zod.number(),
+  "payments": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "organizationId": zod.string().optional(),
+  "organization": zod.string().nullish(),
+  "status": zod.string().optional(),
+  "amount": zod.number().int().optional(),
+  "currency": zod.string().optional(),
+  "provider": zod.string().optional(),
+  "paidAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date().optional()
+})),
+  "failed": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "organization": zod.string().nullish(),
+  "amount": zod.number().int().optional(),
+  "reason": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional()
+})),
+  "invoices": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "number": zod.string().optional(),
+  "organization": zod.string().nullish(),
+  "total": zod.number().int().optional(),
+  "currency": zod.string().optional(),
+  "status": zod.string().optional(),
+  "issuedAt": zod.coerce.date().optional()
+}))
 })
 
 

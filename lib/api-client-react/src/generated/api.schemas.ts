@@ -767,11 +767,25 @@ export interface TenantSettings {
 }
 
 export interface AdminSummary {
-  venues: number;
+  clubs: number;
   liveBranches: number;
-  staff: number;
+  newClubsThisMonth: number;
+  activeClubs: number;
+  trialClubs: number;
+  suspendedClubs: number;
+  cancelledClubs: number;
+  expiredClubs: number;
+  pastDueClubs: number;
+  churnedLast30Days: number;
+  /** What clubs are committed to per month. Annual plans are divided by twelve so a yearly club does not look like twelve monthly ones. */
+  mrr: number;
+  /** Money actually received, which is not the same as MRR. */
+  collected: number;
+  activeStaff: number;
+  totalStaff: number;
   ordersInWindow: number;
-  revenueInWindow: number;
+  /** The clubs' own sales. Theirs, not ours. */
+  clubRevenueInWindow: number;
   windowDays: number;
 }
 
@@ -845,6 +859,82 @@ export interface UpdateOrganizationInput {
      * @maximum 100
      */
   serviceChargeRate?: number;
+}
+
+export interface AdminSubscriptionRow {
+  id: string;
+  organizationId: string;
+  /** @nullable */
+  organization?: string | null;
+  plan: string;
+  planCode?: string;
+  status: string;
+  billingCycle: string;
+  amount: number;
+  currency: string;
+  /** @nullable */
+  startedAt?: string | null;
+  /** @nullable */
+  renewsAt?: string | null;
+  renewalDue: boolean;
+}
+
+export type AdminSubscriptionsCounts = {
+  total: number;
+  active: number;
+  trial: number;
+  pastDue: number;
+  suspended: number;
+  cancelled: number;
+  expired: number;
+};
+
+export interface AdminSubscriptions {
+  counts: AdminSubscriptionsCounts;
+  renewalsDue: AdminSubscriptionRow[];
+  subscriptions: AdminSubscriptionRow[];
+}
+
+export type AdminBillingPaymentsItem = {
+  id?: string;
+  organizationId?: string;
+  /** @nullable */
+  organization?: string | null;
+  status?: string;
+  amount?: number;
+  currency?: string;
+  provider?: string;
+  /** @nullable */
+  paidAt?: string | null;
+  createdAt?: string;
+};
+
+export type AdminBillingFailedItem = {
+  id?: string;
+  /** @nullable */
+  organization?: string | null;
+  amount?: number;
+  /** @nullable */
+  reason?: string | null;
+  createdAt?: string;
+};
+
+export type AdminBillingInvoicesItem = {
+  id?: string;
+  number?: string;
+  /** @nullable */
+  organization?: string | null;
+  total?: number;
+  currency?: string;
+  status?: string;
+  issuedAt?: string;
+};
+
+export interface AdminBilling {
+  collected: number;
+  payments: AdminBillingPaymentsItem[];
+  failed: AdminBillingFailedItem[];
+  invoices: AdminBillingInvoicesItem[];
 }
 
 export interface Plan {

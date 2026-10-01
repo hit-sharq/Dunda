@@ -33,6 +33,8 @@ import { NewClient as OperatorNewClient } from '@/admin/new-client';
 import { PlatformStaff as OperatorPeople } from '@/admin/platform-staff';
 import { AuditTrail as OperatorAudit } from '@/admin/audit-trail';
 import { Plans as OperatorPlans } from '@/admin/plans';
+import { Overview as OperatorOverview } from '@/admin/overview';
+import { Billing as OperatorBilling } from '@/admin/billing';
 import { PERMISSION_LABELS } from '@/lib/errors';
 import { Skeleton } from '@/components/ui';
 import { Pos as NewPos } from '@/pages/pos';
@@ -529,7 +531,9 @@ function ProtectedRouter() {
     return <Redirect to="/admin" />;
   }
 
-  return isSignedIn ?     <AppShell><Switch><Route path="/admin" component={() => <RequireOperator><OperatorClients /></RequireOperator>} />
+  return isSignedIn ?     <AppShell><Switch><Route path="/admin" component={() => <RequireOperator><OperatorOverview /></RequireOperator>} />
+<Route path="/admin/clubs" component={() => <RequireOperator><OperatorClients /></RequireOperator>} />
+<Route path="/admin/billing" component={() => <RequireOperator><OperatorBilling /></RequireOperator>} />
 <Route path="/admin/clients/:id" component={OperatorClientRoute} />
 <Route path="/admin/new" component={() => <RequireOperator><OperatorNewClient /></RequireOperator>} />
 <Route path="/admin/people" component={() => <RequireOperator><OperatorPeople /></RequireOperator>} />

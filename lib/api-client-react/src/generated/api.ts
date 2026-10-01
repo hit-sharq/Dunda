@@ -23,8 +23,10 @@ import type {
   ActivityItem,
   AdjustInventoryInput,
   AdminAuditLog,
+  AdminBilling,
   AdminOrganization,
   AdminStaff,
+  AdminSubscriptions,
   AdminSummary,
   AssignOwnerInput,
   AssignOwnerResult,
@@ -7231,6 +7233,160 @@ export function useGetAdminSummary<TData = Awaited<ReturnType<typeof getAdminSum
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetAdminSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdminSubscriptionsUrl = () => {
+
+
+
+
+  return `/api/admin/subscriptions`
+}
+
+/**
+ * @summary Subscriptions grouped the way you decide what to do about them
+ */
+export const getAdminSubscriptions = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminSubscriptions> => {
+
+  return customFetch<AdminSubscriptions>(getGetAdminSubscriptionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminSubscriptionsQueryKey = () => {
+    return [
+    `/api/admin/subscriptions`
+    ] as const;
+    }
+
+
+export const getGetAdminSubscriptionsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminSubscriptions>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminSubscriptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminSubscriptionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminSubscriptions>>> = ({ signal }) => getAdminSubscriptions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminSubscriptions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminSubscriptionsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminSubscriptions>>>
+export type GetAdminSubscriptionsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Subscriptions grouped the way you decide what to do about them
+ */
+
+export function useGetAdminSubscriptions<TData = Awaited<ReturnType<typeof getAdminSubscriptions>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminSubscriptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminSubscriptionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdminBillingUrl = () => {
+
+
+
+
+  return `/api/admin/billing`
+}
+
+/**
+ * @summary Money clubs have paid Dunda, and what has failed
+ */
+export const getAdminBilling = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminBilling> => {
+
+  return customFetch<AdminBilling>(getGetAdminBillingUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminBillingQueryKey = () => {
+    return [
+    `/api/admin/billing`
+    ] as const;
+    }
+
+
+export const getGetAdminBillingQueryOptions = <TData = Awaited<ReturnType<typeof getAdminBilling>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminBilling>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminBillingQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminBilling>>> = ({ signal }) => getAdminBilling({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminBilling>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminBillingQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminBilling>>>
+export type GetAdminBillingQueryError = ErrorType<void>
+
+
+/**
+ * @summary Money clubs have paid Dunda, and what has failed
+ */
+
+export function useGetAdminBilling<TData = Awaited<ReturnType<typeof getAdminBilling>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminBilling>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminBillingQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
