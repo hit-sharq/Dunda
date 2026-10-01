@@ -1,5 +1,6 @@
 import type { RequestHandler } from "express";
 import { getAuth } from "@clerk/express";
+import { logger } from "../lib/logger";
 
 /**
  * Platform administration.
@@ -62,6 +63,12 @@ export const requirePlatformAdmin: RequestHandler = async (req, res, next) => {
   }
 
   if (!isPlatformAdmin(userId)) {
+    // Logged, never returned. This is how you find your own account id: sign in,
+    // try the operator area, and read this line in the server output.
+    logger.warn(
+      { signedInAs: userId, configured: process.env.PLATFORM_ADMIN_IDS ?? "(unset)" },
+      "Operator route refused: that account is not on the administrator list",
+    );
     // On the club app's domain a refusal here would confirm a hidden surface
     // exists behind this path. Answering exactly as any unknown path does means a
     // caller learns nothing about what is or is not mounted.

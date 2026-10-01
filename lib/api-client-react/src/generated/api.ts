@@ -87,6 +87,8 @@ import type {
   Payment,
   PaymentInput,
   PaymentReport,
+  Plan,
+  PlanInput,
   Product,
   ProductBarcodeInput,
   ProductInput,
@@ -99,6 +101,7 @@ import type {
   ReservationInput,
   SalesReport,
   SearchResult,
+  SetSubscriptionInput,
   SetupStatus,
   StaffMember,
   StaffReportItem,
@@ -109,6 +112,7 @@ import type {
   StockTransfer,
   StockTransferInput,
   StockTransferStatusInput,
+  SubscriptionResult,
   Supplier,
   Tab,
   TabInput,
@@ -7582,6 +7586,351 @@ export const useAssignOrganizationOwner = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getAssignOrganizationOwnerMutationOptions(options));
+    }
+
+export const getGetPlansUrl = () => {
+
+
+
+
+  return `/api/admin/plans`
+}
+
+/**
+ * Prices live here rather than on each subscription, so changing what a club pays is one edit. Limits are the pricing: a club past its branch or user limit has to move up.
+ * @summary The plan catalogue
+ */
+export const getPlans = async ( options?: Parameters<typeof customFetch>[1]): Promise<Plan[]> => {
+
+  return customFetch<Plan[]>(getGetPlansUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPlansQueryKey = () => {
+    return [
+    `/api/admin/plans`
+    ] as const;
+    }
+
+
+export const getGetPlansQueryOptions = <TData = Awaited<ReturnType<typeof getPlans>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlansQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlans>>> = ({ signal }) => getPlans({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlans>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPlansQueryResult = NonNullable<Awaited<ReturnType<typeof getPlans>>>
+export type GetPlansQueryError = ErrorType<void>
+
+
+/**
+ * @summary The plan catalogue
+ */
+
+export function useGetPlans<TData = Awaited<ReturnType<typeof getPlans>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPlansQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePlanUrl = () => {
+
+
+
+
+  return `/api/admin/plans`
+}
+
+/**
+ * @summary Create a tier
+ */
+export const createPlan = async (planInput: PlanInput, options?: Parameters<typeof customFetch>[1]): Promise<Plan> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Plan>(getCreatePlanUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(planInput)
+  }
+);}
+
+
+
+
+
+export const getCreatePlanMutationKey = () => ['createPlan'] as const;
+
+export const getCreatePlanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlan>>, TError,CreatePlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPlan>>, TError,CreatePlanMutationVariables, TContext> => {
+
+const mutationKey = getCreatePlanMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPlan>>, CreatePlanMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPlan(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePlanMutationResult = NonNullable<Awaited<ReturnType<typeof createPlan>>>
+    export type CreatePlanMutationBody = BodyType<PlanInput>
+    export type CreatePlanMutationError = ErrorType<void>
+    export type CreatePlanMutationVariables = {data: BodyType<PlanInput>}
+
+    /**
+ * @summary Create a tier
+ */
+export const useCreatePlan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlan>>, TError,CreatePlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPlan>>,
+        TError,
+        CreatePlanMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreatePlanMutationOptions(options));
+    }
+
+export const getUpdatePlanUrl = (planId: string,) => {
+
+
+
+
+  return `/api/admin/plans/${planId}`
+}
+
+/**
+ * Existing subscriptions keep their own terms, so a price change does not silently re-price clubs already on that tier.
+ * @summary Edit a tier
+ */
+export const updatePlan = async (planId: string,
+    planInput: PlanInput, options?: Parameters<typeof customFetch>[1]): Promise<Plan> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Plan>(getUpdatePlanUrl(planId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(planInput)
+  }
+);}
+
+
+
+
+
+export const getUpdatePlanMutationKey = () => ['updatePlan'] as const;
+
+export const getUpdatePlanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlan>>, TError,UpdatePlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePlan>>, TError,UpdatePlanMutationVariables, TContext> => {
+
+const mutationKey = getUpdatePlanMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePlan>>, UpdatePlanMutationVariables> = (props) => {
+          const {planId,data} = props ?? {};
+
+          return  updatePlan(planId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePlanMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlan>>>
+    export type UpdatePlanMutationBody = BodyType<PlanInput>
+    export type UpdatePlanMutationError = ErrorType<void>
+    export type UpdatePlanMutationVariables = {planId: string;data: BodyType<PlanInput>}
+
+    /**
+ * @summary Edit a tier
+ */
+export const useUpdatePlan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlan>>, TError,UpdatePlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePlan>>,
+        TError,
+        UpdatePlanMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdatePlanMutationOptions(options));
+    }
+
+export const getSetSubscriptionUrl = (organizationId: string,) => {
+
+
+
+
+  return `/api/admin/organizations/${organizationId}/subscription`
+}
+
+/**
+ * @summary Put a club on a tier, and report usage against its limits
+ */
+export const setSubscription = async (organizationId: string,
+    setSubscriptionInput: SetSubscriptionInput, options?: Parameters<typeof customFetch>[1]): Promise<SubscriptionResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<SubscriptionResult>(getSetSubscriptionUrl(organizationId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(setSubscriptionInput)
+  }
+);}
+
+
+
+
+
+export const getSetSubscriptionMutationKey = () => ['setSubscription'] as const;
+
+export const getSetSubscriptionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setSubscription>>, TError,SetSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setSubscription>>, TError,SetSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getSetSubscriptionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setSubscription>>, SetSubscriptionMutationVariables> = (props) => {
+          const {organizationId,data} = props ?? {};
+
+          return  setSubscription(organizationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof setSubscription>>>
+    export type SetSubscriptionMutationBody = BodyType<SetSubscriptionInput>
+    export type SetSubscriptionMutationError = ErrorType<void>
+    export type SetSubscriptionMutationVariables = {organizationId: string;data: BodyType<SetSubscriptionInput>}
+
+    /**
+ * @summary Put a club on a tier, and report usage against its limits
+ */
+export const useSetSubscription = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setSubscription>>, TError,SetSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setSubscription>>,
+        TError,
+        SetSubscriptionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetSubscriptionMutationOptions(options));
     }
 
 export const getGetAdminStaffUrl = () => {

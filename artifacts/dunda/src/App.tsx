@@ -32,6 +32,7 @@ import { ClientDetail as OperatorClientDetail } from '@/admin/client-detail';
 import { NewClient as OperatorNewClient } from '@/admin/new-client';
 import { PlatformStaff as OperatorPeople } from '@/admin/platform-staff';
 import { AuditTrail as OperatorAudit } from '@/admin/audit-trail';
+import { Plans as OperatorPlans } from '@/admin/plans';
 import { PERMISSION_LABELS } from '@/lib/errors';
 import { Skeleton } from '@/components/ui';
 import { Pos as NewPos } from '@/pages/pos';
@@ -533,6 +534,7 @@ function ProtectedRouter() {
 <Route path="/admin/new" component={() => <RequireOperator><OperatorNewClient /></RequireOperator>} />
 <Route path="/admin/people" component={() => <RequireOperator><OperatorPeople /></RequireOperator>} />
 <Route path="/admin/audit" component={() => <RequireOperator><OperatorAudit /></RequireOperator>} />
+<Route path="/admin/plans" component={() => <RequireOperator><OperatorPlans /></RequireOperator>} />
 <Route path="/overview" component={Overview} /><Route path="/pos" component={wrap("view_pos", <NewPos />)} /><Route path="/floor" component={wrap("view_pos", <Floor />)} /><Route path="/designer" component={wrap("manage_floor", <FloorDesigner />)} /><Route path="/orders" component={wrap("view_pos", <Orders />)} /><Route path="/bar" component={wrap("update_ticket", <ServiceBoard station="bar" />)} /><Route path="/kitchen" component={wrap("update_ticket", <ServiceBoard station="kitchen" />)} /><Route path="/products" component={wrap("manage_products", <Products />)} /><Route path="/inventory" component={wrap("view_inventory", <Inventory />)} /><Route path="/staff" component={wrap("manage_staff", <Staff />)} /><Route path="/customers" component={wrap("manage_customers", <Customers />)} /><Route path="/events" component={wrap("manage_events", <Events />)} /><Route path="/reservations" component={wrap("manage_reservations", <Reservations />)} /><Route path="/reports" component={wrap("view_reports", <Reports />)} /><Route path="/hq" component={wrap("view_reports", <Hq />)} /><Route path="/settings" component={wrap("manage_roles", <Settings />)} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
 }
 

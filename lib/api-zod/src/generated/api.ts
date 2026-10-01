@@ -2201,6 +2201,165 @@ export const AssignOrganizationOwnerResponse = zod.object({
 
 
 /**
+ * Prices live here rather than on each subscription, so changing what a club pays is one edit. Limits are the pricing: a club past its branch or user limit has to move up.
+ * @summary The plan catalogue
+ */
+export const GetPlansResponseItem = zod.object({
+  "id": zod.string(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "monthlyPrice": zod.number().int(),
+  "annualPrice": zod.number().int(),
+  "branchLimit": zod.number().int().describe('0 means agreed rather than capped'),
+  "userLimit": zod.number().int(),
+  "modules": zod.array(zod.string()),
+  "isCustom": zod.boolean(),
+  "isActive": zod.boolean(),
+  "sortOrder": zod.number().int().optional()
+})
+export const GetPlansResponse = zod.array(GetPlansResponseItem)
+
+
+/**
+ * @summary Create a tier
+ */
+export const createPlanBodyCodeMax = 32;
+
+
+export const createPlanBodyMonthlyPriceMin = 0;
+
+export const createPlanBodyAnnualPriceMin = 0;
+
+export const createPlanBodyBranchLimitMin = 0;
+
+export const createPlanBodyUserLimitMin = 0;
+
+
+
+export const CreatePlanBody = zod.object({
+  "code": zod.string().max(createPlanBodyCodeMax),
+  "name": zod.string().min(1),
+  "description": zod.string().nullish(),
+  "monthlyPrice": zod.number().int().min(createPlanBodyMonthlyPriceMin),
+  "annualPrice": zod.number().int().min(createPlanBodyAnnualPriceMin),
+  "branchLimit": zod.number().int().min(createPlanBodyBranchLimitMin),
+  "userLimit": zod.number().int().min(createPlanBodyUserLimitMin),
+  "modules": zod.array(zod.string()).optional(),
+  "isCustom": zod.boolean().optional(),
+  "isActive": zod.boolean().optional(),
+  "sortOrder": zod.number().int().optional()
+})
+
+export const CreatePlanResponse = zod.object({
+  "id": zod.string(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "monthlyPrice": zod.number().int(),
+  "annualPrice": zod.number().int(),
+  "branchLimit": zod.number().int().describe('0 means agreed rather than capped'),
+  "userLimit": zod.number().int(),
+  "modules": zod.array(zod.string()),
+  "isCustom": zod.boolean(),
+  "isActive": zod.boolean(),
+  "sortOrder": zod.number().int().optional()
+})
+
+
+/**
+ * Existing subscriptions keep their own terms, so a price change does not silently re-price clubs already on that tier.
+ * @summary Edit a tier
+ */
+export const UpdatePlanParams = zod.object({
+  "planId": zod.coerce.string()
+})
+
+export const updatePlanBodyCodeMax = 32;
+
+
+export const updatePlanBodyMonthlyPriceMin = 0;
+
+export const updatePlanBodyAnnualPriceMin = 0;
+
+export const updatePlanBodyBranchLimitMin = 0;
+
+export const updatePlanBodyUserLimitMin = 0;
+
+
+
+export const UpdatePlanBody = zod.object({
+  "code": zod.string().max(updatePlanBodyCodeMax),
+  "name": zod.string().min(1),
+  "description": zod.string().nullish(),
+  "monthlyPrice": zod.number().int().min(updatePlanBodyMonthlyPriceMin),
+  "annualPrice": zod.number().int().min(updatePlanBodyAnnualPriceMin),
+  "branchLimit": zod.number().int().min(updatePlanBodyBranchLimitMin),
+  "userLimit": zod.number().int().min(updatePlanBodyUserLimitMin),
+  "modules": zod.array(zod.string()).optional(),
+  "isCustom": zod.boolean().optional(),
+  "isActive": zod.boolean().optional(),
+  "sortOrder": zod.number().int().optional()
+})
+
+export const UpdatePlanResponse = zod.object({
+  "id": zod.string(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "monthlyPrice": zod.number().int(),
+  "annualPrice": zod.number().int(),
+  "branchLimit": zod.number().int().describe('0 means agreed rather than capped'),
+  "userLimit": zod.number().int(),
+  "modules": zod.array(zod.string()),
+  "isCustom": zod.boolean(),
+  "isActive": zod.boolean(),
+  "sortOrder": zod.number().int().optional()
+})
+
+
+/**
+ * @summary Put a club on a tier, and report usage against its limits
+ */
+export const SetSubscriptionParams = zod.object({
+  "organizationId": zod.coerce.string()
+})
+
+export const SetSubscriptionBody = zod.object({
+  "planId": zod.string().nullish(),
+  "monthlyPrice": zod.number().nullish(),
+  "billingCycle": zod.enum(['MONTHLY', 'ANNUAL', 'CUSTOM']).optional(),
+  "status": zod.enum(['TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELLED', 'EXPIRED']).optional(),
+  "renewsAt": zod.coerce.date().nullish()
+})
+
+export const SetSubscriptionResponse = zod.object({
+  "subscription": zod.object({
+  "id": zod.string(),
+  "organizationId": zod.string(),
+  "plan": zod.string(),
+  "planId": zod.string().nullish(),
+  "status": zod.string(),
+  "billingCycle": zod.string(),
+  "branchLimit": zod.number().int(),
+  "userLimit": zod.number().int(),
+  "currentBranches": zod.number().int().optional(),
+  "currentUsers": zod.number().int().optional(),
+  "renewsAt": zod.coerce.date().nullish()
+}),
+  "monthlyPrice": zod.number().nullish(),
+  "usage": zod.object({
+  "branches": zod.number().int(),
+  "branchLimit": zod.number().int(),
+  "overBranchLimit": zod.boolean().optional(),
+  "users": zod.number().int(),
+  "userLimit": zod.number().int(),
+  "overUserLimit": zod.boolean().optional()
+})
+})
+
+
+/**
  * @summary Every staff member across every client
  */
 export const GetAdminStaffResponseItem = zod.object({

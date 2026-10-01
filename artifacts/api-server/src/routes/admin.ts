@@ -9,6 +9,7 @@ import {
   rolesTable,
   staffTable,
   subscriptionsTable,
+  plansTable,
   tablesTable,
 } from "@workspace/db";
 import { db } from "@workspace/db";
@@ -458,6 +459,250 @@ router.post("/organizations/:organizationId/owner", async (req, res): Promise<vo
       result.previousOwner && result.previousOwner.clerkUserId !== clerkUserId
         ? { id: result.previousOwner.id, name: result.previousOwner.name }
         : null,
+  });
+});
+
+// ===========================================================================
+// Plans and subscriptions
+// ===========================================================================
+
+const PlanBody = z.object({
+  code: z.string().min(1).max(32),
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  monthlyPrice: z.number().int().min(0),
+  annualPrice: z.number().int().min(0),
+  branchLimit: z.number().int().min(0),
+  userLimit: z.number().int().min(0),
+  modules: z.array(z.string()).default([]),
+  isCustom: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().default(0),
+});
+
+router.get("/plans", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select()
+    .from(plansTable)
+    .orderBy(plansTable.sortOrder);
+  res.json(rows);
+});
+
+/**
+ * Creates a tier.
+ *
+ * Prices live here rather than on each subscription, so changing what a club
+ * pays is one edit instead of touching every club that is on that tier.
+ */
+router.post("/plans", async (req, res): Promise<void> => {
+  const parsed = PlanBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid plan." });
+    return;
+  }
+  const existing = await db
+    .select({ id: plansTable.id })
+    .from(plansTable)
+    .where(eq(plansTable.code, parsed.data.code.toUpperCase()));
+  if (existing.length) {
+    res.status(409).json({ error: `A tier with the code "${parsed.data.code}" already exists.` });
+    return;
+  }
+
+  const [row] = await db
+    .insert(plansTable)
+    .values({
+      id: uid("plan"),
+      ...parsed.data,
+      code: parsed.data.code.toUpperCase(),
+    })
+    .returning();
+  res.status(201).json(row);
+});
+
+/**
+ * Edits a tier.
+ *
+ * Existing subscriptions keep their own terms, so changing a price here does not
+ * silently re-price clubs that are already on it. That is deliberate: a club is
+ * agreed a price, and the catalogue is what new clubs are sold.
+ */
+router.patch("/plans/:planId", async (req, res): Promise<void> => {
+  const parsed = PlanBody.partial().safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid change." });
+    return;
+  }
+  const [before] = await db
+    .select()
+    .from(plansTable)
+    .where(eq(plansTable.id, req.params.planId));
+  if (!before) {
+    res.status(404).json({ error: "That tier does not exist." });
+    return;
+  }
+
+  const [row] = await db
+    .update(plansTable)
+    .set({ ...parsed.data, updatedAt: new Date() })
+    .where(eq(plansTable.id, before.id))
+    .returning();
+
+  const changes = Object.entries(parsed.data)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => `${k}: ${JSON.stringify(before[k as keyof typeof before])} -> ${JSON.stringify(v)}`);
+  if (changes.length) {
+    // Deliberately not written to a tenant audit trail: a tier change belongs to
+    // no single club, and the audit table is scoped to one.
+    logger.info(
+      { planId: row.id, changedBy: req.platformAdmin?.clerkUserId, changes },
+      "Plan catalogue changed",
+    );
+  }
+  res.json(row);
+});
+
+const SubscriptionBody = z.object({
+  planId: z.string().nullable().optional(),
+  /** Overrides the plan's list price when a club is agreed something different. */
+  monthlyPrice: z.number().int().min(0).nullable().optional(),
+  billingCycle: z.enum(["MONTHLY", "ANNUAL", "CUSTOM"]).optional(),
+  status: z.enum(["TRIAL", "ACTIVE", "PAST_DUE", "CANCELLED", "EXPIRED"]).optional(),
+  renewsAt: z.coerce.date().nullable().optional(),
+});
+
+/**
+ * Puts a club on a tier, and reports what it is actually using against what the
+ * tier allows. That is the number you need when someone says their plan is too
+ * small.
+ */
+router.post("/organizations/:organizationId/subscription", async (req, res): Promise<void> => {
+  const parsed = SubscriptionBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid subscription." });
+    return;
+  }
+  const data = parsed.data;
+
+  const [org] = await db
+    .select()
+    .from(organizationsTable)
+    .where(eq(organizationsTable.id, req.params.organizationId));
+  if (!org) {
+    res.status(404).json({ error: "That venue does not exist." });
+    return;
+  }
+
+  const [plan] = data.planId
+    ? await db.select().from(plansTable).where(eq(plansTable.id, data.planId))
+    : [undefined];
+  if (data.planId && !plan) {
+    res.status(400).json({ error: "That tier does not exist." });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.organizationId, org.id));
+
+  const cycle = data.billingCycle ?? existing?.billingCycle ?? "MONTHLY";
+  const price =
+    data.monthlyPrice ??
+    (plan
+      ? cycle === "ANNUAL"
+        ? plan.annualPrice / 12
+        : plan.monthlyPrice
+      : existing?.planId
+        ? null
+        : 0);
+
+  // Current usage is measured, never trusted from the request.
+  const [usage] = await db
+    .select({
+      branches: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(branchesTable)
+    .where(eq(branchesTable.organizationId, org.id));
+  const [people] = await db
+    .select({ users: sql<number>`count(*)`.mapWith(Number) })
+    .from(staffTable)
+    .where(
+      and(
+        eq(staffTable.organizationId, org.id),
+        eq(staffTable.status, "ACTIVE"),
+      ),
+    );
+
+  const branchLimit = plan?.branchLimit ?? existing?.branchLimit ?? 1;
+  const userLimit = plan?.userLimit ?? existing?.userLimit ?? 5;
+
+  const subscription = await db.transaction(async (tx): Promise<typeof subscriptionsTable.$inferSelect> => {
+    if (existing) {
+      return (
+        await tx
+          .update(subscriptionsTable)
+          .set({
+            planId: data.planId !== undefined ? data.planId : existing.planId,
+            plan: plan?.code ?? existing.plan,
+            billingCycle: cycle,
+            status: data.status ?? existing.status,
+            renewsAt: data.renewsAt !== undefined ? data.renewsAt : existing.renewsAt,
+            branchLimit,
+            userLimit,
+            currentBranches: usage?.branches ?? 0,
+            currentUsers: people?.users ?? 0,
+          })
+          .where(eq(subscriptionsTable.id, existing.id))
+          .returning()
+      )[0];
+    }
+    return (
+      await tx
+        .insert(subscriptionsTable)
+        .values({
+          id: uid("sub"),
+          organizationId: org.id,
+          planId: plan?.id ?? null,
+          plan: plan?.code ?? "STARTER",
+          billingCycle: cycle,
+          status: data.status ?? "ACTIVE",
+          renewsAt: data.renewsAt ?? null,
+          branchLimit,
+          userLimit,
+          currentBranches: usage?.branches ?? 0,
+          currentUsers: people?.users ?? 0,
+        })
+        .returning()
+    )[0];
+  });
+
+  await db.insert(auditLogsTable).values({
+    id: uid("audit"),
+    organizationId: org.id,
+    staffId: null,
+    action: "UPDATE",
+    entity: "SUBSCRIPTION",
+    entityId: subscription.id,
+    detail: `Subscription set by ${req.platformAdmin?.clerkUserId ?? "an administrator"}: ${subscription.plan} on ${subscription.billingCycle}, ${subscription.status}.`,
+  });
+
+  res.json({
+    subscription,
+    monthlyPrice: price,
+    usage: {
+      branches: usage?.branches ?? 0,
+      branchLimit,
+      overBranchLimit: plan && !plan.isCustom && plan.branchLimit > 0
+        ? (usage?.branches ?? 0) > plan.branchLimit
+        : false,
+      users: people?.users ?? 0,
+      userLimit,
+      overUserLimit:
+        plan && !plan.isCustom && plan.userLimit > 0
+          ? (people?.users ?? 0) > plan.userLimit
+          : false,
+    },
   });
 });
 

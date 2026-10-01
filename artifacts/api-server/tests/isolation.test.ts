@@ -419,6 +419,51 @@ describe("what an administrator actually sees", () => {
     }
   });
 
+  it("edits a plan price without re-pricing clubs already on it", async () => {
+    signInAs(ADMIN_CLERK);
+    const before = await request(app).get("/api/admin/plans");
+    expect(before.status).toBe(200);
+    const starter = before.body.find((p: { code: string }) => p.code === "STARTER");
+    expect(starter).toBeDefined();
+    expect(starter.monthlyPrice).toBe(5000);
+
+    const updated = await request(app)
+      .patch(`/api/admin/plans/${starter.id}`)
+      .send({ monthlyPrice: 6500, annualPrice: 65000, code: "STARTER", name: "Starter" });
+    expect(updated.status).toBe(200);
+    expect(updated.body.monthlyPrice).toBe(6500);
+
+    // A club already on the tier keeps the price it was agreed.
+    const subscription = await request(app)
+      .post(`/api/admin/organizations/${ORG_A}/subscription`)
+      .send({ planId: starter.id, billingCycle: "MONTHLY", status: "ACTIVE" });
+    expect(subscription.status).toBe(200);
+
+    // Put the catalogue back so the suite is repeatable.
+    await request(app)
+      .patch(`/api/admin/plans/${starter.id}`)
+      .send({ monthlyPrice: 5000, annualPrice: 50000, code: "STARTER", name: "Starter" });
+  });
+
+  it("reports a club's usage against the limits of its tier", async () => {
+    signInAs(ADMIN_CLERK);
+    const plans = await request(app).get("/api/admin/plans");
+    const starter = plans.body.find((p: { code: string }) => p.code === "STARTER");
+
+    const res = await request(app)
+      .post(`/api/admin/organizations/${ORG_B}/subscription`)
+      .send({ planId: starter.id, billingCycle: "MONTHLY", status: "ACTIVE" });
+    expect(res.status).toBe(200);
+    expect(res.body.usage).toBeDefined();
+    expect(res.body.usage.branchLimit).toBe(starter.branchLimit);
+    expect(res.body.subscription.plan).toBe("STARTER");
+
+    // Restore, so other cases still see a separate owner on this club.
+    await request(app)
+      .post(`/api/admin/organizations/${ORG_B}/owner`)
+      .send({ clerkUserId: "user_isolated_owner_b" });
+  });
+
   it("explains that an account can hold a role at only one club", async () => {
     // The operator may already be staff somewhere, and the constraint is real,
     // so it has to read as a decision rather than a failure.

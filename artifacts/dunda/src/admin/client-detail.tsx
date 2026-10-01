@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import {
   useAssignOrganizationOwner,
+  useGetPlans,
+  useSetSubscription,
+  type SetSubscriptionInput,
+  type SubscriptionResultUsage,
   useGetAdminOrganizations,
   useUpdateAdminOrganization,
 } from "@workspace/api-client-react";
@@ -20,6 +24,8 @@ export function ClientDetail({ id }: { id: string }) {
   const orgs = useGetAdminOrganizations();
   const update = useUpdateAdminOrganization();
   const assignOwner = useAssignOrganizationOwner();
+  const plans = useGetPlans();
+  const setSubscription = useSetSubscription();
   const org = orgs.data?.find((o) => o.id === id);
 
   const [currency, setCurrency] = useState("");
@@ -27,9 +33,15 @@ export function ClientDetail({ id }: { id: string }) {
   const [serviceChargeRate, setServiceChargeRate] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
   const [claimed, setClaimed] = useState<string | null>(null);
+  const [planChoice, setPlanChoice] = useState("");
+  const [cycle, setCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
+  const [subStatus, setSubStatus] = useState<NonNullable<SetSubscriptionInput["status"]>>("ACTIVE");
+  const [usage, setUsage] = useState<SubscriptionResultUsage | null>(null);
+  const [planNote, setPlanNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (!org) return;
+    setPlanChoice((prev) => prev || org.plan || "");
     setCurrency(org.currency);
     setTaxRate(String(org.taxRate));
     setServiceChargeRate(String(org.serviceChargeRate));
@@ -90,6 +102,130 @@ export function ClientDetail({ id }: { id: string }) {
           <p style={valueStyle}>{money(org.revenueInWindow)}</p>
         </Card>
       </div>
+
+      <Card style={{ display: "grid", gap: 16, maxWidth: 640 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Plan</h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: colors.muted }}>
+            What this club pays. It has {org.branches} branch
+            {org.branches === 1 ? "" : "es"} and {org.activeStaff} active staff.
+            {org.plan && !plans.isLoading
+              ? ` Currently on ${(plans.data ?? []).find((pl) => pl.code === org.plan)?.name ?? org.plan}.`
+              : ""}
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gap: 14,
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          }}
+        >
+          {field(
+            "Tier",
+            <select
+              value={planChoice}
+              onChange={(e) => setPlanChoice(e.target.value)}
+              style={inputStyle}
+              data-testid="select-client-plan"
+            >
+              {(plans.data ?? []).map((pl) => (
+                <option key={pl.id} value={pl.id}>
+                  {pl.name}
+                  {pl.monthlyPrice > 0 ? ` · ${money(pl.monthlyPrice)}/mo` : " · by agreement"}
+                </option>
+              ))}
+            </select>,
+          )}
+          {field(
+            "Billing",
+            <select
+              value={cycle}
+              onChange={(e) => setCycle(e.target.value as "MONTHLY" | "ANNUAL")}
+              style={inputStyle}
+              data-testid="select-client-cycle"
+            >
+              <option value="MONTHLY">Monthly</option>
+              <option value="ANNUAL">Annual</option>
+            </select>,
+          )}
+          {field(
+            "Status",
+            <select
+              value={subStatus}
+              onChange={(e) =>
+                  setSubStatus(e.target.value as NonNullable<SetSubscriptionInput["status"]>)
+                }
+              style={inputStyle}
+              data-testid="select-client-substatus"
+            >
+              <option value="TRIAL">Trial</option>
+              <option value="ACTIVE">Active</option>
+              <option value="PAST_DUE">Past due</option>
+              <option value="CANCELLED">Cancelled</option>
+              <option value="EXPIRED">Expired</option>
+            </select>,
+          )}
+        </div>
+
+        {usage && (
+          <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
+            <UsageRow
+              label="Branches"
+              used={usage.branches}
+              limit={usage.branchLimit}
+              over={usage.overBranchLimit ?? false}
+            />
+            <UsageRow
+              label="Staff"
+              used={usage.users}
+              limit={usage.userLimit}
+              over={usage.overUserLimit ?? false}
+            />
+            {(usage.overBranchLimit || usage.overUserLimit) && (
+              <p style={{ margin: 0, fontSize: 12, color: colors.amber }}>
+                Past the tier's limits. They would need a higher plan, or an
+                agreed price.
+              </p>
+            )}
+          </div>
+        )}
+        {planNote && (
+          <p style={{ margin: 0, fontSize: 13, color: colors.green }}>{planNote}</p>
+        )}
+
+        <div>
+          <button
+            style={{ ...primaryButton, opacity: setSubscription.isPending ? 0.5 : 1 }}
+            disabled={setSubscription.isPending}
+            onClick={() =>
+              setSubscription.mutate(
+                {
+                  organizationId: org.id,
+                  data: { planId: planChoice, billingCycle: cycle, status: subStatus },
+                },
+                {
+                  onSuccess: (r) => {
+                    setUsage(r.usage);
+                    setPlanNote(`Set to ${r.subscription.plan} on ${r.subscription.billingCycle.toLowerCase()}.`);
+                    orgs.refetch();
+                  },
+                },
+              )
+            }
+            data-testid="button-save-plan"
+          >
+            {setSubscription.isPending ? "Saving…" : "Save plan"}
+          </button>
+        </div>
+        {setSubscription.isError && (
+          <p style={{ margin: 0, fontSize: 13, color: colors.red }}>
+            {(setSubscription.error as { data?: { error?: string } })?.data?.error ??
+              "Could not save that plan."}
+          </p>
+        )}
+      </Card>
 
       <Card style={{ display: "grid", gap: 16, maxWidth: 640 }}>
         <div>
@@ -242,6 +378,27 @@ export function ClientDetail({ id }: { id: string }) {
           </li>
         </ul>
       </Card>
+    </div>
+  );
+}
+
+function UsageRow({
+  label,
+  used,
+  limit,
+  over,
+}: {
+  label: string;
+  used: number;
+  limit: number;
+  over: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between" }}>
+      <span style={{ color: colors.muted }}>{label}</span>
+      <span style={{ fontWeight: 700, color: over ? colors.amber : colors.ink }}>
+        {used} of {limit > 0 ? limit : "unlimited"}
+      </span>
     </div>
   );
 }

@@ -15,7 +15,8 @@
     "studio": "drizzle-kit studio --config ./drizzle.config.ts",
     "seed": "tsx ../../scripts/src/seed.ts",
     "sync:roles": "tsx ../../scripts/src/syncRoles.ts",
-    "setup-token": "tsx ../../scripts/src/setupToken.ts"
+    "setup-token": "tsx ../../scripts/src/setupToken.ts",
+    "sync:plans": "tsx ../../scripts/src/seedPlans.ts"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

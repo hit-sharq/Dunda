@@ -64,6 +64,13 @@
       "when": 1790769187612,
       "tag": "0008_slippery_goliath",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790860515540,
+      "tag": "0009_first_hellion",
+      "breakpoints": true
     }
   ]
 }

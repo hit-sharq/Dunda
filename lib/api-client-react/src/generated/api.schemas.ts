@@ -847,6 +847,107 @@ export interface UpdateOrganizationInput {
   serviceChargeRate?: number;
 }
 
+export interface Plan {
+  id: string;
+  code: string;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  monthlyPrice: number;
+  annualPrice: number;
+  /** 0 means agreed rather than capped */
+  branchLimit: number;
+  userLimit: number;
+  modules: string[];
+  isCustom: boolean;
+  isActive: boolean;
+  sortOrder?: number;
+}
+
+export interface PlanInput {
+  /** @maxLength 32 */
+  code: string;
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  /** @minimum 0 */
+  monthlyPrice: number;
+  /** @minimum 0 */
+  annualPrice: number;
+  /** @minimum 0 */
+  branchLimit: number;
+  /** @minimum 0 */
+  userLimit: number;
+  modules?: string[];
+  isCustom?: boolean;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+export interface Subscription {
+  id: string;
+  organizationId: string;
+  plan: string;
+  /** @nullable */
+  planId?: string | null;
+  status: string;
+  billingCycle: string;
+  branchLimit: number;
+  userLimit: number;
+  currentBranches?: number;
+  currentUsers?: number;
+  /** @nullable */
+  renewsAt?: string | null;
+}
+
+export type SubscriptionResultUsage = {
+  branches: number;
+  branchLimit: number;
+  overBranchLimit?: boolean;
+  users: number;
+  userLimit: number;
+  overUserLimit?: boolean;
+};
+
+export interface SubscriptionResult {
+  subscription: Subscription;
+  /** @nullable */
+  monthlyPrice?: number | null;
+  usage: SubscriptionResultUsage;
+}
+
+export type SetSubscriptionInputBillingCycle = typeof SetSubscriptionInputBillingCycle[keyof typeof SetSubscriptionInputBillingCycle];
+
+
+export const SetSubscriptionInputBillingCycle = {
+  MONTHLY: 'MONTHLY',
+  ANNUAL: 'ANNUAL',
+  CUSTOM: 'CUSTOM',
+} as const;
+
+export type SetSubscriptionInputStatus = typeof SetSubscriptionInputStatus[keyof typeof SetSubscriptionInputStatus];
+
+
+export const SetSubscriptionInputStatus = {
+  TRIAL: 'TRIAL',
+  ACTIVE: 'ACTIVE',
+  PAST_DUE: 'PAST_DUE',
+  CANCELLED: 'CANCELLED',
+  EXPIRED: 'EXPIRED',
+} as const;
+
+export interface SetSubscriptionInput {
+  /** @nullable */
+  planId?: string | null;
+  /** @nullable */
+  monthlyPrice?: number | null;
+  billingCycle?: SetSubscriptionInputBillingCycle;
+  status?: SetSubscriptionInputStatus;
+  /** @nullable */
+  renewsAt?: string | null;
+}
+
 export interface AssignOwnerInput {
   /** Defaults to the administrator making the request. */
   clerkUserId?: string;
