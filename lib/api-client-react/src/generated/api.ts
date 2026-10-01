@@ -22,6 +22,10 @@ import type {
 import type {
   ActivityItem,
   AdjustInventoryInput,
+  AdminAuditLog,
+  AdminOrganization,
+  AdminStaff,
+  AdminSummary,
   AuditLog,
   BarcodeLookup,
   Branch,
@@ -29,13 +33,16 @@ import type {
   CheckoutInput,
   CheckoutResult,
   ClaimOwnershipInput,
+  CreateBranchInput,
   CreateCustomerInput,
   CreateEventInput,
   CreateOrderInput,
+  CreateOrganizationInput,
   CreateRealtimeTicket200,
   CreateShiftInput,
   CreateStaffInput,
   CreateSupplierInput,
+  CreatedOrganization,
   Customer,
   DashboardSummary,
   Event,
@@ -44,6 +51,7 @@ import type {
   FloorInput,
   FloorLayout,
   FloorSectionInput,
+  GetAdminAuditLogsParams,
   GetAuditLogsParams,
   GetCustomersParams,
   GetEventReportParams,
@@ -89,6 +97,7 @@ import type {
   ReservationInput,
   SalesReport,
   SearchResult,
+  Session,
   SetupStatus,
   StaffMember,
   StaffReportItem,
@@ -106,9 +115,13 @@ import type {
   Table,
   TableInput,
   TableReportItem,
+  UpdateBranchInput,
   UpdateOrderStatusInput,
+  UpdateOrganizationInput,
   UpdateStaffInput,
-  UpdateTicketInput
+  UpdateTicketInput,
+  UpdateVenueSettingsInput,
+  VenueSettings
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -7146,6 +7159,919 @@ export const useUpdateTicket = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getUpdateTicketMutationOptions(options));
+    }
+
+export const getGetSessionUrl = () => {
+
+
+
+
+  return `/api/session`
+}
+
+/**
+ * Answered before tenant resolution, because an administrator belongs to no club. The client routes on this and nothing else.
+ * @summary Which side of the product this account belongs to
+ */
+export const getSession = async ( options?: Parameters<typeof customFetch>[1]): Promise<Session> => {
+
+  return customFetch<Session>(getGetSessionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSessionQueryKey = () => {
+    return [
+    `/api/session`
+    ] as const;
+    }
+
+
+export const getGetSessionQueryOptions = <TData = Awaited<ReturnType<typeof getSession>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSessionQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSession>>> = ({ signal }) => getSession({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSession>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSessionQueryResult = NonNullable<Awaited<ReturnType<typeof getSession>>>
+export type GetSessionQueryError = ErrorType<void>
+
+
+/**
+ * @summary Which side of the product this account belongs to
+ */
+
+export function useGetSession<TData = Awaited<ReturnType<typeof getSession>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSessionQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdminSummaryUrl = () => {
+
+
+
+
+  return `/api/admin/summary`
+}
+
+/**
+ * @summary Platform totals across every client
+ */
+export const getAdminSummary = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminSummary> => {
+
+  return customFetch<AdminSummary>(getGetAdminSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminSummaryQueryKey = () => {
+    return [
+    `/api/admin/summary`
+    ] as const;
+    }
+
+
+export const getGetAdminSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getAdminSummary>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminSummary>>> = ({ signal }) => getAdminSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminSummary>>>
+export type GetAdminSummaryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Platform totals across every client
+ */
+
+export function useGetAdminSummary<TData = Awaited<ReturnType<typeof getAdminSummary>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdminOrganizationsUrl = () => {
+
+
+
+
+  return `/api/admin/organizations`
+}
+
+/**
+ * @summary Every client, with the signal to spot a quiet one
+ */
+export const getAdminOrganizations = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminOrganization[]> => {
+
+  return customFetch<AdminOrganization[]>(getGetAdminOrganizationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminOrganizationsQueryKey = () => {
+    return [
+    `/api/admin/organizations`
+    ] as const;
+    }
+
+
+export const getGetAdminOrganizationsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminOrganizations>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminOrganizations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminOrganizationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminOrganizations>>> = ({ signal }) => getAdminOrganizations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminOrganizations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminOrganizationsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminOrganizations>>>
+export type GetAdminOrganizationsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Every client, with the signal to spot a quiet one
+ */
+
+export function useGetAdminOrganizations<TData = Awaited<ReturnType<typeof getAdminOrganizations>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminOrganizations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminOrganizationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateAdminOrganizationUrl = () => {
+
+
+
+
+  return `/api/admin/organizations`
+}
+
+/**
+ * @summary Provision a client venue
+ */
+export const createAdminOrganization = async (createOrganizationInput: CreateOrganizationInput, options?: Parameters<typeof customFetch>[1]): Promise<CreatedOrganization> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreatedOrganization>(getCreateAdminOrganizationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createOrganizationInput)
+  }
+);}
+
+
+
+
+
+export const getCreateAdminOrganizationMutationKey = () => ['createAdminOrganization'] as const;
+
+export const getCreateAdminOrganizationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminOrganization>>, TError,CreateAdminOrganizationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAdminOrganization>>, TError,CreateAdminOrganizationMutationVariables, TContext> => {
+
+const mutationKey = getCreateAdminOrganizationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAdminOrganization>>, CreateAdminOrganizationMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAdminOrganization(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAdminOrganizationMutationResult = NonNullable<Awaited<ReturnType<typeof createAdminOrganization>>>
+    export type CreateAdminOrganizationMutationBody = BodyType<CreateOrganizationInput>
+    export type CreateAdminOrganizationMutationError = ErrorType<void>
+    export type CreateAdminOrganizationMutationVariables = {data: BodyType<CreateOrganizationInput>}
+
+    /**
+ * @summary Provision a client venue
+ */
+export const useCreateAdminOrganization = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminOrganization>>, TError,CreateAdminOrganizationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAdminOrganization>>,
+        TError,
+        CreateAdminOrganizationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateAdminOrganizationMutationOptions(options));
+    }
+
+export const getUpdateAdminOrganizationUrl = (organizationId: string,) => {
+
+
+
+
+  return `/api/admin/organizations/${organizationId}`
+}
+
+/**
+ * Applies to future orders only. The rate is copied onto an order when it is rung in, so receipts already issued keep the figures they were issued with.
+ * @summary Change a client's commercial settings
+ */
+export const updateAdminOrganization = async (organizationId: string,
+    updateOrganizationInput: UpdateOrganizationInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getUpdateAdminOrganizationUrl(organizationId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateOrganizationInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminOrganizationMutationKey = () => ['updateAdminOrganization'] as const;
+
+export const getUpdateAdminOrganizationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminOrganization>>, TError,UpdateAdminOrganizationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminOrganization>>, TError,UpdateAdminOrganizationMutationVariables, TContext> => {
+
+const mutationKey = getUpdateAdminOrganizationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminOrganization>>, UpdateAdminOrganizationMutationVariables> = (props) => {
+          const {organizationId,data} = props ?? {};
+
+          return  updateAdminOrganization(organizationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminOrganizationMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminOrganization>>>
+    export type UpdateAdminOrganizationMutationBody = BodyType<UpdateOrganizationInput>
+    export type UpdateAdminOrganizationMutationError = ErrorType<void>
+    export type UpdateAdminOrganizationMutationVariables = {organizationId: string;data: BodyType<UpdateOrganizationInput>}
+
+    /**
+ * @summary Change a client's commercial settings
+ */
+export const useUpdateAdminOrganization = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminOrganization>>, TError,UpdateAdminOrganizationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminOrganization>>,
+        TError,
+        UpdateAdminOrganizationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateAdminOrganizationMutationOptions(options));
+    }
+
+export const getGetAdminStaffUrl = () => {
+
+
+
+
+  return `/api/admin/staff`
+}
+
+/**
+ * @summary Every staff member across every client
+ */
+export const getAdminStaff = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminStaff[]> => {
+
+  return customFetch<AdminStaff[]>(getGetAdminStaffUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminStaffQueryKey = () => {
+    return [
+    `/api/admin/staff`
+    ] as const;
+    }
+
+
+export const getGetAdminStaffQueryOptions = <TData = Awaited<ReturnType<typeof getAdminStaff>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminStaffQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminStaff>>> = ({ signal }) => getAdminStaff({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminStaff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminStaffQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminStaff>>>
+export type GetAdminStaffQueryError = ErrorType<void>
+
+
+/**
+ * @summary Every staff member across every client
+ */
+
+export function useGetAdminStaff<TData = Awaited<ReturnType<typeof getAdminStaff>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminStaffQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdminAuditLogsUrl = (params?: GetAdminAuditLogsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/audit-logs?${stringifiedParams}` : `/api/admin/audit-logs`
+}
+
+/**
+ * @summary The audit trail across every client
+ */
+export const getAdminAuditLogs = async (params?: GetAdminAuditLogsParams, options?: Parameters<typeof customFetch>[1]): Promise<AdminAuditLog[]> => {
+
+  return customFetch<AdminAuditLog[]>(getGetAdminAuditLogsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminAuditLogsQueryKey = (params?: GetAdminAuditLogsParams,) => {
+    return [
+    `/api/admin/audit-logs`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAdminAuditLogsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminAuditLogs>>, TError = ErrorType<void>>(params?: GetAdminAuditLogsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminAuditLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminAuditLogsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminAuditLogs>>> = ({ signal }) => getAdminAuditLogs(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminAuditLogs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminAuditLogsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminAuditLogs>>>
+export type GetAdminAuditLogsQueryError = ErrorType<void>
+
+
+/**
+ * @summary The audit trail across every client
+ */
+
+export function useGetAdminAuditLogs<TData = Awaited<ReturnType<typeof getAdminAuditLogs>>, TError = ErrorType<void>>(
+ params?: GetAdminAuditLogsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminAuditLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminAuditLogsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSettingsUrl = () => {
+
+
+
+
+  return `/api/settings`
+}
+
+/**
+ * @summary This venue's commercial settings
+ */
+export const getSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<VenueSettings> => {
+
+  return customFetch<VenueSettings>(getGetSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSettingsQueryKey = () => {
+    return [
+    `/api/settings`
+    ] as const;
+    }
+
+
+export const getGetSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSettings>>> = ({ signal }) => getSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getSettings>>>
+export type GetSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary This venue's commercial settings
+ */
+
+export function useGetSettings<TData = Awaited<ReturnType<typeof getSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateSettingsUrl = () => {
+
+
+
+
+  return `/api/settings`
+}
+
+/**
+ * @summary Change currency, tax or service charge
+ */
+export const updateSettings = async (updateVenueSettingsInput: UpdateVenueSettingsInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getUpdateSettingsUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateVenueSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateSettingsMutationKey = () => ['updateSettings'] as const;
+
+export const getUpdateSettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSettings>>, TError,UpdateSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSettings>>, TError,UpdateSettingsMutationVariables, TContext> => {
+
+const mutationKey = getUpdateSettingsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSettings>>, UpdateSettingsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateSettings>>>
+    export type UpdateSettingsMutationBody = BodyType<UpdateVenueSettingsInput>
+    export type UpdateSettingsMutationError = ErrorType<void>
+    export type UpdateSettingsMutationVariables = {data: BodyType<UpdateVenueSettingsInput>}
+
+    /**
+ * @summary Change currency, tax or service charge
+ */
+export const useUpdateSettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSettings>>, TError,UpdateSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSettings>>,
+        TError,
+        UpdateSettingsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateSettingsMutationOptions(options));
+    }
+
+export const getCreateBranchUrl = () => {
+
+
+
+
+  return `/api/settings/branches`
+}
+
+/**
+ * @summary Open another site
+ */
+export const createBranch = async (createBranchInput: CreateBranchInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getCreateBranchUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createBranchInput)
+  }
+);}
+
+
+
+
+
+export const getCreateBranchMutationKey = () => ['createBranch'] as const;
+
+export const getCreateBranchMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBranch>>, TError,CreateBranchMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBranch>>, TError,CreateBranchMutationVariables, TContext> => {
+
+const mutationKey = getCreateBranchMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBranch>>, CreateBranchMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createBranch(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBranchMutationResult = NonNullable<Awaited<ReturnType<typeof createBranch>>>
+    export type CreateBranchMutationBody = BodyType<CreateBranchInput>
+    export type CreateBranchMutationError = ErrorType<void>
+    export type CreateBranchMutationVariables = {data: BodyType<CreateBranchInput>}
+
+    /**
+ * @summary Open another site
+ */
+export const useCreateBranch = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBranch>>, TError,CreateBranchMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBranch>>,
+        TError,
+        CreateBranchMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateBranchMutationOptions(options));
+    }
+
+export const getUpdateBranchUrl = (branchId: string,) => {
+
+
+
+
+  return `/api/settings/branches/${branchId}`
+}
+
+/**
+ * @summary Update or close a branch
+ */
+export const updateBranch = async (branchId: string,
+    updateBranchInput: UpdateBranchInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getUpdateBranchUrl(branchId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateBranchInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateBranchMutationKey = () => ['updateBranch'] as const;
+
+export const getUpdateBranchMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBranch>>, TError,UpdateBranchMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateBranch>>, TError,UpdateBranchMutationVariables, TContext> => {
+
+const mutationKey = getUpdateBranchMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateBranch>>, UpdateBranchMutationVariables> = (props) => {
+          const {branchId,data} = props ?? {};
+
+          return  updateBranch(branchId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateBranchMutationResult = NonNullable<Awaited<ReturnType<typeof updateBranch>>>
+    export type UpdateBranchMutationBody = BodyType<UpdateBranchInput>
+    export type UpdateBranchMutationError = ErrorType<void>
+    export type UpdateBranchMutationVariables = {branchId: string;data: BodyType<UpdateBranchInput>}
+
+    /**
+ * @summary Update or close a branch
+ */
+export const useUpdateBranch = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBranch>>, TError,UpdateBranchMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateBranch>>,
+        TError,
+        UpdateBranchMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateBranchMutationOptions(options));
     }
 
 export const getGetInventoryReportUrl = (params?: GetInventoryReportParams,) => {

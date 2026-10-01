@@ -759,6 +759,218 @@ export interface OrderTicket {
   items: OrderTicketItem[];
 }
 
+export type SessionKind = typeof SessionKind[keyof typeof SessionKind];
+
+
+export const SessionKind = {
+  admin: 'admin',
+  staff: 'staff',
+} as const;
+
+export interface Session {
+  kind: SessionKind;
+  name?: string;
+  clerkUserId?: string;
+}
+
+export interface TenantSettings {
+  currency: string;
+  locale: string;
+  taxRate: number;
+  serviceChargeRate: number;
+}
+
+export interface AdminSummary {
+  venues: number;
+  liveBranches: number;
+  staff: number;
+  ordersInWindow: number;
+  revenueInWindow: number;
+  windowDays: number;
+}
+
+export interface CreatedOrganization {
+  id: string;
+  slug: string;
+  branchId: string;
+}
+
+export interface AdminOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  currency: string;
+  taxRate: number;
+  serviceChargeRate: number;
+  createdAt: string;
+  branches: number;
+  liveBranches: number;
+  staff: number;
+  activeStaff: number;
+  tables: number;
+  ordersInWindow: number;
+  revenueInWindow: number;
+  /** @nullable */
+  lastOrderAt?: string | null;
+  /** @nullable */
+  plan?: string | null;
+  /** @nullable */
+  subscriptionStatus?: string | null;
+}
+
+export interface CreateOrganizationInput {
+  /** @minLength 1 */
+  name: string;
+  slug?: string;
+  /**
+     * @minLength 3
+     * @maxLength 3
+     */
+  currency?: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  taxRate?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  serviceChargeRate?: number;
+  branchName?: string;
+  city?: string;
+}
+
+export interface UpdateOrganizationInput {
+  /** @minLength 1 */
+  name?: string;
+  /**
+     * @minLength 3
+     * @maxLength 3
+     */
+  currency?: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  taxRate?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  serviceChargeRate?: number;
+}
+
+export interface AdminStaff {
+  id: string;
+  name: string;
+  /** @nullable */
+  email?: string | null;
+  status?: string;
+  /** @nullable */
+  clerkUserId?: string | null;
+  organizationId?: string;
+  /** @nullable */
+  branchId?: string | null;
+  /** @nullable */
+  roleId?: string | null;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  organization?: string | null;
+  createdAt?: string;
+  linked: boolean;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  organizationId: string;
+  /** @nullable */
+  organization?: string | null;
+  action: string;
+  entity: string;
+  /** @nullable */
+  entityId?: string | null;
+  /** @nullable */
+  detail?: string | null;
+  /** @nullable */
+  reason?: string | null;
+  createdAt?: string;
+}
+
+export interface BranchSummary {
+  id: string;
+  name: string;
+  /** @nullable */
+  city?: string | null;
+  status: string;
+}
+
+export interface VenueSettings {
+  id: string;
+  name: string;
+  slug?: string;
+  currency: string;
+  taxRate: number;
+  serviceChargeRate: number;
+  settings?: TenantSettings;
+  branches: BranchSummary[];
+}
+
+export interface UpdateVenueSettingsInput {
+  /** @minLength 1 */
+  name?: string;
+  /**
+     * @minLength 3
+     * @maxLength 3
+     */
+  currency?: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  taxRate?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  serviceChargeRate?: number;
+}
+
+export interface CreateBranchInput {
+  /** @minLength 1 */
+  name: string;
+  city?: string;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  timezone?: string;
+}
+
+export type UpdateBranchInputStatus = typeof UpdateBranchInputStatus[keyof typeof UpdateBranchInputStatus];
+
+
+export const UpdateBranchInputStatus = {
+  LIVE: 'LIVE',
+  CLOSED: 'CLOSED',
+} as const;
+
+export interface UpdateBranchInput {
+  /** @minLength 1 */
+  name?: string;
+  city?: string;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  status?: UpdateBranchInputStatus;
+}
+
 /**
  * @nullable
  */
@@ -1346,6 +1558,12 @@ export const GetTicketsStation = {
   BAR: 'BAR',
   KITCHEN: 'KITCHEN',
 } as const;
+
+export type GetAdminAuditLogsParams = {
+organizationId?: string;
+action?: string;
+limit?: number;
+};
 
 export type GetInventoryReportParams = {
 branchId?: string;

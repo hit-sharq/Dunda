@@ -10,6 +10,9 @@ declare global {
         clerkUserId: string | null;
         __staffContext?: StaffContext;
       };
+      /** Set only by the platform admin guard, never by tenant resolution. */
+      /** Identified by the account id alone; there is no separate admin row. */
+      platformAdmin?: { id: string; clerkUserId: string };
     }
   }
 }

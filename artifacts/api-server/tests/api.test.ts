@@ -563,14 +563,42 @@ describe("orders, station tickets and checkout", () => {
   });
 
   it("frees the table once every ticket is closed", async () => {
+    // Self-contained. This previously depended on a kitchen ticket left behind
+    // by an earlier test, so it only passed when the suite happened to run in
+    // one particular order.
+    await resetTable();
+    signInAs(WAITER_CLERK);
+    const created = await request(app).post("/api/orders").send({
+      table: "T1",
+      tableId: `${ORG}-table`,
+      items: [
+        { productId: `${ORG}-drink`, quantity: 1, unitId: `${ORG}-shot` },
+        { productId: `${ORG}-food`, quantity: 1 },
+      ],
+    });
+    expect(created.status).toBe(201);
+
+    const [occupied] = await db
+      .select()
+      .from(tablesTable)
+      .where(eq(tablesTable.id, `${ORG}-table`));
+    expect(occupied.status).toBe("OCCUPIED");
+
     signInAs(OWNER_CLERK);
-    const kitchenTicket = (await request(app).get("/api/tickets").query({ station: "KITCHEN" }))
-      .body.find((t: { status: string }) => t.status !== "SERVED");
-    if (kitchenTicket) {
+    // Close both station tickets on this order.
+    const tickets = (
+      await request(app).get(`/api/tickets/by-order/${created.body.id}`)
+    ).body;
+    expect(tickets).toHaveLength(2);
+    for (const ticket of tickets) {
       for (const status of ["ACCEPTED", "PREPARING", "READY", "SERVED"]) {
-        await request(app).patch(`/api/tickets/${kitchenTicket.id}`).send({ status });
+        const step = await request(app)
+          .patch(`/api/tickets/${ticket.id}`)
+          .send({ status });
+        expect(step.status).toBe(200);
       }
     }
+
     const [table] = await db
       .select()
       .from(tablesTable)

@@ -18,6 +18,9 @@ import searchRouter from "./search";
 import dashboardRouter from "./dashboard";
 import meRouter from "./me";
 import setupRouter from "./setup";
+import adminRouter from "./admin";
+import settingsRouter from "./settings";
+import { sessionRouter } from "../middlewares/platformAdmin";
 import reportsRouter from "./reports";
 import { tenantMiddleware } from "../middlewares/tenantMiddleware";
 import { logAuditEntry } from "../lib/auditLogger";
@@ -33,6 +36,13 @@ router.use((req, res, next) => {
   }
   next();
 });
+
+// Ahead of tenant resolution, and deliberately so. An administrator belongs to
+// no club, so the tenant middleware would refuse them before any admin route ran.
+// The guard inside the admin router does the authorising instead.
+router.get("/session", sessionRouter);
+router.use("/admin", adminRouter);
+router.use("/setup", setupRouter);
 
 router.use(tenantMiddleware);
 
@@ -52,8 +62,9 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
 // Claiming ownership and reading identity must work before a caller has a
 // staff record, so they sit ahead of the tenant guard.
-router.use("/setup", setupRouter);
-router.use("/me", meRouter);
+// Platform administration is cross-tenant, so it is mounted before the tenant
+// guard. An administrator has no organization of their own to resolve against.
+router.use("/settings", settingsRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/products", productsRouter);
 router.use("/floors", floorsRouter);

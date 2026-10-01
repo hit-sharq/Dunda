@@ -1498,6 +1498,192 @@ paths:
               schema: { $ref: "#/components/schemas/OrderTicket" }
         "409":
           description: The ticket cannot move to that state
+  /session:
+    get:
+      operationId: getSession
+      tags: [auth]
+      summary: Which side of the product this account belongs to
+      description: >
+        Answered before tenant resolution, because an administrator belongs to no
+        club. The client routes on this and nothing else.
+      responses:
+        "200":
+          description: The account's side of the product
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "401":
+          description: Not signed in
+  /admin/summary:
+    get:
+      operationId: getAdminSummary
+      tags: [admin]
+      summary: Platform totals across every client
+      responses:
+        "200":
+          description: Platform totals
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSummary" }
+        "403":
+          description: Not a Dunda administrator
+  /admin/organizations:
+    get:
+      operationId: getAdminOrganizations
+      tags: [admin]
+      summary: Every client, with the signal to spot a quiet one
+      responses:
+        "200":
+          description: Every client
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AdminOrganization" }
+        "403":
+          description: Not a Dunda administrator
+    post:
+      operationId: createAdminOrganization
+      tags: [admin]
+      summary: Provision a client venue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateOrganizationInput" }
+      responses:
+        "201":
+          description: The venue was created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatedOrganization" }
+        "409":
+          description: That slug is already taken
+        "403":
+          description: Not a Dunda administrator
+  /admin/organizations/{organizationId}:
+    patch:
+      operationId: updateAdminOrganization
+      tags: [admin]
+      summary: Change a client's commercial settings
+      description: >
+        Applies to future orders only. The rate is copied onto an order when it is
+        rung in, so receipts already issued keep the figures they were issued with.
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateOrganizationInput" }
+      responses:
+        "200":
+          description: Updated settings
+        "403":
+          description: Not a Dunda administrator
+  /admin/staff:
+    get:
+      operationId: getAdminStaff
+      tags: [admin]
+      summary: Every staff member across every client
+      responses:
+        "200":
+          description: Staff across the platform
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AdminStaff" }
+        "403":
+          description: Not a Dunda administrator
+  /admin/audit-logs:
+    get:
+      operationId: getAdminAuditLogs
+      tags: [admin]
+      summary: The audit trail across every client
+      parameters:
+        - in: query
+          name: organizationId
+          schema: { type: string }
+        - in: query
+          name: action
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AdminAuditLog" }
+        "403":
+          description: Not a Dunda administrator
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: This venue's commercial settings
+      responses:
+        "200":
+          description: Settings and branches
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VenueSettings" }
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Change currency, tax or service charge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateVenueSettingsInput" }
+      responses:
+        "200":
+          description: Updated settings
+        "403":
+          description: Requires manage_roles
+  /settings/branches:
+    post:
+      operationId: createBranch
+      tags: [settings]
+      summary: Open another site
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateBranchInput" }
+      responses:
+        "201":
+          description: The branch was created
+        "403":
+          description: Requires manage_branches
+  /settings/branches/{branchId}:
+    patch:
+      operationId: updateBranch
+      tags: [settings]
+      summary: Update or close a branch
+      parameters:
+        - in: path
+          name: branchId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateBranchInput" }
+      responses:
+        "200":
+          description: Updated branch
+        "403":
+          description: Requires manage_branches
   /reports/inventory:
     get:
       operationId: getInventoryReport
@@ -2162,6 +2348,180 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/OrderTicketItem" }
+    Session:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [admin, staff]
+        name: { type: string }
+        clerkUserId: { type: string }
+    TenantSettings:
+      type: object
+      required: [currency, locale, taxRate, serviceChargeRate]
+      properties:
+        currency: { type: string }
+        locale: { type: string }
+        taxRate: { type: integer }
+        serviceChargeRate: { type: integer }
+    AdminSummary:
+      type: object
+      required:
+        [
+          venues,
+          liveBranches,
+          staff,
+          ordersInWindow,
+          revenueInWindow,
+          windowDays,
+        ]
+      properties:
+        venues: { type: integer }
+        liveBranches: { type: integer }
+        staff: { type: integer }
+        ordersInWindow: { type: integer }
+        revenueInWindow: { type: number }
+        windowDays: { type: integer }
+    CreatedOrganization:
+      type: object
+      required: [id, slug, branchId]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        branchId: { type: string }
+    AdminOrganization:
+      type: object
+      required:
+        [
+          id,
+          name,
+          slug,
+          currency,
+          taxRate,
+          serviceChargeRate,
+          createdAt,
+          branches,
+          liveBranches,
+          staff,
+          activeStaff,
+          tables,
+          ordersInWindow,
+          revenueInWindow,
+        ]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        currency: { type: string }
+        taxRate: { type: integer }
+        serviceChargeRate: { type: integer }
+        createdAt: { type: string, format: date-time }
+        branches: { type: integer }
+        liveBranches: { type: integer }
+        staff: { type: integer }
+        activeStaff: { type: integer }
+        tables: { type: integer }
+        ordersInWindow: { type: integer }
+        revenueInWindow: { type: number }
+        lastOrderAt: { type: ["string", "null"], format: date-time }
+        plan: { type: ["string", "null"] }
+        subscriptionStatus: { type: ["string", "null"] }
+    CreateOrganizationInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        slug: { type: string }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        taxRate: { type: integer, minimum: 0, maximum: 100 }
+        serviceChargeRate: { type: integer, minimum: 0, maximum: 100 }
+        branchName: { type: string }
+        city: { type: string }
+    UpdateOrganizationInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        taxRate: { type: integer, minimum: 0, maximum: 100 }
+        serviceChargeRate: { type: integer, minimum: 0, maximum: 100 }
+    AdminStaff:
+      type: object
+      required: [id, name, linked]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        status: { type: string }
+        clerkUserId: { type: ["string", "null"] }
+        organizationId: { type: string }
+        branchId: { type: ["string", "null"] }
+        roleId: { type: ["string", "null"] }
+        role: { type: ["string", "null"] }
+        organization: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        linked: { type: boolean }
+    AdminAuditLog:
+      type: object
+      required: [id, organizationId, action, entity]
+      properties:
+        id: { type: string }
+        organizationId: { type: string }
+        organization: { type: ["string", "null"] }
+        action: { type: string }
+        entity: { type: string }
+        entityId: { type: ["string", "null"] }
+        detail: { type: ["string", "null"] }
+        reason: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    BranchSummary:
+      type: object
+      required: [id, name, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        city: { type: ["string", "null"] }
+        status: { type: string }
+    VenueSettings:
+      type: object
+      required: [id, name, currency, taxRate, serviceChargeRate, branches]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        currency: { type: string }
+        taxRate: { type: integer }
+        serviceChargeRate: { type: integer }
+        settings: { $ref: "#/components/schemas/TenantSettings" }
+        branches:
+          type: array
+          items: { $ref: "#/components/schemas/BranchSummary" }
+    UpdateVenueSettingsInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        taxRate: { type: integer, minimum: 0, maximum: 100 }
+        serviceChargeRate: { type: integer, minimum: 0, maximum: 100 }
+    CreateBranchInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        city: { type: string }
+        address: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        timezone: { type: string }
+    UpdateBranchInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        city: { type: string }
+        address: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        status: { type: string, enum: [LIVE, CLOSED] }
     Me:
       type: object
       required: [organizationId, permissions, isOwner]

@@ -2072,6 +2072,250 @@ export const UpdateTicketResponse = zod.object({
 
 
 /**
+ * Answered before tenant resolution, because an administrator belongs to no club. The client routes on this and nothing else.
+ * @summary Which side of the product this account belongs to
+ */
+export const GetSessionResponse = zod.object({
+  "kind": zod.enum(['admin', 'staff']),
+  "name": zod.string().optional(),
+  "clerkUserId": zod.string().optional()
+})
+
+
+/**
+ * @summary Platform totals across every client
+ */
+export const GetAdminSummaryResponse = zod.object({
+  "venues": zod.number().int(),
+  "liveBranches": zod.number().int(),
+  "staff": zod.number().int(),
+  "ordersInWindow": zod.number().int(),
+  "revenueInWindow": zod.number(),
+  "windowDays": zod.number().int()
+})
+
+
+/**
+ * @summary Every client, with the signal to spot a quiet one
+ */
+export const GetAdminOrganizationsResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "currency": zod.string(),
+  "taxRate": zod.number().int(),
+  "serviceChargeRate": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "branches": zod.number().int(),
+  "liveBranches": zod.number().int(),
+  "staff": zod.number().int(),
+  "activeStaff": zod.number().int(),
+  "tables": zod.number().int(),
+  "ordersInWindow": zod.number().int(),
+  "revenueInWindow": zod.number(),
+  "lastOrderAt": zod.coerce.date().nullish(),
+  "plan": zod.string().nullish(),
+  "subscriptionStatus": zod.string().nullish()
+})
+export const GetAdminOrganizationsResponse = zod.array(GetAdminOrganizationsResponseItem)
+
+
+/**
+ * @summary Provision a client venue
+ */
+
+export const createAdminOrganizationBodyCurrencyMin = 3;
+export const createAdminOrganizationBodyCurrencyMax = 3;
+
+export const createAdminOrganizationBodyTaxRateMin = 0;
+export const createAdminOrganizationBodyTaxRateMax = 100;
+
+export const createAdminOrganizationBodyServiceChargeRateMin = 0;
+export const createAdminOrganizationBodyServiceChargeRateMax = 100;
+
+
+
+export const CreateAdminOrganizationBody = zod.object({
+  "name": zod.string().min(1),
+  "slug": zod.string().optional(),
+  "currency": zod.string().min(createAdminOrganizationBodyCurrencyMin).max(createAdminOrganizationBodyCurrencyMax).optional(),
+  "taxRate": zod.number().int().min(createAdminOrganizationBodyTaxRateMin).max(createAdminOrganizationBodyTaxRateMax).optional(),
+  "serviceChargeRate": zod.number().int().min(createAdminOrganizationBodyServiceChargeRateMin).max(createAdminOrganizationBodyServiceChargeRateMax).optional(),
+  "branchName": zod.string().optional(),
+  "city": zod.string().optional()
+})
+
+export const CreateAdminOrganizationResponse = zod.object({
+  "id": zod.string(),
+  "slug": zod.string(),
+  "branchId": zod.string()
+})
+
+
+/**
+ * Applies to future orders only. The rate is copied onto an order when it is rung in, so receipts already issued keep the figures they were issued with.
+ * @summary Change a client's commercial settings
+ */
+export const UpdateAdminOrganizationParams = zod.object({
+  "organizationId": zod.coerce.string()
+})
+
+
+export const updateAdminOrganizationBodyCurrencyMin = 3;
+export const updateAdminOrganizationBodyCurrencyMax = 3;
+
+export const updateAdminOrganizationBodyTaxRateMin = 0;
+export const updateAdminOrganizationBodyTaxRateMax = 100;
+
+export const updateAdminOrganizationBodyServiceChargeRateMin = 0;
+export const updateAdminOrganizationBodyServiceChargeRateMax = 100;
+
+
+
+export const UpdateAdminOrganizationBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "currency": zod.string().min(updateAdminOrganizationBodyCurrencyMin).max(updateAdminOrganizationBodyCurrencyMax).optional(),
+  "taxRate": zod.number().int().min(updateAdminOrganizationBodyTaxRateMin).max(updateAdminOrganizationBodyTaxRateMax).optional(),
+  "serviceChargeRate": zod.number().int().min(updateAdminOrganizationBodyServiceChargeRateMin).max(updateAdminOrganizationBodyServiceChargeRateMax).optional()
+})
+
+export const UpdateAdminOrganizationResponse = zod.unknown()
+
+
+/**
+ * @summary Every staff member across every client
+ */
+export const GetAdminStaffResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "status": zod.string().optional(),
+  "clerkUserId": zod.string().nullish(),
+  "organizationId": zod.string().optional(),
+  "branchId": zod.string().nullish(),
+  "roleId": zod.string().nullish(),
+  "role": zod.string().nullish(),
+  "organization": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional(),
+  "linked": zod.boolean()
+})
+export const GetAdminStaffResponse = zod.array(GetAdminStaffResponseItem)
+
+
+/**
+ * @summary The audit trail across every client
+ */
+export const GetAdminAuditLogsQueryParams = zod.object({
+  "organizationId": zod.coerce.string().optional(),
+  "action": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().int().optional()
+})
+
+export const GetAdminAuditLogsResponseItem = zod.object({
+  "id": zod.string(),
+  "organizationId": zod.string(),
+  "organization": zod.string().nullish(),
+  "action": zod.string(),
+  "entity": zod.string(),
+  "entityId": zod.string().nullish(),
+  "detail": zod.string().nullish(),
+  "reason": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional()
+})
+export const GetAdminAuditLogsResponse = zod.array(GetAdminAuditLogsResponseItem)
+
+
+/**
+ * @summary This venue's commercial settings
+ */
+export const GetSettingsResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "slug": zod.string().optional(),
+  "currency": zod.string(),
+  "taxRate": zod.number().int(),
+  "serviceChargeRate": zod.number().int(),
+  "settings": zod.object({
+  "currency": zod.string(),
+  "locale": zod.string(),
+  "taxRate": zod.number().int(),
+  "serviceChargeRate": zod.number().int()
+}).optional(),
+  "branches": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "city": zod.string().nullish(),
+  "status": zod.string()
+}))
+})
+
+
+/**
+ * @summary Change currency, tax or service charge
+ */
+
+export const updateSettingsBodyCurrencyMin = 3;
+export const updateSettingsBodyCurrencyMax = 3;
+
+export const updateSettingsBodyTaxRateMin = 0;
+export const updateSettingsBodyTaxRateMax = 100;
+
+export const updateSettingsBodyServiceChargeRateMin = 0;
+export const updateSettingsBodyServiceChargeRateMax = 100;
+
+
+
+export const UpdateSettingsBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "currency": zod.string().min(updateSettingsBodyCurrencyMin).max(updateSettingsBodyCurrencyMax).optional(),
+  "taxRate": zod.number().int().min(updateSettingsBodyTaxRateMin).max(updateSettingsBodyTaxRateMax).optional(),
+  "serviceChargeRate": zod.number().int().min(updateSettingsBodyServiceChargeRateMin).max(updateSettingsBodyServiceChargeRateMax).optional()
+})
+
+export const UpdateSettingsResponse = zod.unknown()
+
+
+/**
+ * @summary Open another site
+ */
+
+
+
+export const CreateBranchBody = zod.object({
+  "name": zod.string().min(1),
+  "city": zod.string().optional(),
+  "address": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "timezone": zod.string().optional()
+})
+
+export const CreateBranchResponse = zod.void()
+
+
+/**
+ * @summary Update or close a branch
+ */
+export const UpdateBranchParams = zod.object({
+  "branchId": zod.coerce.string()
+})
+
+
+
+
+export const UpdateBranchBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "city": zod.string().optional(),
+  "address": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "status": zod.enum(['LIVE', 'CLOSED']).optional()
+})
+
+export const UpdateBranchResponse = zod.unknown()
+
+
+/**
  * @summary Inventory position, movements and discrepancies
  */
 export const GetInventoryReportQueryParams = zod.object({

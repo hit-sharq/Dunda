@@ -22,7 +22,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "pnpm run typecheck && pnpm test && pnpm run build",
-    "build:vercel": "pnpm --filter @workspace/api-server build && pnpm --filter @workspace/dunda build"
+    "build:vercel": "pnpm --filter @workspace/api-server build && pnpm --filter @workspace/dunda build",
+    "dev:admin": "pnpm --filter @workspace/admin dev",
+    "build:admin": "pnpm --filter @workspace/admin build",
+    "dev:all": "concurrently \"pnpm dev:server\" \"pnpm dev:web\" \"pnpm dev:admin\""
   },
   "private": true,
   "devDependencies": {
