@@ -4,8 +4,8 @@ import {
   useGetAdminOrganizations,
   useUpdateAdminOrganization,
 } from "@workspace/api-client-react";
-import { Card, State, field, inputStyle, linkButton, primaryButton } from "./shell";
-import { colors, dateOnly, money } from "../lib/theme";
+import { Card, State, field, inputStyle, linkButton, primaryButton } from "./ui";
+import { colors, dateOnly, money } from "./theme";
 
 /**
  * One client, and the settings you can correct.

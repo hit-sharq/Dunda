@@ -2583,6 +2583,10 @@ components:
           items: { type: string }
         isOwner: { type: boolean }
         canGrantStaff: { type: boolean }
+        # Present only when the caller may use the operator console. A club user
+        # receives the identical response they got before, so nothing indicates
+        # that a more privileged tier exists.
+        operator: { type: boolean }
         roles:
           type: array
           items:

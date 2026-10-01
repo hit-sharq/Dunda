@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import { getTenant } from "../middlewares/tenantMiddleware";
 import { getTenantSettings } from "../lib/tenantSettings";
+import { isPlatformAdmin } from "../middlewares/platformAdmin";
 import type { StaffContext } from "../lib/permissions";
 
 const router: IRouter = Router();
@@ -18,7 +19,7 @@ const router: IRouter = Router();
  * The caller's own identity, role and resolved permissions. Clients use this to
  * decide what to render; the server still enforces every check independently.
  */
-router.get("/me", async (req, res): Promise<void> => {
+router.get("/", async (req, res): Promise<void> => {
   const tenant = getTenant(req);
   const ctx = req.clerk.__staffContext as StaffContext | undefined;
 
@@ -28,7 +29,10 @@ router.get("/me", async (req, res): Promise<void> => {
       .from(branchesTable)
       .where(eq(branchesTable.organizationId, tenant.organizationId))
       .limit(1);
+    // An operator may own no club at all, and still need to reach the console to
+    // provision one, so the flag is set on this path too.
     res.json({
+      ...(isPlatformAdmin(tenant.clerkUserId) ? { operator: true } : {}),
       organizationId: tenant.organizationId,
       clerkUserId: tenant.clerkUserId,
       staff: null,
@@ -71,7 +75,10 @@ router.get("/me", async (req, res): Promise<void> => {
     .where(eq(branchesTable.organizationId, tenant.organizationId))
     .orderBy(branchesTable.name);
 
+  const operator = isPlatformAdmin(tenant.clerkUserId);
+
   res.json({
+    ...(operator ? { operator: true } : {}),
     organizationId: tenant.organizationId,
     clerkUserId: tenant.clerkUserId,
     staff: staff

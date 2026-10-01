@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useGetAdminOrganizations, useGetAdminSummary } from "@workspace/api-client-react";
-import { Card, Metric, State, linkButton } from "./shell";
-import { colors, money, timeAgo } from "../lib/theme";
+import { Card, Metric, State, linkButton } from "./ui";
+import { colors, money, timeAgo } from "./theme";
 
 /**
  * The book of clients.

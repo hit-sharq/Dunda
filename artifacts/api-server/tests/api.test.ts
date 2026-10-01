@@ -288,7 +288,7 @@ describe("authentication", () => {
     signInAs("user_with_no_staff_record");
     const res = await request(app).get("/api/branches");
     expect(res.status).toBe(403);
-    expect(res.body.code).toBe("STAFF_RECORD_REQUIRED");
+    expect(res.body.code).toBe("ACCOUNT_NOT_PROVISIONED");
   });
 });
 

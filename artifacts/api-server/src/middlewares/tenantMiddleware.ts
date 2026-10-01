@@ -134,12 +134,13 @@ export const tenantMiddleware: RequestHandler = async (req, res, next) => {
     }
   }
 
-  // An authenticated account with no Dunda staff record and no organization
-  // membership is not authorized for any tenant. Guessing one would hand a real
-  // user someone else's sales, stock and customer data, so refuse instead.
+  // Guessing a tenant would hand one person another venue's sales, stock and
+  // customer data, so this refuses instead. The wording is deliberately plain:
+  // naming organizations, staff records and invitations would tell any
+  // signed-in stranger that all of those exist and how they are granted.
   res.status(403).json({
     error:
-      "Your account is not linked to a Dunda organization. Ask an organization owner to invite you, then sign in again.",
-    code: "STAFF_RECORD_REQUIRED",
+      "Your account isn't set up yet. Ask the person who runs this place to give you access.",
+    code: "ACCOUNT_NOT_PROVISIONED",
   });
 };

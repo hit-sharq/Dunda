@@ -40,10 +40,6 @@ router.use((req, res, next) => {
 // club, so the tenant middleware would refuse them before these routes ran.
 router.use("/admin", adminRouter);
 
-// The session gate exists so a client can route an account to the right app. It
-// is deliberately vague: it says which side, and nothing about how that is
-// decided, because anyone can call it.
-
 // Operator tooling for binding an owner's account. Not offered anywhere in the
 // club app, so it is not something a club user can discover.
 router.use("/setup", setupRouter);
@@ -64,10 +60,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   res.json({ ok: true });
 });
 
-// Claiming ownership and reading identity must work before a caller has a
-// staff record, so they sit ahead of the tenant guard.
-// Platform administration is cross-tenant, so it is mounted before the tenant
-// guard. An administrator has no organization of their own to resolve against.
+router.use("/me", meRouter);
 router.use("/settings", settingsRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/products", productsRouter);

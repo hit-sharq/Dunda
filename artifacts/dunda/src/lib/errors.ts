@@ -79,7 +79,7 @@ export function describeError(
   // and nothing about how the product is arranged: no mention of workspaces,
   // claiming, organizations, invitations or roles, because a stranger reading it
   // should not learn that any of those exist.
-  if (code === "STAFF_RECORD_REQUIRED") {
+  if (code === "ACCOUNT_NOT_PROVISIONED") {
     return {
       title: "Your account isn't set up yet",
       detail:

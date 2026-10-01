@@ -4,8 +4,8 @@ import {
   useAssignOrganizationOwner,
   useCreateAdminOrganization,
 } from "@workspace/api-client-react";
-import { Card, field, inputStyle, linkButton, primaryButton } from "./shell";
-import { colors } from "../lib/theme";
+import { Card, field, inputStyle, linkButton, primaryButton } from "./ui";
+import { colors } from "./theme";
 
 /**
  * Provision a client.

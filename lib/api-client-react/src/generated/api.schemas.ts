@@ -1040,6 +1040,7 @@ export interface Me {
   permissions: string[];
   isOwner: boolean;
   canGrantStaff?: boolean;
+  operator?: boolean;
   roles?: MeRolesItem[];
   settings?: MeSettings;
 }

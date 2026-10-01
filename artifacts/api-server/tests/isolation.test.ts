@@ -357,6 +357,36 @@ describe("what an administrator actually sees", () => {
     expect(owners[0].clerkUserId).toBe("user_new_owner_account");
   });
 
+  it("marks an operator on their own profile and no one else", async () => {
+    // The club app needs to know whether to show the operator link. Doing that
+    // with a dedicated endpoint would tell every caller that a privileged tier
+    // exists, so the flag rides along on the caller's own profile, and is omitted
+    // entirely when it does not apply.
+    signInAs(OWNER_CLERK);
+    const asOwner = await request(app).get("/api/me");
+    expect(asOwner.status).toBe(200);
+    // Absent, not false: an owner cannot tell from the response that the concept
+    // exists.
+    expect(asOwner.body.operator).toBeUndefined();
+
+    signInAs(WAITER_CLERK);
+    const asWaiter = await request(app).get("/api/me");
+    expect(asWaiter.status).toBe(200);
+    expect(asWaiter.body.operator).toBeUndefined();
+  });
+
+  it("marks an operator who owns a club, and the console works either way", async () => {
+    signInAs(ADMIN_CLERK);
+    const profile = await request(app).get("/api/me");
+    expect(profile.status).toBe(200);
+    expect(profile.body.operator).toBe(true);
+
+    // The operator console does not require a club, which is what lets an
+    // operator provision their first one.
+    const console_ = await request(app).get("/api/admin/summary");
+    expect(console_.status).toBe(200);
+  });
+
   it("exposes no endpoint that says which side of the product an account is on", async () => {
     // An endpoint answering "is this an operator" tells every caller that a
     // more privileged tier exists. There is not one.

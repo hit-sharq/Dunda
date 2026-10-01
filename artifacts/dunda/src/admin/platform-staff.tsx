@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useGetAdminStaff } from "@workspace/api-client-react";
-import { Card, State } from "./shell";
-import { dateOnly } from "../lib/theme";
-import { colors } from "../lib/theme";
+import { Card, State } from "./ui";
+import { dateOnly } from "./theme";
+import { colors } from "./theme";
 
 /**
  * Everyone who can sign in to a client.

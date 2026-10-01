@@ -1929,6 +1929,7 @@ export const GetMeResponse = zod.object({
   "permissions": zod.array(zod.string()),
   "isOwner": zod.boolean(),
   "canGrantStaff": zod.boolean().optional(),
+  "operator": zod.boolean().optional(),
   "roles": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),

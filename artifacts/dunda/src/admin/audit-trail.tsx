@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useGetAdminAuditLogs, useGetAdminOrganizations } from "@workspace/api-client-react";
-import { Card, State } from "./shell";
-import { colors, dateOnly } from "../lib/theme";
+import { Card, State } from "./ui";
+import { colors, dateOnly } from "./theme";
 
 /**
  * The trail, across every client.

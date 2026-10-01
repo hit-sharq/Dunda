@@ -27,6 +27,11 @@ import { useSessionGuard } from '@/hooks/use-session-guard';
 import { MoneyProvider, money } from '@/lib/money';
 import { QueryNotice } from '@/components/query-notice';
 import { StaffManager } from '@/pages/staff-manager';
+import { Clients as OperatorClients } from '@/admin/clients';
+import { ClientDetail as OperatorClientDetail } from '@/admin/client-detail';
+import { NewClient as OperatorNewClient } from '@/admin/new-client';
+import { PlatformStaff as OperatorPeople } from '@/admin/platform-staff';
+import { AuditTrail as OperatorAudit } from '@/admin/audit-trail';
 import { PERMISSION_LABELS } from '@/lib/errors';
 import { Skeleton } from '@/components/ui';
 import { Pos as NewPos } from '@/pages/pos';
@@ -35,7 +40,7 @@ import { FloorDesigner } from '@/pages/floor-designer';
 import { ServiceBoard } from '@/pages/service-board';
 import { Hq } from '@/pages/hq';
 import NotFound from '@/pages/not-found';
-import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
+import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 
 // Operational screens poll because the realtime socket only fires on changes
 // made through this API. Without a floor, a failing request retried every few
@@ -107,7 +112,15 @@ function Button({ children, className = '', variant = 'primary', ...props }: { c
  * poor. The list is filtered to what the signed-in role can actually do, and an
  * owner sees all of it.
  */
-const nav: Array<{ href: string; label: string; icon: typeof LayoutDashboard; permission?: string }> = [
+const nav: Array<{
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  /** The permission that opens this screen, if it needs one. */
+  permission?: string;
+  /** Never rendered unless /me says the caller may. */
+  operatorOnly?: boolean;
+}> = [
   { href: '/overview', label: 'Overview', icon: LayoutDashboard },
   { href: '/pos', label: 'Point of sale', icon: ShoppingBag, permission: 'view_pos' },
   { href: '/floor', label: 'Floor', icon: Grid2X2, permission: 'view_pos' },
@@ -123,7 +136,14 @@ const nav: Array<{ href: string; label: string; icon: typeof LayoutDashboard; pe
   { href: '/reports', label: 'Reports', icon: BarChart3, permission: 'view_reports' },
   { href: '/hq', label: 'HQ', icon: Store, permission: 'view_reports' },
   { href: '/settings', label: 'Settings', icon: Settings2, permission: 'manage_roles' },
-];
+  {
+    href: '/admin',
+    label: 'Operator',
+    icon: Store,
+    /** Shown only when /me says so, so it is never present in a club user's page. */
+    operatorOnly: true,
+  },
+] as const;
 
 function Staff() {
   const staff = useGetStaff();
@@ -232,7 +252,10 @@ function AppShell({ children }: { children: ReactNode }) {
   const visibleNav = useMemo(
     () =>
       nav.filter((item) => {
-        if (!item.permission) return true;
+        if ('operatorOnly' in item && item.operatorOnly) {
+          return me.data?.operator === true;
+        }
+        if (!('permission' in item) || !item.permission) return true;
         if (isOwner) return true;
         // While /me is still loading, show nothing rather than everything; the
         // server refuses these routes anyway, so an empty list is the honest
@@ -240,7 +263,7 @@ function AppShell({ children }: { children: ReactNode }) {
         if (!granted) return false;
         return granted.includes(item.permission);
       }),
-    [granted, isOwner],
+    [granted, isOwner, me.data?.operator],
   );
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
@@ -392,11 +415,37 @@ function Field({ label, children }: { label: string; children: ReactNode }) { re
  * Hiding the link is a courtesy; this is the actual guard, so a typed path or a
  * bookmark cannot reach it. The server still refuses the underlying calls.
  */
+/**
+ * Gates the operator console inside the club app.
+ *
+ * The link only appears for an operator, so this is a second line rather than the
+ * boundary: the API answers a non-operator exactly as it answers an unknown path.
+ * A refusal here renders that same not-found, so typing the path learns nothing.
+ */
+function RequireOperator({ children }: { children: ReactNode }) {
+  const me = useGetMe();
+  if (me.isLoading) {
+    return <div className="grid min-h-[40vh] place-items-center text-sm text-[#68736d]">Checking…</div>;
+  }
+  if (!me.data || me.data.operator !== true) return <NotFound />;
+  return <>{children}</>;
+}
+
 const wrap =
   (permission: string, element: ReactNode) =>
   function GuardedRoute() {
     return <Require permission={permission}>{element}</Require>;
   };
+
+/** A client detail route needs its id from the path. */
+function OperatorClientRoute() {
+  const params = useParams<{ id: string }>();
+  return (
+    <RequireOperator>
+      <OperatorClientDetail id={params.id} />
+    </RequireOperator>
+  );
+}
 
 function Require({
   permission,
@@ -449,7 +498,7 @@ function ProtectedRouter() {
   useSessionGuard();
   // Serverless hosting cannot hold a WebSocket open, so live screens poll.
   useLiveRefresh(Boolean(isSignedIn));
-  // 403 STAFF_RECORD_REQUIRED means the account is authenticated but not yet
+  // A 403 here means the account is signed in but not yet
   // linked to a Dunda staff record. Without this the user just sees empty
   // screens and has no idea why.
   const me = useGetMe();
@@ -465,7 +514,12 @@ function ProtectedRouter() {
       </div>
     </div>;
   }
-  return isSignedIn ?     <AppShell><Switch><Route path="/overview" component={Overview} /><Route path="/pos" component={wrap("view_pos", <NewPos />)} /><Route path="/floor" component={wrap("view_pos", <Floor />)} /><Route path="/designer" component={wrap("manage_floor", <FloorDesigner />)} /><Route path="/orders" component={wrap("view_pos", <Orders />)} /><Route path="/bar" component={wrap("update_ticket", <ServiceBoard station="bar" />)} /><Route path="/kitchen" component={wrap("update_ticket", <ServiceBoard station="kitchen" />)} /><Route path="/products" component={wrap("manage_products", <Products />)} /><Route path="/inventory" component={wrap("view_inventory", <Inventory />)} /><Route path="/staff" component={wrap("manage_staff", <Staff />)} /><Route path="/customers" component={wrap("manage_customers", <Customers />)} /><Route path="/events" component={wrap("manage_events", <Events />)} /><Route path="/reservations" component={wrap("manage_reservations", <Reservations />)} /><Route path="/reports" component={wrap("view_reports", <Reports />)} /><Route path="/hq" component={wrap("view_reports", <Hq />)} /><Route path="/settings" component={wrap("manage_roles", <Settings />)} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
+  return isSignedIn ?     <AppShell><Switch><Route path="/admin" component={() => <RequireOperator><OperatorClients /></RequireOperator>} />
+<Route path="/admin/clients/:id" component={OperatorClientRoute} />
+<Route path="/admin/new" component={() => <RequireOperator><OperatorNewClient /></RequireOperator>} />
+<Route path="/admin/people" component={() => <RequireOperator><OperatorPeople /></RequireOperator>} />
+<Route path="/admin/audit" component={() => <RequireOperator><OperatorAudit /></RequireOperator>} />
+<Route path="/overview" component={Overview} /><Route path="/pos" component={wrap("view_pos", <NewPos />)} /><Route path="/floor" component={wrap("view_pos", <Floor />)} /><Route path="/designer" component={wrap("manage_floor", <FloorDesigner />)} /><Route path="/orders" component={wrap("view_pos", <Orders />)} /><Route path="/bar" component={wrap("update_ticket", <ServiceBoard station="bar" />)} /><Route path="/kitchen" component={wrap("update_ticket", <ServiceBoard station="kitchen" />)} /><Route path="/products" component={wrap("manage_products", <Products />)} /><Route path="/inventory" component={wrap("view_inventory", <Inventory />)} /><Route path="/staff" component={wrap("manage_staff", <Staff />)} /><Route path="/customers" component={wrap("manage_customers", <Customers />)} /><Route path="/events" component={wrap("manage_events", <Events />)} /><Route path="/reservations" component={wrap("manage_reservations", <Reservations />)} /><Route path="/reports" component={wrap("view_reports", <Reports />)} /><Route path="/hq" component={wrap("view_reports", <Hq />)} /><Route path="/settings" component={wrap("manage_roles", <Settings />)} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
 }
 
 function Router() { return <Switch><Route path="/" component={Landing} /><Route path="/sign-in/*?" component={() => <Auth mode="sign-in" />} /><Route path="/sign-up/*?" component={() => <Auth mode="sign-up" />} /><Route component={ProtectedRouter} /></Switch>; }
