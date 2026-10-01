@@ -71,6 +71,13 @@
       "when": 1790860515540,
       "tag": "0009_first_hellion",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790862975741,
+      "tag": "0010_tidy_terrax",
+      "breakpoints": true
     }
   ]
 }

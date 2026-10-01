@@ -33,6 +33,25 @@ Set these in the Vercel project under **Settings → Environment Variables**.
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | yes | The web app reads the key under this name. |
 | `ALLOWED_ORIGINS` | no | Defaults to the local development origins. On Vercel everything is same-origin, so it can be left unset. |
 | `LOG_LEVEL` | no | Defaults to `info`. |
+| `PLATFORM_ADMIN_IDS` | yes | Comma-separated Clerk user ids that may use the operator console. |
+
+### Payments
+
+Only needed once a club is actually paying for a subscription. Until then the
+system runs normally without them.
+
+| Variable | Notes |
+|---|---|
+| `PESAPAL_ENVIRONMENT` | `sandbox` or `live`. Sandbox unless you mean otherwise. |
+| `PESAPAL_SANDBOX_CONSUMER_KEY` | From the Pesapal developer dashboard, sandbox instance |
+| `PESAPAL_SANDBOX_CONSUMER_SECRET` | As above |
+| `PESAPAL_SANDBOX_BUSINESS_ACCOUNT_ID` | Your registered sandbox business account id |
+| `PESAPAL_LIVE_CONSUMER_KEY` | Read only when the environment is `live` |
+| `PESAPAL_LIVE_CONSUMER_SECRET` | As above |
+| `PESAPAL_LIVE_BUSINESS_ACCOUNT_ID` | As above |
+
+**Live credentials are never read while the environment is sandbox**, so a
+misconfigured deploy cannot charge a real card.
 | `PORT` | no | Not used on Vercel; the standalone server only. |
 
 ## Realtime is polling, not a socket

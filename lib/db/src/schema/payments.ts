@@ -41,6 +41,11 @@ export const paymentsTable = pgTable("dunda_payments", {
   amount: integer("amount").notNull(),
   method: text("method").notNull(),
   reference: text("reference"),
+  /**
+   * Who settled this share. A single-payer bill leaves it null; a split bill
+   * names each customer so the club knows who still owes what.
+   */
+  paidBy: text("paid_by"),
   status: text("status").notNull().default("SUCCESSFUL"),
   cashierId: text("cashier_id").references(() => staffTable.id),
   paidAt: timestamp("paid_at", { withTimezone: true })
