@@ -99,7 +99,6 @@ import type {
   ReservationInput,
   SalesReport,
   SearchResult,
-  Session,
   SetupStatus,
   StaffMember,
   StaffReportItem,
@@ -7162,84 +7161,6 @@ export const useUpdateTicket = <TError = ErrorType<void>,
       > => {
       return useMutation(getUpdateTicketMutationOptions(options));
     }
-
-export const getGetSessionUrl = () => {
-
-
-
-
-  return `/api/session`
-}
-
-/**
- * Answered before tenant resolution, because an administrator belongs to no club. The client routes on this and nothing else.
- * @summary Which side of the product this account belongs to
- */
-export const getSession = async ( options?: Parameters<typeof customFetch>[1]): Promise<Session> => {
-
-  return customFetch<Session>(getGetSessionUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getGetSessionQueryKey = () => {
-    return [
-    `/api/session`
-    ] as const;
-    }
-
-
-export const getGetSessionQueryOptions = <TData = Awaited<ReturnType<typeof getSession>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetSessionQueryKey();
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSession>>> = ({ signal }) => getSession({ signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSession>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetSessionQueryResult = NonNullable<Awaited<ReturnType<typeof getSession>>>
-export type GetSessionQueryError = ErrorType<void>
-
-
-/**
- * @summary Which side of the product this account belongs to
- */
-
-export function useGetSession<TData = Awaited<ReturnType<typeof getSession>>, TError = ErrorType<void>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getGetSessionQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
 
 export const getGetAdminSummaryUrl = () => {
 

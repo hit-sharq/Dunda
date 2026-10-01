@@ -20,7 +20,6 @@ import meRouter from "./me";
 import setupRouter from "./setup";
 import adminRouter from "./admin";
 import settingsRouter from "./settings";
-import { sessionRouter } from "../middlewares/platformAdmin";
 import reportsRouter from "./reports";
 import { tenantMiddleware } from "../middlewares/tenantMiddleware";
 import { logAuditEntry } from "../lib/auditLogger";
@@ -37,11 +36,16 @@ router.use((req, res, next) => {
   next();
 });
 
-// Ahead of tenant resolution, and deliberately so. An administrator belongs to
-// no club, so the tenant middleware would refuse them before any admin route ran.
-// The guard inside the admin router does the authorising instead.
-router.get("/session", sessionRouter);
+// Ahead of tenant resolution, and deliberately so. An operator belongs to no
+// club, so the tenant middleware would refuse them before these routes ran.
 router.use("/admin", adminRouter);
+
+// The session gate exists so a client can route an account to the right app. It
+// is deliberately vague: it says which side, and nothing about how that is
+// decided, because anyone can call it.
+
+// Operator tooling for binding an owner's account. Not offered anywhere in the
+// club app, so it is not something a club user can discover.
 router.use("/setup", setupRouter);
 
 router.use(tenantMiddleware);

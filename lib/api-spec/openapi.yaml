@@ -1498,22 +1498,6 @@ paths:
               schema: { $ref: "#/components/schemas/OrderTicket" }
         "409":
           description: The ticket cannot move to that state
-  /session:
-    get:
-      operationId: getSession
-      tags: [auth]
-      summary: Which side of the product this account belongs to
-      description: >
-        Answered before tenant resolution, because an administrator belongs to no
-        club. The client routes on this and nothing else.
-      responses:
-        "200":
-          description: The account's side of the product
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Session" }
-        "401":
-          description: Not signed in
   /admin/summary:
     get:
       operationId: getAdminSummary
@@ -1525,8 +1509,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdminSummary" }
-        "403":
-          description: Not a Dunda administrator
+        "404":
+          description: Not found
   /admin/organizations:
     get:
       operationId: getAdminOrganizations
@@ -1540,8 +1524,8 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/AdminOrganization" }
-        "403":
-          description: Not a Dunda administrator
+        "404":
+          description: Not found
     post:
       operationId: createAdminOrganization
       tags: [admin]
@@ -1559,8 +1543,8 @@ paths:
               schema: { $ref: "#/components/schemas/CreatedOrganization" }
         "409":
           description: That slug is already taken
-        "403":
-          description: Not a Dunda administrator
+        "404":
+          description: Not found
   /admin/organizations/{organizationId}:
     patch:
       operationId: updateAdminOrganization
@@ -1582,8 +1566,8 @@ paths:
       responses:
         "200":
           description: Updated settings
-        "403":
-          description: Not a Dunda administrator
+        "404":
+          description: Not found
   /admin/organizations/{organizationId}/owner:
     post:
       operationId: assignOrganizationOwner
@@ -1611,9 +1595,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/AssignOwnerResult" }
         "404":
-          description: That venue does not exist
-        "403":
-          description: Not a Dunda administrator
+          description: Not found, or that venue does not exist
   /admin/staff:
     get:
       operationId: getAdminStaff
@@ -1627,8 +1609,8 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/AdminStaff" }
-        "403":
-          description: Not a Dunda administrator
+        "404":
+          description: Not found
   /admin/audit-logs:
     get:
       operationId: getAdminAuditLogs
@@ -1652,8 +1634,8 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/AdminAuditLog" }
-        "403":
-          description: Not a Dunda administrator
+        "404":
+          description: Not found
   /settings:
     get:
       operationId: getSettings
@@ -2378,15 +2360,6 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/OrderTicketItem" }
-    Session:
-      type: object
-      required: [kind]
-      properties:
-        kind:
-          type: string
-          enum: [admin, staff]
-        name: { type: string }
-        clerkUserId: { type: string }
     TenantSettings:
       type: object
       required: [currency, locale, taxRate, serviceChargeRate]

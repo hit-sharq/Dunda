@@ -4,7 +4,7 @@ import { ClerkProvider } from "@clerk/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Router } from "wouter";
 import { useAuth, useUser } from "@clerk/react";
-import { useGetSession } from "@workspace/api-client-react";
+import { useGetAdminSummary } from "@workspace/api-client-react";
 import { Clients } from "./pages/clients";
 import { ClientDetail } from "./pages/client-detail";
 import { NewClient } from "./pages/new-client";
@@ -40,8 +40,11 @@ const queryClient = new QueryClient({
 function Gate() {
   const { isLoaded, isSignedIn, signOut } = useAuth();
   const { user } = useUser();
-  const session = useGetSession({
-    query: { enabled: Boolean(isSignedIn), queryKey: ["getSession"] },
+  // Access is discovered by calling an operator endpoint, not by asking which
+  // side of the product this is. There is deliberately no endpoint that answers
+  // that question, because one would tell any caller that accounts come in kinds.
+  const probe = useGetAdminSummary({
+    query: { enabled: Boolean(isSignedIn), queryKey: ["adminProbe"] },
   });
 
   if (!isLoaded) {
@@ -57,7 +60,7 @@ function Gate() {
           Dunda admin
         </p>
         <p style={{ color: colors.muted, marginBottom: 18 }}>
-          Sign in with an administrator account.
+          Sign in to continue.
         </p>
         <a href="/sign-in" style={buttonStyle}>
           Sign in
@@ -66,40 +69,36 @@ function Gate() {
     );
   }
 
-  if (session.isLoading) {
+  if (probe.isLoading) {
     return <Centered>Checking your access…</Centered>;
   }
 
-  if (session.isError) {
+  if (probe.isError) {
     return (
       <Centered>
         <p style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>
           Cannot reach the API
         </p>
         <p style={{ color: colors.muted, marginBottom: 18 }}>
-          The admin app needs the Dunda API. Check that it is running.
+          Check that the API is running, then try again.
         </p>
-        <button style={buttonStyle} onClick={() => session.refetch()}>
+        <button style={buttonStyle} onClick={() => probe.refetch()}>
           Try again
         </button>
       </Centered>
     );
   }
 
-  if (session.data?.kind !== "admin") {
+  if (probe.isError || probe.data === undefined) {
     return (
       <Centered>
         <p style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>
-          Not an administrator
+          Not available
         </p>
-        <p style={{ color: colors.muted, marginBottom: 8, maxWidth: 380 }}>
-          This area is for Dunda administrators. You are signed in as{" "}
-          {user?.primaryEmailAddress?.emailAddress ?? user?.id}, which is not on
-          the administrator list.
-        </p>
-        <p style={{ color: colors.mutedSoft, fontSize: 12, marginBottom: 18 }}>
-          Administrators are named in the deployment environment, not in the
-          application. Ask whoever owns the deployment.
+        <p style={{ color: colors.muted, marginBottom: 18, maxWidth: 360 }}>
+          You are signed in as{" "}
+          {user?.primaryEmailAddress?.emailAddress ?? user?.id}, which does not
+          have access here.
         </p>
         <button style={buttonStyle} onClick={() => signOut({ redirectUrl: "/" })}>
           Sign out

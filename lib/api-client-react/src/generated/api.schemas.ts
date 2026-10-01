@@ -759,20 +759,6 @@ export interface OrderTicket {
   items: OrderTicketItem[];
 }
 
-export type SessionKind = typeof SessionKind[keyof typeof SessionKind];
-
-
-export const SessionKind = {
-  admin: 'admin',
-  staff: 'staff',
-} as const;
-
-export interface Session {
-  kind: SessionKind;
-  name?: string;
-  clerkUserId?: string;
-}
-
 export interface TenantSettings {
   currency: string;
   locale: string;

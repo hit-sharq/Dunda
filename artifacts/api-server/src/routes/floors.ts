@@ -201,7 +201,7 @@ router.delete("/:floorId", async (req, res): Promise<void> => {
     return;
   }
   if (!(await assertBranch(tenant.organizationId, floor.branchId))) {
-    res.status(403).json({ error: "That floor belongs to another organization" });
+    res.status(403).json({ error: "That floor is not part of your setup." });
     return;
   }
 
@@ -246,7 +246,7 @@ router.post("/:floorId/sections", async (req, res): Promise<void> => {
     return;
   }
   if (!(await assertBranch(tenant.organizationId, floor.branchId))) {
-    res.status(403).json({ error: "That floor belongs to another organization" });
+    res.status(403).json({ error: "That floor is not part of your setup." });
     return;
   }
 

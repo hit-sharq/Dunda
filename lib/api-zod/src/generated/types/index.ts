@@ -122,8 +122,6 @@ export * from './reservationStatus';
 export * from './salesReport';
 export * from './searchResult';
 export * from './searchResultResultsItem';
-export * from './session';
-export * from './sessionKind';
 export * from './setupStatus';
 export * from './staffMember';
 export * from './staffMemberStatus';

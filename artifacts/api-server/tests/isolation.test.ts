@@ -196,27 +196,6 @@ describe("who counts as an administrator", () => {
   });
 });
 
-describe("the session gate", () => {
-  it("tells an administrator which side they are on", async () => {
-    signInAs(ADMIN_CLERK);
-    const res = await request(app).get("/api/session");
-    expect(res.status).toBe(200);
-    expect(res.body.kind).toBe("admin");
-  });
-
-  it("tells club staff they are staff, not an administrator", async () => {
-    signInAs(OWNER_CLERK);
-    const res = await request(app).get("/api/session");
-    expect(res.status).toBe(200);
-    expect(res.body.kind).toBe("staff");
-  });
-
-  it("refuses an anonymous caller", async () => {
-    const res = await request(app).get("/api/session");
-    expect(res.status).toBe(401);
-  });
-});
-
 describe("tenant isolation for the operator surface", () => {
   const ADMIN_ROUTES: [string, string][] = [
     ["get", "/api/admin/summary"],
@@ -229,14 +208,16 @@ describe("tenant isolation for the operator surface", () => {
     it(`refuses a club owner: ${method.toUpperCase()} ${path}`, async () => {
       signInAs(OWNER_CLERK);
       const res = await request(app)[method as "get"](path);
-      expect(res.status).toBe(403);
-      expect(res.body.code).toBe("PLATFORM_ADMIN_REQUIRED");
+      // Indistinguishable from a path that does not exist, so a caller cannot
+      // learn that a hidden surface is mounted here.
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ error: "Not found" });
     });
 
     it(`refuses a waiter: ${method.toUpperCase()} ${path}`, async () => {
       signInAs(WAITER_CLERK);
       const res = await request(app)[method as "get"](path);
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
     });
   }
 
@@ -245,7 +226,7 @@ describe("tenant isolation for the operator surface", () => {
     const res = await request(app)
       .post("/api/admin/organizations")
       .send({ name: "Smuggled Venue" });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it("refuses a club owner changing another club's settings", async () => {
@@ -253,7 +234,7 @@ describe("tenant isolation for the operator surface", () => {
     const res = await request(app)
       .patch(`/api/admin/organizations/${ORG_B}`)
       .send({ taxRate: 0 });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it("refuses an anonymous caller", async () => {
@@ -374,6 +355,16 @@ describe("what an administrator actually sees", () => {
       );
     expect(owners).toHaveLength(1);
     expect(owners[0].clerkUserId).toBe("user_new_owner_account");
+  });
+
+  it("exposes no endpoint that says which side of the product an account is on", async () => {
+    // An endpoint answering "is this an operator" tells every caller that a
+    // more privileged tier exists. There is not one.
+    signInAs(ADMIN_CLERK);
+    for (const path of ["/api/session", "/api/me/session", "/api/whoami"]) {
+      const res = await request(app).get(path);
+      expect([403, 404]).toContain(res.status);
+    }
   });
 
   it("explains that an account can hold a role at only one club", async () => {

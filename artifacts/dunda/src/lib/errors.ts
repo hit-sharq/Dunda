@@ -75,12 +75,15 @@ export function describeError(
   const serverMessage = e.data?.error;
   const what = context?.what;
 
-  // An account with no Dunda staff record cannot be fixed by retrying.
+  // Someone who is signed in but not set up yet. The message says what to do
+  // and nothing about how the product is arranged: no mention of workspaces,
+  // claiming, organizations, invitations or roles, because a stranger reading it
+  // should not learn that any of those exist.
   if (code === "STAFF_RECORD_REQUIRED") {
     return {
-      title: "No workspace access",
+      title: "Your account isn't set up yet",
       detail:
-        "Your account is signed in, but it is not linked to a Dunda organization. Ask an organization owner to invite this account, then reload.",
+        "Ask the person who runs this place to set your access up. You'll be able to get in as soon as they do.",
       tone: "warning",
       canRetry: false,
       code,

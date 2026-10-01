@@ -27,7 +27,6 @@ import { useSessionGuard } from '@/hooks/use-session-guard';
 import { MoneyProvider, money } from '@/lib/money';
 import { QueryNotice } from '@/components/query-notice';
 import { StaffManager } from '@/pages/staff-manager';
-import { SetupClaim } from '@/pages/setup-claim';
 import { PERMISSION_LABELS } from '@/lib/errors';
 import { Skeleton } from '@/components/ui';
 import { Pos as NewPos } from '@/pages/pos';
@@ -459,11 +458,10 @@ function ProtectedRouter() {
   if (!isLoaded) return <div className="grid min-h-[100dvh] place-items-center bg-[#f5f1e8] text-sm text-[#68736d]">Loading your workspace…</div>;
   if (isSignedIn && unlinked) {
     return <div className="grid min-h-[100dvh] place-items-center gap-4 bg-[#f5f1e8] p-6">
-      <SetupClaim />
       <div className="surface max-w-md rounded-2xl p-6 text-center">
-        <h1 className="font-display text-2xl font-bold">No workspace yet</h1>
-        <p className="mt-2 text-sm text-[#68736d]">Your account is signed in, but it is not linked to a Dunda organization. Claim this workspace with the setup token, or ask an owner to add you as staff, then reload.</p>
-        <p className="mt-4 rounded-lg bg-[#f5f1e8] p-3 text-left font-mono text-[11px] text-[#68736d]">Your account: {user?.primaryEmailAddress?.emailAddress ?? user?.id}</p>
+        <h1 className="font-display text-2xl font-bold">Your account isn't set up yet</h1>
+        <p className="mt-2 text-sm text-[#68736d]">Ask the person who runs this place to set your access up. You'll be able to get in as soon as they do.</p>
+        <p className="mt-4 rounded-lg bg-[#f5f1e8] p-3 text-left text-xs text-[#68736d]">You are signed in as {user?.primaryEmailAddress?.emailAddress ?? "this account"}.</p>
       </div>
     </div>;
   }

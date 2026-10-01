@@ -62,39 +62,13 @@ export const requirePlatformAdmin: RequestHandler = async (req, res, next) => {
   }
 
   if (!isPlatformAdmin(userId)) {
-    // A 403 with a specific code rather than a 404: the caller is authenticated,
-    // they simply are not an administrator, and pretending otherwise would make
-    // a genuine mistake hard to diagnose.
-    res.status(403).json({
-      error: "This area is for Dunda administrators.",
-      code: "PLATFORM_ADMIN_REQUIRED",
-    });
+    // On the club app's domain a refusal here would confirm a hidden surface
+    // exists behind this path. Answering exactly as any unknown path does means a
+    // caller learns nothing about what is or is not mounted.
+    res.status(404).json({ error: "Not found" });
     return;
   }
 
   req.platformAdmin = { id: userId, clerkUserId: userId };
   next();
-};
-
-/**
- * Which side of the product an account belongs on.
- *
- * Answered before any tenant resolution, because an administrator belongs to no
- * club. The client routes on this and nothing else.
- */
-export const sessionRouter: RequestHandler = async (req, res) => {
-  const { userId } = getAuth(req);
-  if (!userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-
-  if (isPlatformAdmin(userId)) {
-    res.json({ kind: "admin" as const, clerkUserId: userId });
-    return;
-  }
-
-  // Not an administrator. Whether this account is club staff is answered by the
-  // tenant guard on the club app, so this deliberately does not decide it.
-  res.json({ kind: "staff" as const, clerkUserId: userId });
 };

@@ -2072,17 +2072,6 @@ export const UpdateTicketResponse = zod.object({
 
 
 /**
- * Answered before tenant resolution, because an administrator belongs to no club. The client routes on this and nothing else.
- * @summary Which side of the product this account belongs to
- */
-export const GetSessionResponse = zod.object({
-  "kind": zod.enum(['admin', 'staff']),
-  "name": zod.string().optional(),
-  "clerkUserId": zod.string().optional()
-})
-
-
-/**
  * @summary Platform totals across every client
  */
 export const GetAdminSummaryResponse = zod.object({

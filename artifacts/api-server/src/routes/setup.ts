@@ -72,13 +72,13 @@ router.get("/status", async (_req, res): Promise<void> => {
 router.post("/claim", claimLimiter, async (req, res): Promise<void> => {
   const parsed = ClaimBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Enter the setup token you were given." });
+    res.status(400).json({ error: "That code is not valid." });
     return;
   }
 
   const { userId } = getAuth(req);
   if (!userId) {
-    res.status(401).json({ error: "Sign in first, then enter the token." });
+    res.status(401).json({ error: "Sign in first." });
     return;
   }
 
@@ -105,7 +105,7 @@ router.post("/claim", claimLimiter, async (req, res): Promise<void> => {
         reason: "NO_MATCH",
       });
     }
-    res.status(400).json({ error: "That token is not valid." });
+    res.status(400).json({ error: "That code is not valid." });
     return;
   }
 
@@ -117,7 +117,7 @@ router.post("/claim", claimLimiter, async (req, res): Promise<void> => {
       succeeded: false,
       reason: "EXPIRED",
     });
-    res.status(400).json({ error: "That token has expired. Ask for a new one." });
+    res.status(400).json({ error: "That code is no longer valid." });
     return;
   }
 
@@ -231,14 +231,14 @@ router.post("/claim", claimLimiter, async (req, res): Promise<void> => {
     const reason = err instanceof Error ? err.message : "UNKNOWN";
     logger.warn({ reason, userId }, "Ownership claim failed");
     if (reason === "TOKEN_ALREADY_USED") {
-      res.status(409).json({ error: "That token has already been used." });
+      res.status(409).json({ error: "That code is no longer valid." });
       return;
     }
     if (reason === "ALREADY_OWNER") {
-      res.status(409).json({ error: "You already own this organization." });
+      res.status(409).json({ error: "Nothing to change." });
       return;
     }
-    res.status(500).json({ error: "Could not complete the claim." });
+    res.status(500).json({ error: "Could not complete that." });
   }
 });
 
