@@ -40,6 +40,11 @@ router.use((req, res, next) => {
 // club, so the tenant middleware would refuse them before these routes ran.
 router.use("/admin", adminRouter);
 
+// Ahead of the tenant guard, because it describes the signed-in account rather
+// than the club. That is what lets an operator who owns no club still find out
+// who they are, and reach the operator console to provision their first one.
+router.use("/me", meRouter);
+
 // Operator tooling for binding an owner's account. Not offered anywhere in the
 // club app, so it is not something a club user can discover.
 router.use("/setup", setupRouter);
@@ -60,7 +65,6 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   res.json({ ok: true });
 });
 
-router.use("/me", meRouter);
 router.use("/settings", settingsRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/products", productsRouter);

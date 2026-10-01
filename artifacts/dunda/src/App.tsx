@@ -247,6 +247,7 @@ function AppShell({ children }: { children: ReactNode }) {
   const { user } = useUser();
   const me = useGetMe();
 
+  const isOperator = me.data?.operator === true;
   const isOwner = me.data?.isOwner ?? false;
   const granted = me.data?.permissions;
   const visibleNav = useMemo(
@@ -271,7 +272,7 @@ function AppShell({ children }: { children: ReactNode }) {
     user?.username ||
     'Signed in';
 
-  const roleLabel = me.data?.role ?? (me.data?.staff ? 'Staff' : 'No role assigned');
+  const roleLabel = me.data?.role ?? (isOperator ? 'Operator' : me.data?.staff ? 'Staff' : 'No role assigned');
 
   const initials =
     displayName
@@ -503,7 +504,14 @@ function ProtectedRouter() {
   // screens and has no idea why.
   const me = useGetMe();
   const { user } = useUser();
-  const unlinked = me.isError && (me.error as { status?: number })?.status === 403;
+  const isOperator = me.data?.operator === true;
+  // An operator is never blocked here. They may own no club yet, which is the
+  // normal state for someone who provisions clients, so refusing them would
+  // leave the console unreachable exactly when it is needed.
+  const unlinked =
+    !isOperator &&
+    me.isError &&
+    (me.error as { status?: number })?.status === 403;
   if (!isLoaded) return <div className="grid min-h-[100dvh] place-items-center bg-[#f5f1e8] text-sm text-[#68736d]">Loading your workspace…</div>;
   if (isSignedIn && unlinked) {
     return <div className="grid min-h-[100dvh] place-items-center gap-4 bg-[#f5f1e8] p-6">
@@ -514,6 +522,12 @@ function ProtectedRouter() {
       </div>
     </div>;
   }
+  // An operator with no club has no Overview to look at, so they open on the
+  // console, which is the only thing they can actually do.
+  if (isSignedIn && isOperator && !me.data?.staff) {
+    return <Redirect to="/admin" />;
+  }
+
   return isSignedIn ?     <AppShell><Switch><Route path="/admin" component={() => <RequireOperator><OperatorClients /></RequireOperator>} />
 <Route path="/admin/clients/:id" component={OperatorClientRoute} />
 <Route path="/admin/new" component={() => <RequireOperator><OperatorNewClient /></RequireOperator>} />

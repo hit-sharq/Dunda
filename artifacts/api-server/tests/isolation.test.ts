@@ -357,6 +357,28 @@ describe("what an administrator actually sees", () => {
     expect(owners[0].clerkUserId).toBe("user_new_owner_account");
   });
 
+  it("lets an operator with no club read their own profile and reach the console", async () => {
+    // An operator who owns no club is in the normal state for someone who
+    // provisions clients. They must not be blocked by the club app, and they
+    // must not be able to reach any club's data either.
+    signInAs("user_operator_with_no_club");
+    process.env.PLATFORM_ADMIN_IDS = `${ADMIN_CLERK},user_operator_with_no_club`;
+    _resetPlatformAdminCache();
+
+    const profile = await request(app).get("/api/me");
+    expect(profile.status).toBe(200);
+    expect(profile.body.operator).toBe(true);
+    expect(profile.body.staff).toBeNull();
+    expect(profile.body.permissions).toEqual([]);
+
+    const console_ = await request(app).get("/api/admin/organizations");
+    expect(console_.status).toBe(200);
+
+    // Still no access to anything belonging to a club.
+    const settings = await request(app).get("/api/settings");
+    expect(settings.status).toBe(403);
+  });
+
   it("marks an operator on their own profile and no one else", async () => {
     // The club app needs to know whether to show the operator link. Doing that
     // with a dedicated endpoint would tell every caller that a privileged tier
