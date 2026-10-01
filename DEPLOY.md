@@ -7,12 +7,19 @@ Both the web app and the API deploy from this repository as one Vercel project.
 | | |
 |---|---|
 | **Web** | Static bundle built by Vite, served from the CDN. `artifacts/dunda/dist` |
-| **API** | A single pre-bundled serverless function. `artifacts/api-server/dist/serverless/handler.mjs` |
+| **API** | A single pre-bundled serverless function. Vercel discovers it at `api/index.mjs`; the build writes the real handler it re-exports. |
 | **Database** | PostgreSQL (Neon). Nothing is bundled; `DATABASE_URL` is read at runtime. |
 
 `vercel.json` maps `/api/*` to the function and everything else to `index.html`,
 so the web app's client-side routes and its API calls share one origin. There is
 no cross-origin request to configure.
+
+Vercel only discovers serverless functions inside a root `api/` directory, so
+that is where the entry point lives. It is a three-line wrapper: the actual
+handler is pre-bundled to a single file by the build step, which means the
+platform receives JavaScript rather than having to resolve the pnpm workspace and
+compile the monorepo itself. The build command runs before functions are
+compiled, so the bundle is in place by the time the wrapper is read.
 
 ## Environment variables
 

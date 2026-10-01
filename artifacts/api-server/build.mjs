@@ -137,7 +137,7 @@ async function buildServerless() {
   // writes a directory rather than a single file.
   const outdir = path.resolve(artifactDir, "dist/serverless");
   await esbuild({
-    entryPoints: [path.resolve(artifactDir, "api/index.ts")],
+    entryPoints: [path.resolve(artifactDir, "src/handler.ts")],
     platform: "node",
     bundle: true,
     format: "esm",

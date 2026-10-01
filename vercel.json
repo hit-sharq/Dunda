@@ -5,7 +5,7 @@
   "buildCommand": "pnpm run build:vercel",
   "outputDirectory": "artifacts/dunda/dist",
   "functions": {
-    "artifacts/api-server/dist/serverless/handler.mjs": {
+    "api/index.mjs": {
       "maxDuration": 30,
       "memory": 1024
     }
@@ -13,11 +13,11 @@
   "rewrites": [
     {
       "source": "/api",
-      "destination": "/artifacts/api-server/dist/serverless/handler.mjs"
+      "destination": "/api/index"
     },
     {
       "source": "/api/(.*)",
-      "destination": "/artifacts/api-server/dist/serverless/handler.mjs"
+      "destination": "/api/index"
     },
     {
       "source": "/((?!api/|assets/|favicon|logo|robots|.*\\.).*)",
