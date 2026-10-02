@@ -21,7 +21,6 @@ export const GET = route(async () => {
 
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   const [
     organizations,
@@ -45,6 +44,9 @@ export const GET = route(async () => {
         status: true,
         renews_at: true,
         trial_ends_at: true,
+        billing_cycle: true,
+        amount: true,
+        cancelled_at: true,
         created_at: true,
       },
     }),
@@ -92,9 +94,6 @@ export const GET = route(async () => {
     }),
   ]);
 
-  const byStatus = (status: string) =>
-    subscriptions.filter((s) => s.status === status).length;
-
   // MRR counts only what is actually being paid for now: active subscriptions at
   // their monthly figure. Trials and cancelled plans are not revenue.
   const plans = await prisma.dunda_plans.findMany({
@@ -102,78 +101,85 @@ export const GET = route(async () => {
   });
   const planById = new Map(plans.map((p) => [p.id, p]));
 
-  const mrr = subscriptions
-    .filter((s) => s.status === "ACTIVE")
-    .reduce((sum, s) => sum + (s.plan_id ? planById.get(s.plan_id)?.monthly_price ?? 0 : 0), 0);
-
   // Only payments that settled and carry a date count as revenue. An initiated
   // payment that never completed has a paid_at of null and is not money in.
   const settled = billingPayments.filter(
     (p) => p.status === "COMPLETED" && p.paid_at !== null,
   );
   const last30 = settled.filter((p) => new Date(p.paid_at as Date) >= thirtyDaysAgo);
-  const last7 = settled.filter((p) => new Date(p.paid_at as Date) >= sevenDaysAgo);
 
-  const mrrAt = (date: Date) =>
-    subscriptions
-      .filter((s) => {
-        // A subscription with no plan attached contributes nothing; the plan
-        // lookup below would return nothing for it anyway.
-        const started = new Date(s.created_at);
-        const ends = s.renews_at ? new Date(s.renews_at) : null;
-        return s.status !== "CANCELLED" && started <= date && (ends === null || ends >= date);
-      })
-      .reduce((sum, s) => sum + (s.plan_id ? planById.get(s.plan_id)?.monthly_price ?? 0 : 0), 0);
+  // Counts what clubs are committed to per month, and separately what has
+  // actually been collected. The two are not the same number: a club on an
+  // annual plan is one commitment but twelve instalments, and a club whose
+  // payment failed is still committed until somebody chases it.
+  const activeSubs = subscriptions.filter((s) => s.status === "ACTIVE");
+  const mrr = activeSubs.reduce(
+    (sum, s) => sum + (s.billing_cycle === "ANNUAL" ? (s.amount || 0) / 12 : s.amount || 0),
+    0,
+  );
+  const collected = settled.reduce((sum, p) => sum + p.amount, 0);
+
+  // "Live" means serving tonight: not suspended, and not cancelled.
+  const live = organizations.filter(
+    (o) => o.status !== "SUSPENDED" && o.status !== "CANCELLED",
+  ).length;
+  const activeBranches = await prisma.dunda_branches.count({
+    where: { organization_id: { in: organizations.map((o) => o.id) }, status: "LIVE" },
+  });
+
+  const [clubPayments, clubOrders, clubStaffCount] = await Promise.all([
+    prisma.dunda_payments.count({
+      where: {
+        organization_id: { in: organizations.map((o) => o.id) },
+        status: { not: "VOIDED" },
+        paid_at: { gte: thirtyDaysAgo },
+      },
+    }),
+    prisma.dunda_orders.count({
+      where: {
+        organization_id: { in: organizations.map((o) => o.id) },
+        created_at: { gte: thirtyDaysAgo },
+      },
+    }),
+    prisma.dunda_staff.count({
+      where: { organization_id: { in: organizations.map((o) => o.id) } },
+    }),
+  ]);
+
+  // The clubs' own trading, which is their revenue and emphatically not Dunda's.
+  const clubRevenue = await prisma.dunda_payments.aggregate({
+    where: {
+      organization_id: { in: organizations.map((o) => o.id) },
+      status: { not: "VOIDED" },
+      paid_at: { gte: thirtyDaysAgo },
+    },
+    _sum: { amount: true },
+  });
 
   return NextResponse.json({
-    organizations: {
-      total: organizations.length,
-      active: organizations.filter((o) => o.status === "ACTIVE").length,
-      trial: subscriptions.filter((s) => s.status === "TRIAL").length,
-      suspended: organizations.filter((o) => o.status === "SUSPENDED").length,
-      newThisMonth: organizations.filter((o) => new Date(o.created_at) >= thirtyDaysAgo).length,
-    },
-    revenue: {
-      mrr,
-      // Last 30 days annualised, so the figure is comparable with the MRR beside it.
-      last30: last30.reduce((sum, p) => sum + p.amount, 0),
-      last7: last7.reduce((sum, p) => sum + p.amount, 0),
-      mrrGrowth: mrrAt(thirtyDaysAgo) === 0
-        ? 0
-        : Math.round(((mrr - mrrAt(thirtyDaysAgo)) / Math.max(1, mrrAt(thirtyDaysAgo))) * 100),
-    },
-    subscriptions: {
-      active: byStatus("ACTIVE"),
-      trial: byStatus("TRIAL"),
-      pastDue: byStatus("PAST_DUE"),
-      paymentPending: byStatus("PAYMENT_PENDING"),
-      paymentFailed: byStatus("PAYMENT_FAILED"),
-      cancelled: byStatus("CANCELLED"),
-      expired: byStatus("EXPIRED"),
-      suspended: byStatus("SUSPENDED"),
-    },
-    users: {
-      clubStaff: users,
-      platformAdministrators: platformStaff.length,
-    },
-    billing: {
-      payments: billingPayments.length,
-      failed: failedPayments,
-      refunds: 0,
-    },
-    support: {
-      open: supportTickets.filter((t) => t.status === "OPEN").length,
-      recent: supportTickets,
-    },
-    recentOrganizations,
-    recentActivity: recentActivity.map((a) => ({
-      id: a.id,
-      organizationId: a.organization_id,
-      type: a.type,
-      title: a.title,
-      detail: a.detail,
-      amount: a.amount,
-      at: a.timestamp.toISOString(),
-    })),
+    clubs: organizations.length,
+    activeBranches,
+    newClubsThisMonth: organizations.filter((o) => new Date(o.created_at) >= thirtyDaysAgo).length,
+    activeClubs: live,
+    trialClubs: subscriptions.filter((s) => s.status === "TRIAL").length,
+    suspendedClubs: organizations.filter((o) => o.status === "SUSPENDED").length,
+    cancelledClubs: subscriptions.filter((s) => s.status === "CANCELLED").length,
+    expiredClubs: subscriptions.filter((s) => s.status === "EXPIRED").length,
+    pastDueClubs: subscriptions.filter((s) => s.status === "PAST_DUE").length,
+    // A club that stopped paying within the window, rather than one that was
+    // never on the platform.
+    churnedLast30Days: subscriptions.filter(
+      (s) =>
+        s.status === "CANCELLED" &&
+        s.cancelled_at !== null &&
+        new Date(s.cancelled_at) >= thirtyDaysAgo,
+    ).length,
+    mrr,
+    collected,
+    activeStaff: users,
+    totalStaff: users + platformStaff.length,
+    ordersInWindow: clubOrders,
+    clubRevenueInWindow: clubRevenue._sum.amount ?? 0,
+    windowDays: 30,
   });
 });

@@ -284,6 +284,12 @@ async function main() {
 
     prisma.dunda_customers.deleteMany({ where: { organization_id: ORG_ID } }),
     prisma.dunda_suppliers.deleteMany({ where: { organization_id: ORG_ID } }),
+    prisma.dunda_billing_payments.deleteMany({ where: { organization_id: ORG_ID } }),
+    // Plans are platform-wide rather than per-club, so the org-scoped deletes
+    // above never touch them. Clearing them is what makes the seed re-runnable.
+    prisma.dunda_plans.deleteMany({}),
+    prisma.dunda_subscriptions.deleteMany({ where: { organization_id: ORG_ID } }),
+    prisma.dunda_invoices.deleteMany({ where: { organization_id: ORG_ID } }),
     prisma.dunda_branches.deleteMany({ where: { organization_id: ORG_ID } }),
     prisma.dunda_organization_settings.deleteMany({ where: { organization_id: ORG_ID } }),
     prisma.dunda_organization_features.deleteMany({ where: { organization_id: ORG_ID } }),
@@ -331,6 +337,78 @@ async function main() {
     });
   }
 
+  // The plan catalogue. These are the tiers Dunda sells, and they are rows rather
+  // than constants so the platform owner can change what a plan costs and what it
+  // allows without a deploy — nothing in the application reads a price directly.
+  const PLANS = [
+    { code: "STARTER", name: "Starter", monthly_price: 4500, branch_limit: 1, user_limit: 5, description: "One venue, running the floor and the rail.", modules: ["pos", "floor", "orders", "products", "customers", "staff", "payments", "reports"] },
+    { code: "PROFESSIONAL", name: "Professional", monthly_price: 9500, branch_limit: 2, user_limit: 15, description: "Adds pool, inventory and reservations.", modules: ["pos", "floor", "pool", "orders", "inventory", "products", "customers", "reservations", "staff", "payments", "expenses", "reports"] },
+    { code: "BUSINESS", name: "Business", monthly_price: 18000, branch_limit: 5, user_limit: 40, description: "Multi-branch with events and advanced reporting.", modules: ["pos", "floor", "pool", "orders", "inventory", "products", "customers", "reservations", "events", "staff", "payments", "expenses", "reports"] },
+    { code: "ENTERPRISE", name: "Enterprise", monthly_price: 42000, branch_limit: 25, user_limit: 200, description: "Unlimited reach across a group.", modules: ["pos", "floor", "pool", "orders", "inventory", "products", "customers", "reservations", "events", "staff", "payments", "expenses", "reports"] },
+  ];
+
+  const planIds = new Map<string, string>();
+  for (const [index, plan] of PLANS.entries()) {
+    const created = await prisma.dunda_plans.create({
+      data: {
+        code: plan.code,
+        name: plan.name,
+        description: plan.description,
+        monthly_price: plan.monthly_price,
+        // Two months' notice on the annual rate, which is roughly what a club
+        // gets for paying up front.
+        annual_price: plan.monthly_price * 20,
+        branch_limit: plan.branch_limit,
+        user_limit: plan.user_limit,
+        modules: plan.modules,
+        is_active: true,
+        sort_order: index,
+      },
+    });
+    planIds.set(plan.code, created.id);
+  }
+
+  // Singapore Club runs on Business, so the console has a live subscription to
+  // read rather than an empty state. The trial has ended and money has been
+  // taken, which is what a paying club looks like.
+  await prisma.dunda_subscriptions.create({
+    data: {
+      organization_id: ORG_ID,
+      plan_id: planIds.get("BUSINESS") ?? null,
+      plan: "BUSINESS",
+      status: "ACTIVE",
+      billing_cycle: "MONTHLY",
+      amount: 18000,
+      currency: "KES",
+      branch_limit: 5,
+      user_limit: 40,
+      current_branches: 1,
+      current_users: STAFF.length,
+      started_at: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000),
+      renews_at: new Date(Date.now() + 18 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  // One settled subscription payment, so the billing screen shows a real
+  // transaction with a provider reference rather than an empty table.
+  const subscription = await prisma.dunda_subscriptions.findFirstOrThrow({
+    where: { organization_id: ORG_ID },
+  });
+  await prisma.dunda_billing_payments.create({
+    data: {
+      organization_id: ORG_ID,
+      subscription_id: subscription.id,
+      kind: "SUBSCRIPTION_RENEWAL",
+      provider: "PESAPAL",
+      status: "COMPLETED",
+      amount: 18000,
+      currency: "KES",
+      provider_reference: "PESAPAL-INV-0001",
+      provider_transaction_id: "pes_2demo20261001",
+      paid_at: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000),
+    },
+  });
+
   const branch = await prisma.dunda_branches.create({
     data: {
       id: BRANCH_ID,
@@ -338,7 +416,10 @@ async function main() {
       name: "Main Branch",
       city: "Nairobi",
       address: "Moi Avenue, opposite Jamia Mall",
-      status: "ACTIVE",
+      // LIVE, not ACTIVE: the schema defaults a branch to LIVE and the shell
+      // renders it in its live colour only for that value. Seeding ACTIVE left
+      // the branch switcher showing a branch that looked switched off.
+      status: "LIVE",
       timezone: "Africa/Nairobi",
       phone: "+254202000100",
       email: "info@singaporeclub.co.ke",

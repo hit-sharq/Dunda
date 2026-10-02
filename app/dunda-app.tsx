@@ -19,6 +19,7 @@ import {
   useGetBranches, useGetCategories, useGetMe, useGetDashboardActivity, useGetDashboardSummary, useGetEvents, useGetInventory, useGetInventoryAlerts,
   useGetOrders, useGetProducts, useGetReservations, useGetStaff, useGetTabs, useUpdateOrderStatus,
   useGetTab, useGetCustomer, useGetCustomers, useGetEvent, useGetShifts, useGetSalesReport, useGetAuditLogs,
+  useGetAdminOrganizations, useGetAdminSummary,
   type CheckoutInputMethod, type Customer, type Event, type Product, type StaffMember, type InventoryAlert,
 } from '@/lib/api-client-react/src';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -342,15 +343,90 @@ function Metric({ label, value, note, trend, tone = 'plain' }: { label: string; 
   return <div className={`surface rounded-2xl p-4 md:p-5 ${tone === 'coral' ? 'bg-[#f07a4b] text-[#182127]' : tone === 'green' ? 'bg-[#dbe9e3]' : ''}`}><div className="mb-4 flex items-start justify-between"><span className={`text-xs font-semibold uppercase tracking-[.12em] ${tone === 'plain' ? 'text-[#89918b]' : 'opacity-70'}`}>{label}</span>{trend && <span className={`flex items-center gap-1 text-xs font-semibold ${trend === 'up' ? 'text-[#3e8a71]' : 'text-[#a64d39]'}`}>{trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}{trend === 'up' ? 'on plan' : 'watch'}</span>}</div><div className="font-display text-3xl font-bold tracking-tight">{value}</div><p className={`mt-1 text-xs ${tone === 'plain' ? 'text-[#7e8882]' : 'opacity-70'}`}>{note}</p></div>;
 }
 
+/**
+ * The dashboard a platform operator sees.
+ *
+ * There is no club to run, so this is not an empty shell pretending to be a
+ * shift. It answers the two questions somebody running Dunda actually has — how
+ * many clubs are on it, and how much they pay — and puts the console one click
+ * away, which is the whole reason this account can see anything at all.
+ */
+function PlatformLanding() {
+  const summary = useGetAdminSummary();
+  const organizations = useGetAdminOrganizations();
+  const o = summary.data;
+  const loading = summary.isLoading && !summary.data;
+
+  const cards = [
+    { label: 'Clubs on Dunda', value: o ? String(o.clubs).padStart(2, '0') : '—', note: o ? `${o.activeClubs} live · ${o.trialClubs} on trial` : 'Loading' },
+    { label: 'Monthly recurring', value: o ? money(o.mrr) : '—', note: o ? `${money(o.collected)} collected` : 'Loading' },
+    { label: 'Active staff', value: o ? String(o.activeStaff).padStart(2, '0') : '—', note: o ? `Across ${o.liveBranches} live branches` : 'Loading' },
+    { label: 'Needs attention', value: o ? String(o.pastDueClubs + o.suspendedClubs).padStart(2, '0') : '—', note: o ? `${o.pastDueClubs} past due · ${o.suspendedClubs} suspended` : 'Loading' },
+  ];
+
+  return <div className="rise">
+    <PageIntro eyebrow={`Platform / ${todayLabel}`} title="Run the platform."
+      detail="You are signed in as a Dunda administrator, so this account runs the clubs rather than serving one. Everything below is read across every organisation."
+      action={<Link href="/admin" className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#f07a4b] px-4 text-sm font-semibold text-[#182127] hover:bg-[#e96738]" data-testid="link-open-admin"><Store size={16} /> Open admin <ChevronRight size={15} /></Link>} />
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {cards.map((card, i) => <Metric key={card.label} label={card.label} value={card.value} note={card.note} tone={i === 1 ? 'coral' : 'plain'} />)}
+    </div>
+    <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
+      <section className="surface rounded-2xl p-5 md:p-6">
+        <div className="mb-5 flex items-start justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[#8b938c]">Clubs</p><h3 className="mt-1 font-display text-xl font-bold">Every organisation</h3></div><Link href="/admin/clubs" className="text-xs font-semibold text-[#4a8877]" data-testid="link-view-clubs">Manage <ChevronRight className="inline" size={13} /></Link></div>
+        <QueryNotice loading={organizations.isLoading} error={organizations.error} what="clubs" emptyTitle="No clubs yet." emptyHint="Provision one and it appears here." empty={!organizations.isLoading && !organizations.isError && !organizations.data?.length} onRetry={() => organizations.refetch()} />
+        {(organizations.data ?? []).slice(0, 6).map((club) => <div key={club.id} className="flex items-center gap-3 border-b border-[#eee8de] py-3 last:border-0" data-testid={`club-${club.id}`}>
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#e6f0eb] text-[#438875]"><Store size={14} /></div>
+          <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{club.name}</p><p className="truncate text-xs text-[#7b8780]">{club.branches} {club.branches === 1 ? 'branch' : 'branches'} · {club.activeStaff} {club.activeStaff === 1 ? 'person' : 'people'}</p></div>
+          <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${club.subscriptionStatus === 'ACTIVE' ? 'bg-[#e5f0ea] text-[#46836f]' : club.subscriptionStatus === 'SUSPENDED' ? 'bg-[#f9ddd5] text-[#a84d36]' : 'bg-[#f7ecd1] text-[#9b762c]'}`}>{club.plan ?? club.subscriptionStatus ?? 'No plan'}</span>
+        </div>)}
+      </section>
+      <section className="surface rounded-2xl p-5 md:p-6">
+        <div className="mb-5"><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[#8b938c]">Subscriptions</p><h3 className="mt-1 font-display text-xl font-bold">Where they stand</h3></div>
+        {loading ? <p className="text-sm text-[#859089]">Reading the platform…</p> : o ? <div className="grid gap-2.5">
+          {([
+            ['Active', o.activeClubs, '#4b927d'],
+            ['On trial', o.trialClubs, '#d9b46c'],
+            ['Past due', o.pastDueClubs, '#c98a3c'],
+            ['Cancelled', o.cancelledClubs, '#a84d36'],
+          ] as const).map(([label, value, color]) => <div key={label} className="flex items-center justify-between rounded-xl bg-[#f5f1e8] px-3 py-2.5"><span className="flex items-center gap-2.5 text-sm font-semibold"><i className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />{label}</span><span className="font-mono text-sm font-medium">{value}</span></div>)}
+          <Link href="/admin/billing" className="mt-2 flex items-center justify-between rounded-xl border border-[#e3ddd2] px-3 py-2.5 text-sm font-semibold text-[#4a8877]" data-testid="link-view-billing">Billing and invoices <ChevronRight size={14} /></Link>
+        </div> : null}
+      </section>
+    </div>
+    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {[
+        { href: '/admin/clubs', label: 'Clubs', detail: 'Provision, suspend, transfer ownership', icon: Store },
+        { href: '/admin/plans', label: 'Plans', detail: 'Pricing, limits and modules', icon: LayoutDashboard },
+        { href: '/admin/people', label: 'Administrators', detail: 'Who else can run the platform', icon: UserRound },
+        { href: '/admin/billing', label: 'Billing', detail: 'Payments, invoices and revenue', icon: CreditCard },
+        { href: '/admin/audit', label: 'Audit', detail: 'Every action taken on a club', icon: Database },
+      ].map(({ href, label, detail, icon: Icon }) => <Link key={href} href={href} className="surface flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-[#f7f2e8]" data-testid={`link-console-${label.toLowerCase()}`}>
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#26383e] text-[#f6efe2]"><Icon size={17} /></div>
+        <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{label}</p><p className="truncate text-xs text-[#7b8780]">{detail}</p></div><ChevronRight size={15} className="shrink-0 text-[#9aa19b]" />
+      </Link>)}
+    </div>
+  </div>;
+}
+
 function Overview() {
-  const summary = useGetDashboardSummary();
-  const activity = useGetDashboardActivity();
-  const alerts = useGetInventoryAlerts();
-  const reservations = useGetReservations();
+  const me = useGetMe();
+  // These four screens describe one club's night. An operator running no club has
+  // no night to describe, and asking anyway answers 403 four times — noise that
+  // buries a real failure. So they wait, and the platform view takes over below.
+  const hasClub = Boolean(me.data?.organizationId);
+  const summary = useGetDashboardSummary({ query: { queryKey: ['getDashboardSummary'], enabled: hasClub } });
+  const activity = useGetDashboardActivity({ query: { queryKey: ['getDashboardActivity'], enabled: hasClub } });
+  const alerts = useGetInventoryAlerts({ query: { queryKey: ['getInventoryAlerts'], enabled: hasClub } });
+  const reservations = useGetReservations({ query: { queryKey: ['getReservations'], enabled: hasClub } });
   const s = summary.data;
   const series = s?.revenueSeries ?? [];
   const max = Math.max(...series.map((x) => x.value), 1);
   const occupancyPct = s && s.totalTables > 0 ? Math.round((s.activeTables / s.totalTables) * 100) : 0;
+  // A platform operator has no club, so there is no room to watch. Offering the
+  // console here — rather than an empty dashboard they cannot act on — is what
+  // makes the admin entry in the nav worth having.
+  if (me.data?.operator === true && !hasClub) return <PlatformLanding />;
   return <div className="rise"><PageIntro eyebrow={`Command center / ${todayLabel}`} title="Run the room." detail={s?.branchName ? `${s.branchName} · live now` : 'Live shift'} action={<Link href="/pos" className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#f07a4b] px-4 text-sm font-semibold text-[#182127] hover:bg-[#e96738]" data-testid="link-open-pos"><ShoppingBag size={16} /> Open POS <ChevronRight size={15} /></Link>} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Revenue tonight" value={s ? money(s.revenue) : '—'} note={`${s?.orders ?? 0} completed orders`} tone="coral" /><Metric label="Open tabs" value={s ? String(s.activeTabs).padStart(2, '0') : '—'} note={s ? `${s.activeTables} tables currently active` : 'Loading live count'} /><Metric label="Average order" value={s ? money(s.averageOrderValue) : '—'} note="Across all payment methods" /><Metric label="Outstanding" value={s ? money(s.outstandingPayments) : '—'} note={s && s.outstandingPayments > 0 ? 'Needs attention before close' : 'Nothing outstanding'} /></div>
     <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]"><section className="surface rounded-2xl p-5 md:p-6"><div className="mb-6 flex items-start justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[#8b938c]">Revenue flow</p><h3 className="mt-1 font-display text-xl font-bold">This shift, by hour</h3></div><button className="flex items-center gap-1 rounded-lg border border-[#e3ddd2] px-2.5 py-1.5 text-xs font-semibold text-[#64706b]" data-testid="button-revenue-filter">Today <ChevronDown size={13} /></button></div><QueryNotice loading={summary.isLoading} error={summary.error} what="today's summary" onRetry={() => summary.refetch()} />{!summary.isLoading && !summary.isError && <><div className="flex h-[205px] items-end gap-1.5 border-b border-[#e9e3d9] pb-0 pt-3 sm:gap-3">{series.length === 0 && <p className="py-16 text-center text-sm text-[#859089]">No completed orders yet today.</p>}
@@ -543,11 +619,10 @@ function ProtectedRouter() {
       </div>
     </div>;
   }
-  // An operator with no club has no Overview to look at, so they open on the
-  // console, which is the only thing they can actually do.
-  if (isSignedIn && isOperator && !me.data?.staff) {
-    return <Redirect to="/admin" />;
-  }
+  // An operator is never bounced to the console from here. They land on the
+  // dashboard like anybody else, and the console is one click away in the nav.
+  // Redirecting them would mean the dashboard's own admin entry could never be
+  // used, and it used to loop for an operator with no club.
 
   return isSignedIn ?     <AppShell><Switch><Route path="/admin" component={() => <RequireOperator><OperatorOverview /></RequireOperator>} />
 <Route path="/admin/clubs" component={() => <RequireOperator><OperatorClients /></RequireOperator>} />

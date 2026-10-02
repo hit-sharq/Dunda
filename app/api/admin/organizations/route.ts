@@ -175,6 +175,8 @@ export const GET = route(async () => {
       slug: true,
       domain: true,
       currency: true,
+      tax_rate: true,
+      service_charge_rate: true,
       status: true,
       suspended_at: true,
       suspended_reason: true,
@@ -183,8 +185,13 @@ export const GET = route(async () => {
     },
   });
 
-  const [branches, members, subscriptions, plans, staff] = await Promise.all([
+  const [branches, liveBranches, members, subscriptions, plans, staff] = await Promise.all([
     prisma.dunda_branches.groupBy({ by: ["organization_id"], _count: { _all: true } }),
+    prisma.dunda_branches.groupBy({
+      by: ["organization_id"],
+      where: { status: "LIVE" },
+      _count: { _all: true },
+    }),
     prisma.dunda_organization_members.groupBy({
       by: ["organization_id"],
       _count: { _all: true },
@@ -209,7 +216,46 @@ export const GET = route(async () => {
   ]);
 
   const planById = new Map(plans.map((p) => [p.id, p]));
+
+  // Per-club trading over the window, counted from the clubs' own payments. This
+  // is their revenue — it is what tells an operator whether a club is actually
+  // using what it pays for.
+  const windowStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const orgIds = organizations.map((o) => o.id);
+  const [revenueByOrg, ordersByOrg, tableCounts, lastPaid] = await Promise.all([
+    prisma.dunda_payments.groupBy({
+      by: ["organization_id"],
+      where: {
+        organization_id: { in: orgIds },
+        status: { not: "VOIDED" },
+        paid_at: { gte: windowStart },
+      },
+      _sum: { amount: true },
+    }),
+    prisma.dunda_orders.groupBy({
+      by: ["organization_id"],
+      where: { organization_id: { in: orgIds }, created_at: { gte: windowStart } },
+      _count: { _all: true },
+    }),
+    prisma.dunda_tables.groupBy({
+      by: ["organization_id"],
+      where: { organization_id: { in: orgIds } },
+      _count: { _all: true },
+    }),
+    prisma.dunda_payments.groupBy({
+      by: ["organization_id"],
+      where: { organization_id: { in: orgIds }, status: { not: "VOIDED" } },
+      _max: { paid_at: true },
+    }),
+  ]);
+  const revenueMap = new Map(revenueByOrg.map((r) => [r.organization_id, r._sum.amount ?? 0]));
+  const ordersMap = new Map(ordersByOrg.map((o) => [o.organization_id, o._count._all]));
+  const tableMap = new Map(tableCounts.map((t) => [t.organization_id, t._count._all]));
+  const lastPaidMap = new Map(lastPaid.map((p) => [p.organization_id, p._max.paid_at]));
   const branchCount = new Map(branches.map((b) => [b.organization_id, b._count._all]));
+  const liveBranchCount = new Map(
+    liveBranches.map((b) => [b.organization_id, b._count._all]),
+  );
   const memberCount = new Map(members.map((m) => [m.organization_id, m._count._all]));
   const subByOrg = new Map<string, (typeof subscriptions)[number]>();
   for (const sub of subscriptions) {
@@ -235,16 +281,25 @@ export const GET = route(async () => {
         status: org.status,
         suspendedAt: org.suspended_at?.toISOString() ?? null,
         suspendedReason: org.suspended_reason,
+        taxRate: org.tax_rate,
+        serviceChargeRate: org.service_charge_rate,
         branches: branchCount.get(org.id) ?? 0,
+        liveBranches: (liveBranchCount.get(org.id) ?? 0),
+        staff: orgStaff.length,
+        activeStaff: orgStaff.filter((s) => s.status === "ACTIVE").length,
+        tables: tableMap.get(org.id) ?? 0,
+        ordersInWindow: ordersMap.get(org.id) ?? 0,
+        revenueInWindow: revenueMap.get(org.id) ?? 0,
+        lastOrderAt: lastPaidMap.get(org.id)?.toISOString() ?? null,
+        plan: plan?.name ?? null,
+        subscriptionStatus: sub?.status ?? null,
         users: memberCount.get(org.id) ?? 0,
         staffCount: orgStaff.length,
         owner: orgStaff.find((s) => s.status === "ACTIVE")?.name ?? null,
         planId: sub?.plan_id ?? null,
         planName: plan?.name ?? null,
-        subscriptionStatus: sub?.status ?? "NONE",
         trialEndsAt: sub?.trial_ends_at?.toISOString() ?? null,
         renewsAt: sub?.renews_at?.toISOString() ?? null,
-        createdAt: org.created_at.toISOString(),
         lastActivityAt: org.last_activity_at?.toISOString() ?? null,
       };
     }),
