@@ -14,3 +14,9 @@ build
 *.sqlite
 .DS_Store
 .env
+
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Agent Manager worktrees and state
+.kilo/

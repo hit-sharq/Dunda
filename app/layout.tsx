@@ -1,12 +1,15 @@
-import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import './dunda.css'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.app',
+  title: {
+    default: 'Dunda — The Club Operating System',
+    template: '%s · Dunda',
+  },
+  description:
+    'One platform to run your club: point of sale, tabs, floor and pool management, inventory, staff, events and reporting.',
+  applicationName: 'Dunda',
   icons: {
     icon: [
       {
@@ -27,11 +30,8 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'light dark',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' },
-  ],
+  colorScheme: 'dark',
+  themeColor: '#0b0d0c',
 }
 
 export default function RootLayout({
@@ -40,10 +40,17 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    // suppressHydrationWarning on both tags is deliberate, for two separate
+    // reasons.
+    //
+    // Clerk stamps an attribute onto <html> as it resolves the session, which
+    // arrives after the server's HTML was already sent. And browser extensions
+    // inject their own data-* attributes into <body> before React hydrates.
+    // Neither is ours to control, and React would otherwise strip them and warn
+    // about a mismatch that says nothing about what the page actually shows.
+    <html lang="en" suppressHydrationWarning>
+      <body className="antialiased" suppressHydrationWarning>
         {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )

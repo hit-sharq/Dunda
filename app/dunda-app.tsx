@@ -28,7 +28,7 @@ import { useApiAuth } from '@/hooks/use-api-auth';
 import { useSessionGuard } from '@/hooks/use-session-guard';
 import { MoneyProvider, money } from '@/lib/money';
 import { QueryNotice } from '@/components/query-notice';
-import { StaffManager } from '@/pages/staff-manager';
+import { StaffManager } from '@/screens/staff-manager';
 import { Clients as OperatorClients } from '@/admin/clients';
 import { ClientDetail as OperatorClientDetail } from '@/admin/client-detail';
 import { NewClient as OperatorNewClient } from '@/admin/new-client';
@@ -39,12 +39,12 @@ import { Overview as OperatorOverview } from '@/admin/overview';
 import { Billing as OperatorBilling } from '@/admin/billing';
 import { PERMISSION_LABELS } from '@/lib/errors';
 import { Skeleton } from '@/components/ui';
-import { Pos as NewPos } from '@/pages/pos';
-import { Products } from '@/pages/products';
-import { FloorDesigner } from '@/pages/floor-designer';
-import { ServiceBoard } from '@/pages/service-board';
-import { Hq } from '@/pages/hq';
-import NotFound from '@/pages/not-found';
+import { Pos as NewPos } from '@/screens/pos';
+import { Products } from '@/screens/products';
+import { FloorDesigner } from '@/screens/floor-designer';
+import { ServiceBoard } from '@/screens/service-board';
+import { Hq } from '@/screens/hq';
+import NotFound from '@/screens/not-found';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 
 // Operational screens poll because the realtime socket only fires on changes
@@ -71,16 +71,24 @@ const queryClient = new QueryClient({
   },
 });
 // The repo-root .env uses NEXT_PUBLIC_ names, so accept either prefix.
+// A client component's module body still evaluates during prerender, so the
+// hostname has to be read lazily rather than at module scope.
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  clerkPublishableKey,
-);
+function resolveClerkPublishableKey() {
+  const hostname =
+    typeof window === 'undefined' ? 'localhost' : window.location.hostname;
+  return publishableKeyFromHost(hostname, clerkPublishableKey);
+}
 // The Clerk frontend-API proxy only exists behind the deployment edge, where
 // the API server mounts it in production. In development it must stay unset,
 // otherwise Clerk tries to load clerk.js from a host that doesn't resolve.
 const clerkProxyUrl = process.env.NEXT_PUBLIC_CLERK_PROXY_URL || undefined;
 const basePath = '';
+function logoImageUrl() {
+  const origin =
+    typeof window === 'undefined' ? '' : window.location.origin;
+  return `${origin}${basePath}/logo.svg`;
+}
 const todayLabel = new Intl.DateTimeFormat('en-KE', {
   weekday: 'long',
   day: 'numeric',
@@ -556,7 +564,7 @@ function ClerkQueryClientCacheInvalidator() {
 }
 
 function App() {
-  return <WouterRouter base={basePath}><ClerkProvider publishableKey={clerkPubKey} proxyUrl={clerkProxyUrl} appearance={{ theme: shadcn, cssLayerName: 'clerk', options: { logoPlacement: 'inside', logoLinkUrl: basePath || '/', logoImageUrl: `${window.location.origin}${basePath}/logo.svg` }, variables: { colorPrimary: '#f07a4b', colorForeground: '#182127', colorMutedForeground: '#68736d', colorDanger: '#a84d36', colorBackground: '#fbf9f3', colorInput: '#ffffff', colorInputForeground: '#182127', colorNeutral: '#dcd6c9', fontFamily: 'DM Sans, sans-serif', borderRadius: '0.75rem' }, elements: { rootBox: 'w-full flex justify-center', cardBox: 'bg-[#fbf9f3] rounded-2xl w-[440px] max-w-full overflow-hidden', card: '!shadow-none !border-0 !bg-transparent !rounded-none', footer: '!shadow-none !border-0 !bg-transparent !rounded-none', headerTitle: 'text-[#182127]', headerSubtitle: 'text-[#68736d]', socialButtonsBlockButtonText: 'text-[#182127]', formFieldLabel: 'text-[#52605a]', footerActionLink: 'text-[#b65332]', footerActionText: 'text-[#68736d]', dividerText: 'text-[#68736d]', formFieldInput: 'text-[#182127] bg-white', formButtonPrimary: 'bg-[#f07a4b] text-[#182127]', main: 'bg-transparent' } }} signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`}><QueryClientProvider client={queryClient}><ClerkQueryClientCacheInvalidator /><ErrorBoundary resetKey={location.pathname}><MoneyProvider><Router /></MoneyProvider></ErrorBoundary></QueryClientProvider></ClerkProvider></WouterRouter>;
+  return <WouterRouter base={basePath}><ClerkProvider publishableKey={resolveClerkPublishableKey()} proxyUrl={clerkProxyUrl} appearance={{ theme: shadcn, cssLayerName: 'clerk', options: { logoPlacement: 'inside', logoLinkUrl: basePath || '/', logoImageUrl: logoImageUrl() }, variables: { colorPrimary: '#f07a4b', colorForeground: '#182127', colorMutedForeground: '#68736d', colorDanger: '#a84d36', colorBackground: '#fbf9f3', colorInput: '#ffffff', colorInputForeground: '#182127', colorNeutral: '#dcd6c9', fontFamily: 'DM Sans, sans-serif', borderRadius: '0.75rem' }, elements: { rootBox: 'w-full flex justify-center', cardBox: 'bg-[#fbf9f3] rounded-2xl w-[440px] max-w-full overflow-hidden', card: '!shadow-none !border-0 !bg-transparent !rounded-none', footer: '!shadow-none !border-0 !bg-transparent !rounded-none', headerTitle: 'text-[#182127]', headerSubtitle: 'text-[#68736d]', socialButtonsBlockButtonText: 'text-[#182127]', formFieldLabel: 'text-[#52605a]', footerActionLink: 'text-[#b65332]', footerActionText: 'text-[#68736d]', dividerText: 'text-[#68736d]', formFieldInput: 'text-[#182127] bg-white', formButtonPrimary: 'bg-[#f07a4b] text-[#182127]', main: 'bg-transparent' } }} signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`}><QueryClientProvider client={queryClient}><ClerkQueryClientCacheInvalidator /><ErrorBoundary resetKey={location.pathname}><MoneyProvider><Router /></MoneyProvider></ErrorBoundary></QueryClientProvider></ClerkProvider></WouterRouter>;
 }
 
 export default App;
