@@ -88,27 +88,36 @@ export const GET = route(async (request: Request) => {
   }
 
   return NextResponse.json({
+    // Money actually received. Not MRR, and not the clubs' own takings — this is
+    // what Dunda has been paid.
+    collected: [...totals.values()].reduce((sum, value) => sum + value, 0),
     payments: payments.map((p) => ({
       id: p.id,
       organizationId: p.organization_id,
-      organizationName: orgById.get(p.organization_id) ?? "Unknown",
-      kind: p.kind,
+      organization: orgById.get(p.organization_id) ?? "Unknown",
       status: p.status,
       amount: p.amount,
-      refunded: p.refunded_amount,
       currency: p.currency,
       provider: p.provider,
-      reference: p.provider_reference,
-      transactionId: p.provider_transaction_id,
-      failureReason: p.failure_reason,
       paidAt: p.paid_at?.toISOString() ?? null,
       createdAt: p.created_at.toISOString(),
     })),
+    // Only the payments that did not go through, kept separate so the console can
+    // chase them without the operator having to pick them out of the full list.
+    failed: payments
+      .filter((p) => p.status === "FAILED")
+      .map((p) => ({
+        id: p.id,
+        organization: orgById.get(p.organization_id) ?? "Unknown",
+        amount: p.amount,
+        reason: p.failure_reason,
+        createdAt: p.created_at.toISOString(),
+      })),
     invoices: invoices.map((i) => ({
       id: i.id,
       number: i.number,
       organizationId: i.organization_id,
-      organizationName: orgById.get(i.organization_id) ?? "Unknown",
+      organization: orgById.get(i.organization_id) ?? "Unknown",
       status: i.status,
       amount: i.amount,
       currency: i.currency,
@@ -118,11 +127,5 @@ export const GET = route(async (request: Request) => {
     })),
     revenueByCurrency: [...totals.entries()].map(([label, value]) => ({ label, value })),
     revenueByPlan: [...revenueByPlan.entries()].map(([label, value]) => ({ label, value })),
-    totals: {
-      completed: payments.filter((p) => p.status === "COMPLETED").length,
-      pending: payments.filter((p) => p.status === "PENDING").length,
-      failed: payments.filter((p) => p.status === "FAILED").length,
-      refunded: payments.filter((p) => p.refunded_amount > 0).length,
-    },
   });
 });

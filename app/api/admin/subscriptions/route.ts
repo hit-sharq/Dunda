@@ -29,37 +29,61 @@ export const GET = route(async (request: Request) => {
   const orgById = new Map(organizations.map((o) => [o.id, o.name]));
   const planById = new Map(plans.map((p) => [p.id, p]));
   const now = Date.now();
+  // A renewal inside this window is worth chasing before it lapses. Thirty days is
+  // long enough to act on and short enough that "due soon" means something.
+  const renewalHorizon = now + 30 * 86400000;
 
-  return NextResponse.json(
-    subscriptions.map((sub) => {
-      const plan = sub.plan_id ? planById.get(sub.plan_id) : null;
-      const trialDaysLeft =
+  const rows = subscriptions.map((sub) => {
+    const plan = sub.plan_id ? planById.get(sub.plan_id) : null;
+    const renewsAt = sub.renews_at ? new Date(sub.renews_at) : null;
+    const renewalDue =
+      renewsAt !== null && renewsAt.getTime() > now && renewsAt.getTime() <= renewalHorizon;
+    return {
+      id: sub.id,
+      organizationId: sub.organization_id,
+      organization: orgById.get(sub.organization_id) ?? "Unknown",
+      plan: plan?.name ?? sub.plan,
+      planCode: plan?.code ?? sub.plan,
+      status: sub.status,
+      billingCycle: sub.billing_cycle,
+      amount: sub.amount,
+      currency: sub.currency,
+      branchLimit: sub.branch_limit,
+      branchUsage: sub.current_branches,
+      userLimit: sub.user_limit,
+      userUsage: sub.current_users,
+      startedAt: sub.started_at?.toISOString() ?? null,
+      trialEndsAt: sub.trial_ends_at?.toISOString() ?? null,
+      trialDaysLeft:
         sub.trial_ends_at && sub.status === "TRIAL"
           ? Math.max(0, Math.ceil((new Date(sub.trial_ends_at).getTime() - now) / 86400000))
-          : null;
-      return {
-        id: sub.id,
-        organizationId: sub.organization_id,
-        organizationName: orgById.get(sub.organization_id) ?? "Unknown",
-        planId: sub.plan_id,
-        planName: plan?.name ?? sub.plan,
-        status: sub.status,
-        billingCycle: sub.billing_cycle,
-        amount: sub.amount,
-        currency: sub.currency,
-        branchLimit: sub.branch_limit,
-        branchUsage: sub.current_branches,
-        userLimit: sub.user_limit,
-        userUsage: sub.current_users,
-        trialEndsAt: sub.trial_ends_at?.toISOString() ?? null,
-        trialDaysLeft,
-        renewsAt: sub.renews_at?.toISOString() ?? null,
-        cancelledAt: sub.cancelled_at?.toISOString() ?? null,
-        failedPaymentCount: sub.failed_payment_count,
-        createdAt: sub.created_at.toISOString(),
-      };
-    }),
-  );
+          : null,
+      renewsAt: renewsAt?.toISOString() ?? null,
+      renewalDue,
+      cancelledAt: sub.cancelled_at?.toISOString() ?? null,
+      failedPaymentCount: sub.failed_payment_count,
+      createdAt: sub.created_at.toISOString(),
+    };
+  });
+
+  // Counts and lists rather than one flat array: the console shows "how many are
+  // past due" beside "which ones", and computing the first from the second here
+  // keeps them from disagreeing.
+  const count = (value: string) => rows.filter((r) => r.status === value).length;
+
+  return NextResponse.json({
+    counts: {
+      total: rows.length,
+      active: count("ACTIVE"),
+      trial: count("TRIAL"),
+      pastDue: count("PAST_DUE"),
+      suspended: count("SUSPENDED"),
+      cancelled: count("CANCELLED"),
+      expired: count("EXPIRED"),
+    },
+    renewalsDue: rows.filter((r) => r.renewalDue),
+    subscriptions: rows,
+  });
 });
 
 /**
