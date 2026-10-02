@@ -1,19 +1,65 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
-import { route, requireSession, orgWhere } from "@/lib/server/http";
+import { route, resolveSession, orgWhere, Unauthenticated } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Who the caller is, which club they belong to, and what that club has switched
- * on. The client reads currency and locale from here to format every amount, so
- * it is fetched before any money is rendered.
+ * Who the caller is, what they may do, and — for a platform operator — whether
+ * they run any club at all.
+ *
+ * This answers for an operator who owns no club. That is the normal state for
+ * somebody whose job is provisioning clubs, so refusing them here would hide the
+ * console behind an error the moment they signed in. The club fields are simply
+ * null for them and the client routes them straight to /admin.
  */
 export const GET = route(async () => {
-  const session = await requireSession();
-  const organizationId = session.organizationId as string;
+  const session = await resolveSession();
+  // Nobody signed in at all is a 401, not a 403. The client tells these apart:
+  // 401 means sign in, 403 means you are signed in and your account is not set up.
+  if (!session) throw new Unauthenticated();
 
-  const [organization, staff, branches, roles] = await Promise.all([
+  // A platform operator is recorded on first sight so the console can show who
+  // they are and attribute their actions in the audit trail. Failing to write this
+  // row is not a reason to refuse the read: the allow-list in the environment is
+  // what grants access, and the row is only a record of it.
+  if (session.isOperator) {
+    await prisma.dunda_platform_users
+      .upsert({
+        where: { clerk_user_id: session.clerkUserId },
+        create: { clerk_user_id: session.clerkUserId, role: "PLATFORM_ADMIN", status: "ACTIVE" },
+        update: { last_login_at: new Date() },
+      })
+      .catch((error: unknown) => {
+        console.error("[dunda] could not record platform user", error);
+      });
+  }
+
+  // Everything below is club-scoped, so an operator with no membership skips it
+  // rather than querying a null organization.
+  if (!session.organizationId) {
+    return NextResponse.json({
+      organizationId: null,
+      clerkUserId: session.clerkUserId,
+      staff: null,
+      branchId: null,
+      branches: [],
+      role: null,
+      roleId: null,
+      permissions: [],
+      isOwner: false,
+      canGrantStaff: false,
+      operator: session.isOperator,
+      // An operator needs the plan catalogue to provision a club, so it is sent to
+      // them even though they hold no club role.
+      roles: undefined,
+      settings: { currency: "KES", locale: "en-KE", taxRate: 0, serviceChargeRate: 0 },
+    });
+  }
+
+  const organizationId = session.organizationId;
+
+  const [organization, staff, branches, roles, settingsRow] = await Promise.all([
     prisma.dunda_organizations.findUnique({
       where: { id: organizationId },
       select: {
@@ -47,11 +93,11 @@ export const GET = route(async () => {
       select: { id: true, name: true, is_owner: true },
       orderBy: { sort_order: "asc" },
     }),
+    prisma.dunda_organization_settings.findUnique({
+      where: { organization_id: organizationId },
+      select: { currency: true, timezone: true, tax_rate: true, service_charge_rate: true },
+    }),
   ]);
-  const settingsRow = await prisma.dunda_organization_settings.findUnique({
-    where: { organization_id: organizationId },
-    select: { currency: true, timezone: true, tax_rate: true, service_charge_rate: true },
-  });
 
   const currency = settingsRow?.currency ?? organization?.currency ?? "KES";
   const taxRate = settingsRow?.tax_rate ?? organization?.tax_rate ?? 0;

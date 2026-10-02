@@ -19,13 +19,18 @@ export const GET = route(async (request: Request) => {
   const organizationId = url.searchParams.get("organizationId");
   const action = url.searchParams.get("action");
 
+  // The screen asks for up to 200 entries. The cap is applied here rather than
+  // trusted from the caller, because this reads across every organization.
+  const requested = Number(url.searchParams.get("limit"));
+  const limit = Number.isFinite(requested) ? Math.min(Math.max(1, requested), 200) : 200;
+
   const entries = await prisma.dunda_platform_audit_logs.findMany({
     where: {
       ...(organizationId ? { organization_id: organizationId } : {}),
       ...(action ? { action } : {}),
     },
     orderBy: { created_at: "desc" },
-    take: 200,
+    take: limit,
   });
 
   const organizations = await prisma.dunda_organizations.findMany({

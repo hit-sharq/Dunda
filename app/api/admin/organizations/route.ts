@@ -1,6 +1,7 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
-import { route, Forbidden, NotProvisioned, resolveSession } from "@/lib/server/http";
+import { route, Forbidden, NotProvisioned, resolveSession, parseBody } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,157 @@ export const dynamic = "force-dynamic";
  * Organization names, owners and branches are listed together so the platform
  * owner can see at a glance which clubs are active and which have gone quiet.
  */
+/**
+ * Provisions a club.
+ *
+ * A club exists before anybody signs up for it: the venue and its first branch
+ * are created here, and an owner is attached afterwards by transferring ownership.
+ * Nothing inside a club can do this, which is why the venue count is the
+ * platform owner's to decide rather than something a signup form creates.
+ *
+ * The trial starts at creation because a club that has just been set up has paid
+ * nothing yet, and the console shows that as a trial until money arrives.
+ */
+const createOrganizationSchema = z.object({
+  name: z.string().min(1, "A club needs a name."),
+  branchName: z.string().min(1).default("Main Branch"),
+  city: z.string().default(""),
+  currency: z.string().min(3).max(3).default("KES"),
+  taxRate: z.number().int().min(0).max(100).default(0),
+  serviceChargeRate: z.number().int().min(0).max(100).default(0),
+  planId: z.string().nullable().optional(),
+});
+
+export const POST = route(async (request: Request) => {
+  const session = await resolveSession();
+  if (!session) throw new NotProvisioned();
+  if (!session.isOperator) throw new Forbidden("platform_console");
+
+  const input = await parseBody(createOrganizationSchema, request);
+
+  // The slug is the club's public handle and must be unique. Deriving it from the
+  // name and appending a counter keeps two clubs called "Singapore Club" apart
+  // rather than refusing the second.
+  const base =
+    input.name
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 48) || "club";
+
+  let slug = base;
+  for (let attempt = 2; attempt < 100; attempt++) {
+    const taken = await prisma.dunda_organizations.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    if (!taken) break;
+    slug = `${base}-${attempt}`;
+  }
+
+  const plan = input.planId
+    ? await prisma.dunda_plans.findUnique({ where: { id: input.planId } })
+    : await prisma.dunda_plans.findFirst({
+        where: { is_active: true },
+        orderBy: { sort_order: "asc" },
+      });
+
+  const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
+  const organization = await prisma.$transaction(async (tx) => {
+    const org = await tx.dunda_organizations.create({
+      data: {
+        name: input.name,
+        slug,
+        currency: input.currency.toUpperCase(),
+        tax_rate: input.taxRate,
+        service_charge_rate: input.serviceChargeRate,
+        status: "ACTIVE",
+        last_activity_at: new Date(),
+      },
+    });
+
+    const branch = await tx.dunda_branches.create({
+      data: {
+        organization_id: org.id,
+        name: input.branchName,
+        // The column is not nullable, so a club provisioned without a city gets
+        // an empty string rather than a null the rest of the code would trip over.
+        city: input.city || "",
+        status: "ACTIVE",
+        // The branch carries the club's zone so "today's takings" means the local
+        // trading day rather than a UTC slice that cuts the evening in half.
+        timezone: "Africa/Nairobi",
+      },
+    });
+
+    // Rates are stored on the club as well as the organization row, so a venue
+    // created without this step still trades at the right tax rate.
+    await tx.dunda_organization_settings.create({
+      data: {
+        organization_id: org.id,
+        currency: input.currency.toUpperCase(),
+        timezone: "Africa/Nairobi",
+        tax_rate: input.taxRate,
+        service_charge_rate: input.serviceChargeRate,
+      },
+    });
+
+    // Modules are switched on explicitly rather than left absent, so the console
+    // shows the same list for a new club as for a long-standing one.
+    for (const module of [
+      "pos", "floor", "pool", "orders", "inventory", "products", "customers",
+      "reservations", "events", "staff", "payments", "expenses", "reports",
+    ]) {
+      await tx.dunda_organization_features.create({
+        data: { organization_id: org.id, module, enabled: true },
+      });
+    }
+
+    await tx.dunda_subscriptions.create({
+      data: {
+        organization_id: org.id,
+        plan_id: plan?.id ?? null,
+        plan: plan?.code ?? "STARTER",
+        status: "TRIAL",
+        billing_cycle: "MONTHLY",
+        amount: plan?.monthly_price ?? 0,
+        currency: input.currency.toUpperCase(),
+        branch_limit: plan?.branch_limit ?? 1,
+        user_limit: plan?.user_limit ?? 5,
+        current_branches: 1,
+        trial_ends_at: trialEndsAt,
+      },
+    });
+
+    return { org, branch };
+  });
+
+  await prisma.dunda_platform_audit_logs.create({
+    data: {
+      organization_id: organization.org.id,
+      actor_clerk_user_id: session.clerkUserId,
+      action: "CREATE",
+      entity: "organization",
+      entity_id: organization.org.id,
+      detail: `${organization.org.name} provisioned on a trial to ${trialEndsAt.toISOString().slice(0, 10)}`,
+      new_value: { slug, plan: plan?.code ?? "STARTER", branch: organization.branch.name },
+    },
+  });
+
+  return NextResponse.json(
+    {
+      id: organization.org.id,
+      name: organization.org.name,
+      slug,
+      branchId: organization.branch.id,
+      trialEndsAt: trialEndsAt.toISOString(),
+    },
+    { status: 201 },
+  );
+});
+
 export const GET = route(async () => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();

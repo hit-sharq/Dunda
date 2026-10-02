@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ZodError, type ZodType } from "zod";
+import { ZodError, type ZodType, type z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/client";
 import { ApiError } from "@/lib/errors.server";
@@ -145,8 +145,15 @@ export function json<T>(data: T, init?: ResponseInit): NextResponse {
 /**
  * Parses a JSON body against a schema. Nothing reaches a service unvalidated,
  * which is what keeps a caller from choosing its own totals or payment status.
+ *
+ * The return is the schema's *output* type rather than its input: a field with a
+ * `.default()` is optional coming in and required coming out, and a handler must
+ * see the value the schema promises rather than the one that might be missing.
  */
-export async function parseBody<S extends ZodType>(schema: S, request: Request) {
+export async function parseBody<S extends ZodType>(
+  schema: S,
+  request: Request,
+): Promise<z.output<S>> {
   let raw: unknown;
   try {
     raw = await request.json();
