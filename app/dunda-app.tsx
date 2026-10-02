@@ -252,13 +252,20 @@ function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
   const { signOut, openUserProfile } = useClerk();
-  const branches = useGetBranches();
-  const openOrders = useGetOrders();
-  const openOrderCount = (openOrders.data ?? []).filter((o) => !['COMPLETED', 'CANCELLED'].includes(o.status)).length;
   const { user } = useUser();
   const me = useGetMe();
 
   const isOperator = me.data?.operator === true;
+  // The branch switcher and the open-order badge are club furniture. A platform
+  // operator usually runs no club at all, and asking the club API for their data
+  // there would answer 403 on every page load — noise that hides a real failure.
+  // So the queries wait until there is a club to ask about.
+  const hasClub = Boolean(me.data?.organizationId);
+  const branches = useGetBranches({ query: { queryKey: ['getBranches'], enabled: hasClub } });
+  const openOrders = useGetOrders(undefined, {
+    query: { queryKey: ['getOrders'], enabled: hasClub },
+  });
+  const openOrderCount = (openOrders.data ?? []).filter((o) => !['COMPLETED', 'CANCELLED'].includes(o.status)).length;
   const isOwner = me.data?.isOwner ?? false;
   const granted = me.data?.permissions;
   const visibleNav = useMemo(
@@ -308,13 +315,16 @@ function AppShell({ children }: { children: ReactNode }) {
   return <div className="app-noise min-h-[100dvh] bg-[#f5f1e8] md:flex">
     <aside className={`fixed inset-y-0 left-0 z-40 flex w-[252px] flex-col bg-[#1c2a30] px-4 py-5 text-[#f6efe2] transition-transform md:static md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="mb-9 flex items-center justify-between px-2"><Logo dark /><button onClick={() => setMobileOpen(false)} className="md:hidden" data-testid="button-close-menu"><X size={18} /></button></div>
-      <div className="relative mb-6">
+      {/* No club, no branch to switch between. The switcher would read "No branch
+          assigned" on every page, which looks like a fault rather than the fact
+          that this account runs the platform rather than a venue. */}
+      {hasClub && <div className="relative mb-6">
         <button onClick={() => setBranchOpen(!branchOpen)} className="flex w-full items-center justify-between rounded-xl bg-[#2a3c42] px-3 py-2.5 text-left" data-testid="button-branch-switcher"><span className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-[.16em] text-[#98aaa3]">Live branch</span><span className="mt-0.5 block truncate text-sm font-semibold">{branches.data?.[0]?.name ?? 'No branch assigned'}</span></span><ChevronDown size={15} className={branchOpen ? 'rotate-180 transition-transform' : 'transition-transform'} /></button>
         {branchOpen && <div className="absolute left-0 right-0 top-14 z-20 max-h-64 overflow-y-auto rounded-xl border border-[#40535a] bg-[#26383e] p-1.5 shadow-xl">
           {!branches.data?.length && <p className="px-3 py-2 text-xs text-[#a9b8b2]">No branches yet.</p>}
           {branches.data?.map((branch) => <div key={branch.id} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm" data-testid={`button-branch-${branch.id}`}><span className="truncate">{branch.name}{branch.city ? <span className="ml-1 text-xs text-[#8b9a94]">{branch.city}</span> : null}</span><span className={branch.status === 'LIVE' ? 'text-xs text-[#91b9a5]' : 'text-xs text-[#8b9a94]'}>{branch.status}</span></div>)}
         </div>}
-      </div>
+      </div>}
       <nav className="grid gap-1" aria-label="Main navigation">{visibleNav.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => setMobileOpen(false)} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors ${location === href ? 'bg-[#f07a4b] font-semibold text-[#182127]' : 'text-[#aebdb6] hover:bg-[#2a3c42] hover:text-[#f6efe2]'}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}><Icon size={17} strokeWidth={1.8} /><span>{label}</span>{label === 'Orders' && openOrderCount > 0 && <span className="ml-auto rounded-full bg-[#db6950] px-1.5 py-0.5 text-[10px] text-[#fff4e8]">{openOrderCount}</span>}</Link>)}</nav>
        <div className="mt-auto grid gap-1 border-t border-[#35484d] pt-4"><button onClick={signOutAndReturn} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-[#aebdb6] hover:bg-[#2a3c42] hover:text-[#f6efe2]" data-testid="button-sign-out"><DoorOpen size={17} /> Sign out</button></div>
       <div className="mt-5 rounded-xl border border-[#385158] bg-[#22343a] p-3"><div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[.16em] text-[#90a69f]"><span>Table occupancy</span><span className="text-[#8bd1b2]">Live</span></div><div className="mb-2 flex items-end justify-between"><span className="font-display text-2xl font-bold">{pulseSummary.data ? `${shiftPulse.summary.occupancy}%` : '—'}</span><Activity size={17} className="text-[#f07a4b]" /></div><div className="h-1.5 overflow-hidden rounded-full bg-[#3b5054]"><div className="h-full rounded-full bg-[#f07a4b]" style={{ width: `${shiftPulse.summary.occupancy}%` }} /></div><p className="mt-2 text-[11px] text-[#8da29c]">{shiftPulse.summary.label}</p></div>
