@@ -3,15 +3,24 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 /**
  * Clerk runs before every request so `auth()` can resolve the session server-side.
  *
- * The matcher covers the API and the single client-rendered app. It does not try
- * to protect the sign-in screens: Clerk redirects an unauthenticated visitor to
- * `/sign-in` itself, and this file must not run where Clerk's own assets and
- * handshake requests live, or the redirect turns into a loop.
+ * The distinction that matters: the landing page is public, everything the club
+ * actually does is not. Protecting `/` sent a signed-out visitor straight to
+ * sign-in, so nobody ever saw the front door. The club's own screens sit behind
+ * a list rather than a blanket rule, so adding one later does not require
+ * remembering to guard it.
  */
-const isProtectedRoute = createRouteMatcher(["/api(.*)", "/((?!sign-in|sign-up).*)"]);
+const PUBLIC_ROUTES = [
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/terms(.*)",
+  "/privacy(.*)",
+];
+
+const isPublicRoute = createRouteMatcher(PUBLIC_ROUTES);
 
 export default clerkMiddleware(async (auth, request) => {
-  if (!isProtectedRoute(request)) return;
+  if (isPublicRoute(request)) return;
 
   // API routes are guarded at the route itself rather than by redirect: a fetch
   // that follows a 302 to an HTML sign-in page receives HTML where it expected
@@ -20,9 +29,6 @@ export default clerkMiddleware(async (auth, request) => {
   // properly.
   if (request.nextUrl.pathname.startsWith("/api")) return;
 
-  // The app is a single client-rendered surface behind authentication. Clerk
-  // redirects here when there is no session, and `requestUrl` keeps the person on
-  // the page they were trying to reach.
   await auth.protect({
     unauthenticatedUrl: new URL("/sign-in", request.url).toString(),
   });
