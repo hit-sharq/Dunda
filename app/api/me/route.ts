@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
-import { route, resolveSession, orgWhere, Unauthenticated } from "@/lib/server/http";
+import {
+  route,
+  resolveSession,
+  orgWhere,
+  NotProvisioned,
+  Unauthenticated,
+} from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
@@ -35,9 +41,15 @@ export const GET = route(async () => {
       });
   }
 
-  // Everything below is club-scoped, so an operator with no membership skips it
-  // rather than querying a null organization.
+  // A platform operator legitimately runs no club. Anybody else with no staff
+  // row has signed up but has not been given access yet, and saying so is the
+  // whole answer — returning an empty-but-successful response left them on a blank
+  // Overview with no idea why, and a 403 is what the client already renders as
+  // "ask for access".
   if (!session.organizationId) {
+    if (!session.isOperator) {
+      throw new NotProvisioned();
+    }
     return NextResponse.json({
       organizationId: null,
       clerkUserId: session.clerkUserId,

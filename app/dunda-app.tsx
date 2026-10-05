@@ -846,9 +846,22 @@ function ProtectedRouter() {
   if (isSignedIn && unlinked) {
     return <div className="grid min-h-[100dvh] place-items-center gap-4 bg-[var(--app-bg)] p-6">
       <div className="surface max-w-md rounded-2xl p-6 text-center">
-        <h1 className="font-display text-2xl font-bold">Your account isn't set up yet</h1>
-        <p className="mt-2 text-sm text-[var(--app-ink-soft)]">Ask the person who runs this place to set your access up. You'll be able to get in as soon as they do.</p>
-        <p className="mt-4 rounded-lg bg-[var(--app-bg)] p-3 text-left text-xs text-[var(--app-ink-soft)]">You are signed in as {user?.primaryEmailAddress?.emailAddress ?? "this account"}.</p>
+        <h1 className="font-display text-2xl font-bold">You're signed in, but not on the roster yet</h1>
+        <p className="mt-2 text-sm text-[var(--app-ink-soft)]">
+          A manager has to add you to the club and give you a role before any of
+          the screens open. Your account is fine — there is just nothing attached
+          to it yet.
+        </p>
+        {/* What to ask for, and what to ask with. "Contact whoever" with no
+            address is the message somebody sends when they have already been
+            turned away once. */}
+        <ol className="mt-4 grid gap-2 text-left text-sm text-[var(--app-muted)]">
+          <li className="flex gap-2"><span className="font-mono text-xs text-[var(--app-gold)]">1</span><span>Ask a manager to add <span className="font-semibold text-[var(--app-ink)]">{user?.primaryEmailAddress?.emailAddress ?? 'this account'}</span> to the staff list.</span></li>
+          <li className="flex gap-2"><span className="font-mono text-xs text-[var(--app-gold)]">2</span><span>They pick a role. The role is what decides your tabs — nothing is set individually.</span></li>
+          <li className="flex gap-2"><span className="font-mono text-xs text-[var(--app-gold)]">3</span><span>Your tabs appear as soon as you open the app again. No sign-out needed.</span></li>
+        </ol>
+        <button onClick={() => void me.refetch()} className="mt-5 inline-flex min-h-10 items-center rounded-xl border border-[var(--app-line)] px-4 text-sm font-semibold text-[var(--app-ink-soft)] hover:bg-[var(--app-raised)]">I've been added — check again</button>
+        <p className="mt-3 text-xs text-[var(--app-faint)]">Signed in as {user?.primaryEmailAddress?.emailAddress ?? 'this account'}.</p>
       </div>
     </div>;
   }
