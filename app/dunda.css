@@ -61,15 +61,15 @@
   --app-ink: 40 22% 93%;
   --app-ink-soft: 150 6% 72%;
   --app-muted: 155 5% 56%;
-  --app-faint: 155 5% 42%;
+  --app-faint: 155 6% 54%;
 
   /* The accent is gold, per the specification. Amber for warning, green for
      success and red for critical sit far enough apart to be told apart at a
      glance and by someone who cannot rely on hue alone — each is paired with a
      different label wherever it appears. */
-  --app-gold: 36 78% 56%;
-  --app-gold-ink: 40 30% 96%;
-  --app-gold-soft: 36 40% 16%;
+  --app-gold: 34 80% 75%;
+  --app-gold-ink: 34 25% 2%;
+  --app-gold-soft: 36 42% 14%;
 
   --app-success: 152 46% 46%;
   --app-success-soft: 152 32% 14%;
@@ -105,11 +105,11 @@
 
     --app-ink: 175 22% 12%;
     --app-ink-soft: 176 12% 32%;
-    --app-muted: 170 8% 44%;
-    --app-faint: 170 8% 58%;
+    --app-muted: 172 10% 40%;
+    --app-faint: 172 9% 42%;
 
-    --app-gold: 32 78% 44%;
-    --app-gold-ink: 40 40% 10%;
+    --app-gold: 34 76% 42%;
+    --app-gold-ink: 40 30% 96%;
     --app-gold-soft: 36 60% 92%;
 
     --app-success: 152 46% 34%;

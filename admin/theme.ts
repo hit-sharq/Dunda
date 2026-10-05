@@ -1,18 +1,34 @@
+/**
+ * The platform console's colours.
+ *
+ * These used to be cream and near-black literals. The console renders inside the
+ * club app's shell, which is dark, so it was painting its own light card with
+ * near-black text and landing on a dark page — white on white, and the numbers
+ * vanished. Rather than restyle the console by hand against a palette it shares
+ * with the rest of the product, it reads the same tokens, so one change moves
+ * both and neither can drift.
+ *
+ * `hsl(var(--app-ink))` rather than a flat colour because the tokens resolve per
+ * theme: dark here, and light if the machine asks for it.
+ */
 export const colors = {
-  ink: "#182127",
-  inkSoft: "#27373d",
-  surface: "#fbf9f3",
-  canvas: "#f5f1e8",
-  line: "#e2dcd0",
-  muted: "#69736f",
-  mutedSoft: "#859089",
-  accent: "#f07a4b",
-  green: "#3c7e69",
-  greenSoft: "#e2f0e8",
-  amber: "#92702b",
-  amberSoft: "#fbf2d9",
-  red: "#a3452e",
-  redSoft: "#fbeae5",
+  ink: "hsl(var(--app-ink))",
+  inkSoft: "hsl(var(--app-ink-soft))",
+  surface: "hsl(var(--app-surface))",
+  canvas: "hsl(var(--app-bg))",
+  line: "hsl(var(--app-line))",
+  lineSoft: "hsl(var(--app-line-soft))",
+  muted: "hsl(var(--app-muted))",
+  mutedSoft: "hsl(var(--app-faint))",
+  accent: "hsl(var(--app-gold))",
+  green: "hsl(var(--app-success))",
+  greenSoft: "hsl(var(--app-success-soft))",
+  amber: "hsl(var(--app-warn))",
+  amberSoft: "hsl(var(--app-warn-soft))",
+  red: "hsl(var(--app-critical))",
+  redSoft: "hsl(var(--app-critical-soft))",
+  info: "hsl(var(--app-info))",
+  infoSoft: "hsl(var(--app-info-soft))",
 } as const;
 
 export const money = (value = 0) =>

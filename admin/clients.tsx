@@ -80,7 +80,7 @@ export function Clients() {
             flex: "1 1 220px",
             borderRadius: 10,
             border: `1px solid ${colors.line}`,
-            background: "#fffefb",
+            background: colors.surface,
             padding: "0 12px",
             fontSize: 13,
           }}

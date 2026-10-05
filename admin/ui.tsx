@@ -130,7 +130,7 @@ export const inputStyle: React.CSSProperties = {
   width: "100%",
   borderRadius: 12,
   border: `1px solid ${colors.line}`,
-  background: "#fffefb",
+  background: colors.surface,
   padding: "0 12px",
   fontSize: 14,
   color: colors.ink,

@@ -46,7 +46,7 @@ export function PlatformStaff() {
           minHeight: 40,
           borderRadius: 10,
           border: `1px solid ${colors.line}`,
-          background: "#fffefb",
+          background: colors.surface,
           padding: "0 12px",
           fontSize: 13,
           maxWidth: 320,
