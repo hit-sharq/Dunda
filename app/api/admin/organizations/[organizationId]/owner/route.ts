@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/client";
 import { route, Forbidden, NotProvisioned, resolveSession, parseBody } from "@/lib/server/http";
 
@@ -17,9 +18,12 @@ export const dynamic = "force-dynamic";
  * the club.
  */
 const assignOwnerSchema = z.object({
-  clerkUserId: z.string().min(1, "Whose account? A Clerk user id is required."),
+  // The email is what identifies the owner. A Clerk user id is an internal
+  // identifier the operator has no way of knowing, and requiring one made this
+  // unusable from the console.
+  email: z.string().min(1, "An email address is required."),
   name: z.string().min(1).optional(),
-  email: z.string().nullable().optional(),
+  clerkUserId: z.string().optional(),
   roleId: z.string().optional(),
 });
 
@@ -72,44 +76,25 @@ export const POST = route(
         demoted = { id: previousOwner.id, name: previousOwner.name };
       }
 
-      // The membership row is what ties a Clerk account to the club. The staff
-      // row is what that membership grants permissions through.
-      const member = await tx.dunda_organization_members.upsert({
-        where: {
-          organization_id_clerk_user_id: {
-            organization_id: organizationId,
-            clerk_user_id: input.clerkUserId,
-          },
-        },
-        create: {
+      // The staff row is what grants permissions, so it is written from the
+      // invitation details and left unclaimed. When the owner accepts the
+      // invitation and signs up with this address, resolveSession matches on it
+      // and links their account — which is the same path every other staff member
+      // takes.
+      const owner = await tx.dunda_staff.create({
+        data: {
           organization_id: organizationId,
-          clerk_user_id: input.clerkUserId,
+          clerk_user_id: input.clerkUserId ?? null,
+          name: input.name ?? input.email,
+          email: input.email.toLowerCase(),
           role_id: ownerRole.id,
           status: "ACTIVE",
         },
-        update: { role_id: ownerRole.id, status: "ACTIVE" },
+        select: { id: true, name: true, email: true, clerk_user_id: true },
       });
 
-      const owner = await tx.dunda_staff.upsert({
-        where: { id: member.id },
-        create: {
-          id: member.id,
-          organization_id: organizationId,
-          clerk_user_id: input.clerkUserId,
-          name: input.name ?? input.email ?? "Owner",
-          email: input.email ?? null,
-          role_id: input.roleId && input.roleId !== ownerRole.id ? ownerRole.id : ownerRole.id,
-          status: "ACTIVE",
-        },
-        update: {
-          role_id: ownerRole.id,
-          status: "ACTIVE",
-          ...(input.name ? { name: input.name } : {}),
-          ...(input.email !== undefined ? { email: input.email } : {}),
-        },
-        select: { id: true, name: true, clerk_user_id: true },
-      });
-
+      // A membership row only exists once there is an account to attach, so it is
+      // left for the claim to write rather than created against a null id.
       return { owner, demoted };
     });
 
@@ -128,13 +113,37 @@ export const POST = route(
       },
     });
 
+    // Clerk sends the invitation, so no mail is ours to deliver and the accept
+    // link is handled by the same provider that authenticates them afterwards.
+    let invitation: { sent: boolean; reason?: string } = { sent: false };
+    try {
+      const clerk = await clerkClient();
+      await clerk.invitations.createInvitation({
+        emailAddress: input.email,
+        expiresInDays: 7,
+        redirectUrl: new URL('/', request.url).toString(),
+      });
+      invitation = { sent: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The invitation could not be sent.';
+      invitation = {
+        sent: false,
+        reason: /already|exists|invited/i.test(message)
+          ? 'That address already has an account or a pending invitation.'
+          : message,
+      };
+    }
+
     return NextResponse.json({
       owner: {
         id: result.owner.id,
         name: result.owner.name,
+        email: result.owner.email,
         clerkUserId: result.owner.clerk_user_id,
+        linked: Boolean(result.owner.clerk_user_id),
       },
       demoted: result.demoted,
+      invitation,
     });
   },
 );

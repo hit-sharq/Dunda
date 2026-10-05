@@ -54,7 +54,7 @@ export function Plans() {
         error={plans.error}
         empty={!plans.isLoading && !(plans.data ?? []).length}
         emptyTitle="No tiers yet."
-        emptyHint="Run pnpm db:sync:plans to load the starting catalogue."
+        emptyHint="No plans have been set up yet."
         onRetry={() => plans.refetch()}
       >
         <div style={{ display: "grid", gap: 14 }}>

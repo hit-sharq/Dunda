@@ -26,9 +26,9 @@ export function NewClient() {
     taxRate: "16",
     serviceChargeRate: "10",
   });
-  const [created, setCreated] = useState<{ id: string; slug: string } | null>(null);
-  const [claimed, setClaimed] = useState(false);
-  const [claimMessage, setClaimMessage] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ id: string; slug: string; name: string } | null>(null);
+  const [owner, setOwner] = useState({ name: "", email: "" });
+  const [ownerResult, setOwnerResult] = useState<{ ok: boolean; text: string } | null>(null);
   const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
 
   return (
@@ -46,11 +46,84 @@ export function NewClient() {
             {form.name} is created.
           </p>
           <p style={{ margin: 0, fontSize: 13, color: colors.muted }}>
-            Next: open the club app, sign in as the owner, and claim the
-            organization with <code>pnpm db:setup-token</code>. They will not
-            see anything until they do.
+            Now name its owner. They get the Owner role and are the only person who
+            can hand out the rest.
           </p>
-          <button style={primaryButton} onClick={() => setLocation(`/clients/${created.id}`)}>
+          {field("Owner name", (
+            <input
+              value={owner.name}
+              onChange={(e) => setOwner({ ...owner, name: e.target.value })}
+              placeholder="Wanjiku Kamau"
+              style={inputStyle}
+              data-testid="input-owner-name"
+            />
+          ))}
+          {field("Owner email", (
+            <input
+              type="email"
+              value={owner.email}
+              onChange={(e) => setOwner({ ...owner, email: e.target.value })}
+              placeholder="where they will sign up"
+              style={inputStyle}
+              data-testid="input-owner-email"
+            />
+          ))}
+          <p style={{ margin: 0, fontSize: 12, color: colors.muted }}>
+            Clerk sends them an invitation to that address. When they accept and sign
+            up with it, their account claims the Owner role and the tabs follow.
+          </p>
+          <button
+            style={primaryButton}
+            disabled={!owner.email.trim() || assignOwner.isPending}
+            data-testid="button-assign-owner"
+            onClick={() =>
+              assignOwner.mutate(
+                {
+                  organizationId: created.id,
+                  data: {
+                    email: owner.email.trim().toLowerCase(),
+                    ...(owner.name.trim() ? { name: owner.name.trim() } : {}),
+                  },
+                },
+                {
+                  onSuccess: (result: unknown) => {
+                    const r = result as {
+                      invitation?: { sent: boolean; reason?: string };
+                      owner?: { name?: string };
+                    };
+                    setOwnerResult(
+                      r.invitation?.sent
+                        ? {
+                            ok: true,
+                            text: `${r.owner?.name ?? 'The owner'} owns ${created.name}, and an invitation is on its way to ${owner.email.trim()}. They sign up with that address and the Owner role is waiting for them.`,
+                          }
+                        : {
+                            ok: false,
+                            text: `${created.name} has an owner row, but the invitation did not go out: ${r.invitation?.reason ?? 'unknown reason'} They can still sign up themselves with ${owner.email.trim()}.`,
+                          },
+                    );
+                  },
+                  onError: (err: unknown) =>
+                    setOwnerResult({
+                      ok: false,
+                      text:
+                        (err as { data?: { error?: string } })?.data?.error ??
+                        "Could not set the owner.",
+                    }),
+                },
+              )
+            }
+          >
+            {assignOwner.isPending
+              ? "Setting owner…"
+              : `Make ${owner.name.trim() || "this person"} the owner`}
+          </button>
+          {ownerResult && (
+            <p style={{ margin: 0, fontSize: 13, color: ownerResult.ok ? colors.green : colors.red }}>
+              {ownerResult.text}
+            </p>
+          )}
+          <button style={linkButton} onClick={() => setLocation(`/clients/${created.id}`)}>
             Open its settings
           </button>
         </Card>
@@ -135,7 +208,18 @@ export function NewClient() {
                     serviceChargeRate: Number(form.serviceChargeRate) || 0,
                   },
                 },
-                { onSuccess: (r: { id: string; slug: string }) => setCreated(r) },
+                {
+                  onSuccess: (r: unknown) => {
+                    const created = r as { id: string; slug: string; name?: string };
+                    setCreated({
+                      id: created.id,
+                      slug: created.slug,
+                      // The endpoint answers with the name; the form has it too, so a
+                      // club is never referred to as blank in the next step.
+                      name: created.name ?? form.name,
+                    });
+                  },
+                },
               )
             }
             style={{ ...primaryButton, opacity: !form.name.trim() || create.isPending ? 0.5 : 1 }}
