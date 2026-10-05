@@ -6,7 +6,7 @@ import { ClerkProvider, SignIn, SignUp, useAuth, useClerk, useUser } from '@cler
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
-  Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bell, CalendarDays, ChevronDown, CircleDot,
+  Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bell, Building2, CalendarDays, ChevronDown, CircleDot, Layers, LifeBuoy, Repeat,
   ChevronRight, CircleHelp, ClipboardList, CreditCard, Database, DoorOpen, Grid2X2,
   LayoutDashboard, Menu, Package, Plus, RefreshCw, Search, Settings2, ShoppingBag,
   SlidersHorizontal, Sparkles, Store,   Ticket, UserRound, Users, Utensils, WalletCards, X,
@@ -36,6 +36,9 @@ import { NewClient as OperatorNewClient } from '@/admin/new-client';
 import { PlatformStaff as OperatorPeople } from '@/admin/platform-staff';
 import { AuditTrail as OperatorAudit } from '@/admin/audit-trail';
 import { Plans as OperatorPlans } from '@/admin/plans';
+import { Subscriptions as OperatorSubscriptions } from '@/admin/subscriptions';
+import { Support as OperatorSupport } from '@/admin/support';
+import { System as OperatorSystem } from '@/admin/system';
 import { Overview as OperatorOverview } from '@/admin/overview';
 import { Billing as OperatorBilling } from '@/admin/billing';
 import { PERMISSION_LABELS } from '@/lib/errors';
@@ -338,6 +341,44 @@ function AppShell({ children }: { children: ReactNode }) {
           "sell, take money, close" and a flat list of sixteen screens in whatever
           order they were written in does not say that. A section with nothing in
           it is dropped rather than left as a heading over nothing. */}
+      {/* The console has eleven screens and one entry point, so an operator had to
+          know a URL to reach anything past the overview. Its own navigation, shown
+          only while inside /admin, so the club sidebar stays a club sidebar. */}
+      {location.startsWith('/admin') && (
+        <nav className="mb-6 grid gap-1 rounded-xl border border-[var(--app-line)] p-1.5" aria-label="Console">
+          <p className="px-2 pb-1 pt-0.5 font-mono text-[9px] font-semibold uppercase tracking-[.18em] text-[var(--app-faint)]">
+            Console
+          </p>
+          {([
+            ['/admin', 'Overview', LayoutDashboard],
+            ['/admin/clubs', 'Clubs', Store],
+            ['/admin/new', 'New club', Building2],
+            ['/admin/subscriptions', 'Subscriptions', Repeat],
+            ['/admin/billing', 'Billing', CreditCard],
+            ['/admin/plans', 'Plans', Layers],
+            ['/admin/people', 'Administrators', UserRound],
+            ['/admin/support', 'Support', LifeBuoy],
+            ['/admin/system', 'System', Activity],
+            ['/admin/audit', 'Audit', Database],
+          ] as const).map(([href, label, Icon]) => {
+            // A club detail page is a different screen reached from a club, so it
+            // highlights the Clubs entry rather than having none.
+            const active = location === href || (href === '/admin/clubs' && location.startsWith('/admin/clients'));
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors ${active ? 'bg-[var(--app-gold)] font-semibold text-[var(--app-ink)]' : 'text-[var(--app-muted)] hover:bg-[var(--app-chrome-raised)] hover:text-[var(--app-chrome-ink)]'}`}
+                data-testid={`link-console-${label.toLowerCase().replaceAll(' ', '-')}`}
+              >
+                <Icon size={15} strokeWidth={1.8} />
+                <span>{label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
+
       <nav className="grid gap-4" aria-label="Main navigation">
         {(['Tonight', 'Selling', 'Running the club', 'Numbers', 'Platform'] as const).map((group) => {
           const items = visibleNav.filter((item) => item.group === group);
@@ -877,7 +918,7 @@ function ProtectedRouter() {
 <Route path="/admin/new" component={() => <RequireOperator><OperatorNewClient /></RequireOperator>} />
 <Route path="/admin/people" component={() => <RequireOperator><OperatorPeople /></RequireOperator>} />
 <Route path="/admin/audit" component={() => <RequireOperator><OperatorAudit /></RequireOperator>} />
-<Route path="/admin/plans" component={() => <RequireOperator><OperatorPlans /></RequireOperator>} />
+<Route path="/admin/plans" component={() => <RequireOperator><OperatorPlans /></RequireOperator>} /><Route path="/admin/subscriptions" component={() => <RequireOperator><OperatorSubscriptions /></RequireOperator>} /><Route path="/admin/support" component={() => <RequireOperator><OperatorSupport /></RequireOperator>} /><Route path="/admin/system" component={() => <RequireOperator><OperatorSystem /></RequireOperator>} />
 <Route path="/overview" component={Overview} /><Route path="/pos" component={wrap("view_pos", <NewPos />)} /><Route path="/floor" component={wrap("view_pos", <Floor />)} /><Route path="/designer" component={wrap("manage_floor", <FloorDesigner />)} /><Route path="/orders" component={wrap("view_orders", <Orders />)} /><Route path="/pool" component={wrap("manage_pool", <Pool />)} /><Route path="/bar" component={wrap("update_ticket", <ServiceBoard station="bar" />)} /><Route path="/kitchen" component={wrap("update_ticket", <ServiceBoard station="kitchen" />)} /><Route path="/products" component={wrap("manage_products", <Products />)} /><Route path="/inventory" component={wrap("view_inventory", <Inventory />)} /><Route path="/staff" component={wrap("manage_staff", <Staff />)} /><Route path="/customers" component={wrap("manage_customers", <Customers />)} /><Route path="/events" component={wrap("manage_events", <Events />)} /><Route path="/reservations" component={wrap("manage_reservations", <Reservations />)} /><Route path="/reports" component={wrap("view_reports", <Reports />)} /><Route path="/hq" component={wrap("view_reports", <Hq />)} /><Route path="/settings" component={wrap("manage_roles", <Settings />)} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
 }
 

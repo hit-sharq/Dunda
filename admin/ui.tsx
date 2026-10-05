@@ -137,6 +137,54 @@ export const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+/**
+ * Shared text and table styles.
+ *
+ * These existed as inline literals in each screen, which meant a label in one
+ * table was a slightly different grey from the label in the next and nobody could
+ * tell whether that was deliberate. Named once here so the console reads as one
+ * thing.
+ */
+export const labelStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: ".1em",
+  textTransform: "uppercase",
+  color: colors.muted,
+};
+
+export const valueStyle: React.CSSProperties = {
+  fontFamily: "var(--app-font-display)",
+  fontSize: 18,
+  fontWeight: 700,
+  color: colors.ink,
+};
+
+export const tableStyle: React.CSSProperties = {
+  overflowX: "auto",
+  borderTop: `1px solid ${colors.lineSoft}`,
+};
+
+export const thStyle: React.CSSProperties = {
+  textAlign: "left",
+  padding: "8px 10px 8px 0",
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: ".08em",
+  textTransform: "uppercase",
+  color: colors.muted,
+  borderBottom: `1px solid ${colors.line}`,
+  whiteSpace: "nowrap",
+};
+
+export const tdStyle: React.CSSProperties = {
+  padding: "10px",
+  fontSize: 13,
+  color: colors.ink,
+  borderBottom: `1px solid ${colors.lineSoft}`,
+  verticalAlign: "middle",
+};
+
 export function field(label: string, node: ReactNode, hint?: string) {
   return (
     <label style={{ display: "grid", gap: 6 }}>
