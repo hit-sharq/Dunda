@@ -7,7 +7,7 @@ import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bell, Building2, CalendarDays, ChevronDown, CircleDot, Layers, LifeBuoy, Repeat,
-  ChevronRight, CircleHelp, ClipboardList, CreditCard, Database, DoorOpen, Grid2X2,
+  ChevronLeft, ChevronRight, CircleHelp, ClipboardList, CreditCard, Database, DoorOpen, Grid2X2,
   LayoutDashboard, Menu, Package, Plus, RefreshCw, Search, Settings2, ShoppingBag,
   SlidersHorizontal, Sparkles, Store,   Ticket, UserRound, Users, Utensils, WalletCards, X,
 } from 'lucide-react';
@@ -189,6 +189,119 @@ function Staff() {
         </ul>
       </section>
     </div>
+  </div>;
+}
+
+/**
+ * Adding a guest by hand.
+ *
+ * The customers list has an "Add customer" button that pointed at this route
+ * before it existed, so it 404'd. Guests normally arrive through a reservation
+ * or the till, which is why this was never needed — but a bouncer taking a
+ * name at the door has nowhere else to put it, and a name they typed has to go
+ * somewhere.
+ */
+function NewCustomer() {
+  const me = useGetMe();
+  const create = useCreateCustomer();
+  const [, setLocation] = useLocation();
+  const [form, setForm] = useState({ name: '', phone: '', email: '', notes: '' });
+
+  return <div className="rise max-w-lg">
+    <PageIntro
+      eyebrow="People / customers"
+      title="Add a customer"
+      detail="For a guest who walks in and gives a name. Anything they spend afterwards attaches to this record."
+      action={<Link href="/customers" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--app-line)] px-4 text-sm font-semibold text-[var(--app-ink-soft)] hover:bg-[var(--app-raised)]" data-testid="link-back-customers">
+        <ChevronLeft size={16} /> Back
+      </Link>}
+    />
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        create.mutate(
+          {
+            data: {
+              name: form.name.trim(),
+              phone: form.phone.trim() || null,
+              email: form.email.trim() || null,
+              notes: form.notes.trim() || null,
+            },
+          },
+          { onSuccess: () => setLocation('/customers') },
+        );
+      }}
+      className="surface grid gap-4 rounded-2xl p-5 md:p-6"
+      data-testid="form-new-customer"
+    >
+      <label className="grid gap-1.5">
+        <span className="text-sm font-semibold text-[var(--app-ink)]">Name</span>
+        <input
+          required
+          autoFocus
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="e.g. Nia Wanjiku"
+          className="min-h-11 rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-ink)]"
+          data-testid="input-customer-name"
+        />
+      </label>
+      <label className="grid gap-1.5">
+        <span className="text-sm font-semibold text-[var(--app-ink)]">Phone <span className="font-normal text-[var(--app-muted)]">optional</span></span>
+        <input
+          type="tel"
+          value={form.phone}
+          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          placeholder="+254…"
+          className="min-h-11 rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-ink)]"
+          data-testid="input-customer-phone"
+        />
+      </label>
+      <label className="grid gap-1.5">
+        <span className="text-sm font-semibold text-[var(--app-ink)]">Email <span className="font-normal text-[var(--app-muted)]">optional</span></span>
+        <input
+          type="email"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          placeholder="where they would like their bill"
+          className="min-h-11 rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-ink)]"
+          data-testid="input-customer-email"
+        />
+      </label>
+      <label className="grid gap-1.5">
+        <span className="text-sm font-semibold text-[var(--app-ink)]">Notes <span className="font-normal text-[var(--app-muted)]">optional</span></span>
+        <textarea
+          rows={3}
+          value={form.notes}
+          onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          placeholder="Anything worth remembering — a usual table, a preference."
+          className="rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-3 py-2.5 text-sm text-[var(--app-ink)]"
+          data-testid="input-customer-notes"
+        />
+      </label>
+      {create.isError && (
+        <p role="alert" className="rounded-xl border border-[var(--app-critical)] bg-[var(--app-critical-soft)] px-3 py-2.5 text-sm text-[var(--app-critical)]">
+          {(create.error as { data?: { error?: string } })?.data?.error ?? 'Could not add that customer.'}
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={!form.name.trim() || create.isPending}
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--app-gold)] px-4 text-sm font-semibold text-[var(--app-ink)] hover:opacity-90 disabled:opacity-50"
+          data-testid="button-save-customer"
+        >
+          {create.isPending ? 'Saving…' : 'Add customer'}
+        </button>
+        <Link href="/customers" className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-[var(--app-muted)] hover:bg-[var(--app-raised)]">
+          Cancel
+        </Link>
+      </div>
+      <p className="text-xs text-[var(--app-faint)]">
+        A guest's visit count and spend are built from what they order, not entered
+        here. This is only the name and how to reach them.
+      </p>
+    </form>
   </div>;
 }
 
@@ -919,7 +1032,7 @@ function ProtectedRouter() {
 <Route path="/admin/people" component={() => <RequireOperator><OperatorPeople /></RequireOperator>} />
 <Route path="/admin/audit" component={() => <RequireOperator><OperatorAudit /></RequireOperator>} />
 <Route path="/admin/plans" component={() => <RequireOperator><OperatorPlans /></RequireOperator>} /><Route path="/admin/subscriptions" component={() => <RequireOperator><OperatorSubscriptions /></RequireOperator>} /><Route path="/admin/support" component={() => <RequireOperator><OperatorSupport /></RequireOperator>} /><Route path="/admin/system" component={() => <RequireOperator><OperatorSystem /></RequireOperator>} />
-<Route path="/overview" component={Overview} /><Route path="/pos" component={wrap("view_pos", <NewPos />)} /><Route path="/floor" component={wrap("view_pos", <Floor />)} /><Route path="/designer" component={wrap("manage_floor", <FloorDesigner />)} /><Route path="/orders" component={wrap("view_orders", <Orders />)} /><Route path="/pool" component={wrap("manage_pool", <Pool />)} /><Route path="/bar" component={wrap("update_ticket", <ServiceBoard station="bar" />)} /><Route path="/kitchen" component={wrap("update_ticket", <ServiceBoard station="kitchen" />)} /><Route path="/products" component={wrap("manage_products", <Products />)} /><Route path="/inventory" component={wrap("view_inventory", <Inventory />)} /><Route path="/staff" component={wrap("manage_staff", <Staff />)} /><Route path="/customers" component={wrap("manage_customers", <Customers />)} /><Route path="/events" component={wrap("manage_events", <Events />)} /><Route path="/reservations" component={wrap("manage_reservations", <Reservations />)} /><Route path="/reports" component={wrap("view_reports", <Reports />)} /><Route path="/hq" component={wrap("view_reports", <Hq />)} /><Route path="/settings" component={wrap("manage_roles", <Settings />)} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
+<Route path="/overview" component={Overview} /><Route path="/pos" component={wrap("view_pos", <NewPos />)} /><Route path="/floor" component={wrap("view_pos", <Floor />)} /><Route path="/designer" component={wrap("manage_floor", <FloorDesigner />)} /><Route path="/orders" component={wrap("view_orders", <Orders />)} /><Route path="/pool" component={wrap("manage_pool", <Pool />)} /><Route path="/bar" component={wrap("update_ticket", <ServiceBoard station="bar" />)} /><Route path="/kitchen" component={wrap("update_ticket", <ServiceBoard station="kitchen" />)} /><Route path="/products" component={wrap("manage_products", <Products />)} /><Route path="/inventory" component={wrap("view_inventory", <Inventory />)} /><Route path="/staff" component={wrap("manage_staff", <Staff />)} /><Route path="/customers" component={wrap("manage_customers", <Customers />)} /><Route path="/customers/new" component={wrap("manage_customers", <NewCustomer />)} /><Route path="/events" component={wrap("manage_events", <Events />)} /><Route path="/reservations" component={wrap("manage_reservations", <Reservations />)} /><Route path="/reports" component={wrap("view_reports", <Reports />)} /><Route path="/hq" component={wrap("view_reports", <Hq />)} /><Route path="/settings" component={wrap("manage_roles", <Settings />)} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
 }
 
 function Router() { return <Switch><Route path="/" component={Landing} /><Route path="/sign-in/*?" component={() => <Auth mode="sign-in" />} /><Route path="/sign-up/*?" component={() => <Auth mode="sign-up" />} /><Route component={ProtectedRouter} /></Switch>; }
