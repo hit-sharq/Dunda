@@ -48,7 +48,7 @@ import { Products } from '@/screens/products';
 import { FloorDesigner } from '@/screens/floor-designer';
 import { ServiceBoard } from '@/screens/service-board';
 import { Hq } from '@/screens/hq';
-import NotFound from '@/screens/not-found';
+import NotFound, { NotAnOperator } from '@/screens/not-found';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 
 // Operational screens poll because the realtime socket only fires on changes
@@ -903,7 +903,10 @@ function RequireOperator({ children }: { children: ReactNode }) {
   if (me.isLoading) {
     return <div className="grid min-h-[40vh] place-items-center text-sm text-[var(--app-ink-soft)]">Checking…</div>;
   }
-  if (!me.data || me.data.operator !== true) return <NotFound />;
+  // A failed /me means the session is signed in but has no club, which the
+  // router above already handles. Reaching here means a real answer arrived and it
+  // was not yes, so say that rather than claiming the page is missing.
+  if (!me.data || me.data.operator !== true) return <NotAnOperator />;
   return <>{children}</>;
 }
 
