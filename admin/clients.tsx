@@ -147,7 +147,7 @@ export function Clients() {
                   return (
                     <tr
                       key={o.id}
-                      onClick={() => setLocation(`/clients/${o.id}`)}
+                      onClick={() => setLocation(`/admin/clients/${o.id}`)}
                       style={{
                         borderTop: `1px solid ${colors.line}`,
                         cursor: "pointer",

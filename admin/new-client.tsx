@@ -123,7 +123,7 @@ export function NewClient() {
               {ownerResult.text}
             </p>
           )}
-          <button style={linkButton} onClick={() => setLocation(`/clients/${created.id}`)}>
+          <button style={linkButton} onClick={() => setLocation(`/admin/clients/${created.id}`)}>
             Open its settings
           </button>
         </Card>

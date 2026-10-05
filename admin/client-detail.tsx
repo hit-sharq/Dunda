@@ -74,12 +74,19 @@ export function ClientDetail({ id }: { id: string }) {
     );
   }
 
+  // The roster is fetched before the id can be matched, so an undefined club is
+  // "still loading" as often as it is "does not exist". Saying so while the
+  // request is in flight told operators a real club had been deleted.
+  if (!orgs.data) {
+    return <Card><p style={{ margin: 0, fontSize: 13, color: colors.muted }}>Loading…</p></Card>;
+  }
+
   if (!org) {
     return (
       <State
         empty
-        emptyTitle="No such client."
-        emptyHint="It may have been removed."
+        emptyTitle="No such club."
+        emptyHint={`Nothing here is filed under that id. It may have been removed, or the link may be wrong.`}
       >
         <span />
       </State>
