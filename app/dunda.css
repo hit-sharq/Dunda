@@ -30,6 +30,108 @@
   --radius-xl: 1.25rem;
 }
 
+/**
+ * Theme tokens.
+ *
+ * The interface used to hardcode its colours, which meant dark mode was not a
+ * palette swap but a rewrite, and contrast could not be reasoned about in one
+ * place. Everything now reads from these.
+ *
+ * Roles are named for what they are, not what colour they are: a success colour
+ * and a critical colour stay recognisable whatever they resolve to. `--app-*` are
+ * Dunda's own layer, sitting over the shadcn variables in globals.css so Clerk
+ * and the UI primitives follow the same switch.
+ *
+ * Dark is the default because that is the operating context. A bright screen on
+ * a dark floor is the wrong tool, and the specification asks for it. The media
+ * query then lets a machine set to light win, because somebody who has told
+ * their operating system they want a light interface should get one.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, darkest to lightest. */
+  --app-bg: 160 6% 7%;
+  --app-surface: 168 6% 10%;
+  --app-raised: 170 6% 13%;
+  --app-line: 170 5% 18%;
+  --app-line-soft: 170 5% 15%;
+
+  /* Text. Four steps is enough: heading, body, muted, faint. */
+  --app-ink: 40 22% 93%;
+  --app-ink-soft: 150 6% 72%;
+  --app-muted: 155 5% 56%;
+  --app-faint: 155 5% 42%;
+
+  /* The accent is gold, per the specification. Amber for warning, green for
+     success and red for critical sit far enough apart to be told apart at a
+     glance and by someone who cannot rely on hue alone — each is paired with a
+     different label wherever it appears. */
+  --app-gold: 36 78% 56%;
+  --app-gold-ink: 40 30% 96%;
+  --app-gold-soft: 36 40% 16%;
+
+  --app-success: 152 46% 46%;
+  --app-success-soft: 152 32% 14%;
+
+  --app-warn: 38 74% 52%;
+  --app-warn-soft: 38 40% 15%;
+
+  --app-critical: 6 66% 56%;
+  --app-critical-soft: 6 40% 16%;
+
+  --app-info: 205 48% 52%;
+  --app-info-soft: 205 34% 15%;
+
+  /* The shell's own chrome, which is darker than the content it holds. */
+  --app-chrome: 175 14% 9%;
+  --app-chrome-raised: 176 15% 13%;
+  --app-chrome-ink: 40 20% 90%;
+
+  --app-shadow: 0 10px 30px rgba(0, 0, 0, .45);
+}
+
+/* A machine set to light gets a light interface. Set on the root so it cascades
+   to Clerk and the shadcn primitives as well as Dunda's own layer. */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --app-bg: 40 26% 96%;
+    --app-surface: 40 38% 99%;
+    --app-raised: 38 30% 93%;
+    --app-line: 35 18% 86%;
+    --app-line-soft: 36 20% 90%;
+
+    --app-ink: 175 22% 12%;
+    --app-ink-soft: 176 12% 32%;
+    --app-muted: 170 8% 44%;
+    --app-faint: 170 8% 58%;
+
+    --app-gold: 32 78% 44%;
+    --app-gold-ink: 40 40% 10%;
+    --app-gold-soft: 36 60% 92%;
+
+    --app-success: 152 46% 34%;
+    --app-success-soft: 152 40% 92%;
+
+    --app-warn: 34 72% 42%;
+    --app-warn-soft: 40 70% 92%;
+
+    --app-critical: 6 66% 48%;
+    --app-critical-soft: 6 60% 94%;
+
+    --app-info: 205 52% 40%;
+    --app-info-soft: 205 50% 94%;
+
+    --app-chrome: 175 16% 15%;
+    --app-chrome-raised: 176 15% 20%;
+    --app-chrome-ink: 40 22% 93%;
+
+    --app-shadow: 0 8px 24px rgba(30, 36, 40, .08);
+  }
+}
+
 :root {
   --background: 38 33% 95%;
   --foreground: 210 24% 14%;
@@ -56,15 +158,19 @@
   --radius: 0.8rem;
 }
 
-* { border-color: hsl(var(--border)); }
-html { background: hsl(var(--background)); }
+* { border-color: hsl(var(--app-line)); }
+html { background: hsl(var(--app-bg)); }
 body {
   margin: 0;
   min-width: 320px;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
+  background: hsl(var(--app-bg));
+  color: hsl(var(--app-ink));
   font-family: var(--app-font-sans);
   font-feature-settings: "ss01" 1;
+  /* The ink is a near-white on a near-black by default. A pure white on pure
+     black is harsh on a screen that is on all night, so it is eased off. */
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .2s ease, color .2s ease;
 }
 button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
@@ -77,15 +183,19 @@ a { color: inherit; text-decoration: none; }
   inset: 0;
   z-index: 50;
   pointer-events: none;
-  opacity: .028;
+  opacity: .022;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
 }
-.surface { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); box-shadow: 0 8px 22px rgba(32,40,45,.045); }
-.surface:hover { box-shadow: 0 10px 28px rgba(32,40,45,.075); }
+.surface {
+  background: hsl(var(--app-surface));
+  border: 1px solid hsl(var(--app-line));
+  box-shadow: var(--app-shadow);
+}
+.surface:hover { border-color: hsl(var(--app-line-soft)); }
 .rise { animation: rise .42s cubic-bezier(.2,.7,.2,1) both; }
 .delay-1 { animation-delay: .06s; } .delay-2 { animation-delay: .12s; } .delay-3 { animation-delay: .18s; }
 @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
-.scroll-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
+.scroll-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--app-line)) transparent; }
 .status-dot::before { content: ''; width: 7px; height: 7px; border-radius: 999px; display: inline-block; background: currentColor; margin-right: 7px; }
 @media (max-width: 767px) {
   .desktop-only { display: none; }
