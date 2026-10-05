@@ -27,9 +27,9 @@ const to = today.toISOString().slice(0, 10);
 function Bar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#e7e1d6]">
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[hsl(var(--app-line-soft))]">
       <div
-        className="h-full rounded-full bg-[#4b927d]"
+        className="h-full rounded-full bg-[hsl(var(--app-success))]"
         style={{ width: `${Math.max(2, pct)}%` }}
       />
     </div>
@@ -100,19 +100,19 @@ export function Hq() {
           {branchesData.map((b) => (
             <article
               key={b.id}
-              className="rounded-xl border border-[#e8e1d6] bg-[#fbf9f3] p-4"
+              className="rounded-xl border border-[hsl(var(--app-line-soft))] bg-[hsl(var(--app-surface))] p-4"
               data-testid={`card-hq-branch-${b.id}`}
             >
               <div className="mb-2 flex items-start justify-between">
                 <div>
                   <p className="font-display text-lg font-bold">{b.name}</p>
-                  <p className="text-xs text-[#859089]">{b.city}</p>
+                  <p className="text-xs text-[hsl(var(--app-muted))]">{b.city}</p>
                 </div>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                     b.status === "LIVE"
-                      ? "bg-[#e2f0e8] text-[#3c7e69]"
-                      : "bg-[#ece8de] text-[#7c8780]"
+                      ? "bg-[hsl(var(--app-success-soft))] text-[hsl(var(--app-success))]"
+                      : "bg-[hsl(var(--app-line))] text-[hsl(var(--app-muted))]"
                   }`}
                 >
                   {b.status}
@@ -123,7 +123,7 @@ export function Hq() {
                   <span className="font-mono text-lg font-semibold">
                     {money(b.revenue)}
                   </span>
-                  <span className="font-mono text-[10px] text-[#859089]">
+                  <span className="font-mono text-[10px] text-[hsl(var(--app-muted))]">
                     {b.orders} orders
                   </span>
                 </div>
@@ -131,11 +131,11 @@ export function Hq() {
               </div>
               <dl className="grid grid-cols-2 gap-2 text-xs">
                 <div className="flex justify-between">
-                  <dt className="text-[#859089]">Tables</dt>
+                  <dt className="text-[hsl(var(--app-muted))]">Tables</dt>
                   <dd className="font-mono">{b.tables}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-[#859089]">Alerts</dt>
+                  <dt className="text-[hsl(var(--app-muted))]">Alerts</dt>
                   <dd className="font-mono">{b.inventoryAlerts}</dd>
                 </div>
               </dl>
@@ -160,7 +160,7 @@ export function Hq() {
               <div key={m.label}>
                 <div className="mb-1 flex justify-between text-xs">
                   <span className="font-semibold">{m.label}</span>
-                  <span className="font-mono text-[#65716b]">
+                  <span className="font-mono text-[hsl(var(--app-ink-soft))]">
                     {money(m.value)} · {m.count}
                   </span>
                 </div>
@@ -169,7 +169,7 @@ export function Hq() {
             ))}
           </div>
           {payments.data && payments.data.refunded > 0 && (
-            <p className="mt-4 border-t border-[#e8e1d6] pt-3 text-xs text-[#a3452e]">
+            <p className="mt-4 border-t border-[hsl(var(--app-line-soft))] pt-3 text-xs text-[hsl(var(--app-critical))]">
               Refunds in range: {money(payments.data.refunded)}
             </p>
           )}
@@ -182,7 +182,7 @@ export function Hq() {
               <p className="font-display text-2xl font-bold">
                 {inventory.data?.totalItems ?? "—"}
               </p>
-              <p className="text-[10px] uppercase tracking-wider text-[#859089]">
+              <p className="text-[10px] uppercase tracking-wider text-[hsl(var(--app-muted))]">
                 Items
               </p>
             </div>
@@ -190,7 +190,7 @@ export function Hq() {
               <p className="font-display text-2xl font-bold">
                 {inventory.data?.belowReorder ?? "—"}
               </p>
-              <p className="text-[10px] uppercase tracking-wider text-[#859089]">
+              <p className="text-[10px] uppercase tracking-wider text-[hsl(var(--app-muted))]">
                 Below reorder
               </p>
             </div>
@@ -198,12 +198,12 @@ export function Hq() {
               <p className="font-display text-2xl font-bold">
                 {money(inventory.data?.stockValue ?? 0)}
               </p>
-              <p className="text-[10px] uppercase tracking-wider text-[#859089]">
+              <p className="text-[10px] uppercase tracking-wider text-[hsl(var(--app-muted))]">
                 Stock value
               </p>
             </div>
           </div>
-          <h4 className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider text-[#8b938c]">
+          <h4 className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider text-[hsl(var(--app-faint))]">
             Inventory discrepancies
           </h4>
           <QueryNotice
@@ -221,11 +221,11 @@ export function Hq() {
             {inventory.data?.discrepancies.map((d: (typeof inventory.data.discrepancies)[number]) => (
               <li
                 key={d.productId}
-                className="flex items-center justify-between border-b border-[#f0ebe1] pb-1.5 last:border-0"
+                className="flex items-center justify-between border-b border-[hsl(var(--app-raised))] pb-1.5 last:border-0"
               >
                 <span>{d.name ?? d.productId}</span>
                 <span
-                  className={`font-mono ${(d.variance ?? 0) < 0 ? "text-[#a3452e]" : "text-[#3e8a71]"}`}
+                  className={`font-mono ${(d.variance ?? 0) < 0 ? "text-[hsl(var(--app-critical))]" : "text-[hsl(var(--app-success))]"}`}
                 >
                   {(d.variance ?? 0) > 0 ? "+" : ""}
                   {d.variance ?? 0} {d.unit}
@@ -247,7 +247,7 @@ export function Hq() {
           />
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[#e8e1d6] text-left text-[10px] uppercase tracking-wider text-[#8b938c]">
+              <tr className="border-b border-[hsl(var(--app-line-soft))] text-left text-[10px] uppercase tracking-wider text-[hsl(var(--app-faint))]">
                 <th className="py-2 font-semibold">Staff</th>
                 <th className="py-2 text-right font-semibold">Orders</th>
                 <th className="py-2 text-right font-semibold">Revenue</th>
@@ -255,7 +255,7 @@ export function Hq() {
             </thead>
             <tbody>
               {staff.data?.map((s) => (
-                <tr key={s.staffId ?? s.name} className="border-b border-[#f0ebe1] last:border-0">
+                <tr key={s.staffId ?? s.name} className="border-b border-[hsl(var(--app-raised))] last:border-0">
                   <td className="py-2">{s.name}</td>
                   <td className="py-2 text-right font-mono">{s.orders}</td>
                   <td className="py-2 text-right font-mono">{money(s.revenue)}</td>
@@ -277,12 +277,12 @@ export function Hq() {
           />
           <ul className="grid gap-2.5">
             {events.data?.map((e) => (
-              <li key={e.id} className="border-b border-[#f0ebe1] pb-2 last:border-0">
+              <li key={e.id} className="border-b border-[hsl(var(--app-raised))] pb-2 last:border-0">
                 <div className="flex items-baseline justify-between">
                   <span className="text-sm font-semibold">{e.name}</span>
-                  <span className="font-mono text-[10px] text-[#859089]">{e.date}</span>
+                  <span className="font-mono text-[10px] text-[hsl(var(--app-muted))]">{e.date}</span>
                 </div>
-                <p className="text-xs text-[#65716b]">
+                <p className="text-xs text-[hsl(var(--app-ink-soft))]">
                   {e.reservations} reservations · {e.guests} guests ·{" "}
                   {e.utilisation}% of capacity
                 </p>
@@ -303,11 +303,11 @@ export function Hq() {
               .map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center justify-between rounded-lg bg-[#f5f1e8] px-3 py-2 text-xs"
+                  className="flex items-center justify-between rounded-lg bg-[hsl(var(--app-bg))] px-3 py-2 text-xs"
                 >
                   <span>
                     <span className="font-semibold">{t.name}</span>
-                    <span className="ml-1 text-[#859089]">{t.section}</span>
+                    <span className="ml-1 text-[hsl(var(--app-muted))]">{t.section}</span>
                   </span>
                   <span className="font-mono">
                     {t.covers} covers · {money(t.revenue)}

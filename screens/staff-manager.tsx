@@ -73,8 +73,8 @@ export function StaffManager() {
         <div
           className={`mb-3 rounded-lg border px-3 py-2 text-xs ${
             notice.tone === "ok"
-              ? "border-[#b8d5c9] bg-[#e5f1eb] text-[#397463]"
-              : "border-[#e6bdb2] bg-[#fbeae5] text-[#a3452e]"
+              ? "border-[hsl(var(--app-success-soft))] bg-[hsl(var(--app-success-soft))] text-[hsl(var(--app-success))]"
+              : "border-[hsl(var(--app-gold-soft))] bg-[hsl(var(--app-critical-soft))] text-[hsl(var(--app-critical))]"
           }`}
           data-testid="staff-notice"
         >
@@ -100,16 +100,16 @@ export function StaffManager() {
           return (
             <li
               key={s.id}
-              className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eee8de] py-3 last:border-0"
+              className="flex flex-wrap items-center justify-between gap-3 border-b border-[hsl(var(--app-line-soft))] py-3 last:border-0"
               data-testid={`row-staff-${s.id}`}
             >
               <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#e6f0eb] text-[#438875]">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[hsl(var(--app-success-soft))] text-[hsl(var(--app-success))]">
                   {s.name.slice(0, 1)}
                 </div>
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{s.name}</p>
-                  <p className="truncate text-xs text-[#859087]">
+                  <p className="truncate text-xs text-[hsl(var(--app-faint))]">
                     {s.role} · {s.email ?? "no email"}
                   </p>
                 </div>
@@ -117,7 +117,7 @@ export function StaffManager() {
               <div className="flex items-center gap-2">
                 {pending ? (
                   <span
-                    className="rounded-full bg-[#fbf2d9] px-2 py-0.5 text-[10px] font-semibold text-[#92702b]"
+                    className="rounded-full bg-[hsl(var(--app-warn-soft))] px-2 py-0.5 text-[10px] font-semibold text-[hsl(var(--app-warn))]"
                     title={"Created, but nobody has signed up with this email yet"}
                   >
                     Awaiting sign-up
@@ -126,8 +126,8 @@ export function StaffManager() {
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       s.status === "ACTIVE"
-                        ? "bg-[#e2f0e8] text-[#3c7e69]"
-                        : "bg-[#ece8de] text-[#7c8780]"
+                        ? "bg-[hsl(var(--app-success-soft))] text-[hsl(var(--app-success))]"
+                        : "bg-[hsl(var(--app-line))] text-[hsl(var(--app-muted))]"
                     }`}
                   >
                     {s.status === "ACTIVE" ? "Active" : s.status}
@@ -212,7 +212,7 @@ export function StaffManager() {
             }}
             className="grid gap-4"
           >
-            <p className="text-xs leading-5 text-[#69736f]">
+            <p className="text-xs leading-5 text-[hsl(var(--app-ink-soft))]">
               Their role is applied the moment they sign up with this email address. They
               cannot sign in until then, and only the role you pick here is granted.
             </p>
@@ -239,7 +239,7 @@ export function StaffManager() {
               {/* The invitation goes to this address, and so does the claim when
                   they accept, so it is not decoration: a different address means a
                   person who signs up is not linked to this row. */}
-              <p className="mt-1 text-xs text-[#8b938c]">
+              <p className="mt-1 text-xs text-[hsl(var(--app-faint))]">
                 The invitation goes here, and this is what links their account to
                 the role you pick.
               </p>
@@ -338,7 +338,7 @@ export function StaffManager() {
                 <option value="INACTIVE">Inactive</option>
               </select>
             </Field>
-            <p className="text-xs text-[#69736f]">
+            <p className="text-xs text-[hsl(var(--app-ink-soft))]">
               Setting somebody inactive removes their access. Their shifts and past orders are
               kept for the record.
             </p>

@@ -12,11 +12,11 @@ import { QueryNotice } from "../components/query-notice";
  * round does not clear the food from the pass.
  */
 const LANES = [
-  { key: "PENDING", label: "New", color: "bg-[#4b927d]" },
-  { key: "ACCEPTED", label: "Accepted", color: "bg-[#6f9fb2]" },
-  { key: "PREPARING", label: "Preparing", color: "bg-[#d9b46c]" },
-  { key: "READY", label: "Ready", color: "bg-[#f07a4b]" },
-  { key: "SERVED", label: "Served", color: "bg-[#8b938c]" },
+  { key: "PENDING", label: "New", color: "bg-[hsl(var(--app-success))]" },
+  { key: "ACCEPTED", label: "Accepted", color: "bg-[hsl(var(--app-info))]" },
+  { key: "PREPARING", label: "Preparing", color: "bg-[hsl(var(--app-warn))]" },
+  { key: "READY", label: "Ready", color: "bg-[hsl(var(--app-gold))]" },
+  { key: "SERVED", label: "Served", color: "bg-[hsl(var(--app-faint))]" },
 ] as const;
 
 const NEXT_STATUS: Record<string, string | null> = {
@@ -70,7 +70,7 @@ export function ServiceBoard({ station }: { station: "bar" | "kitchen" }) {
             return (
               <section
                 key={lane.key}
-                className="min-h-[420px] rounded-2xl bg-[#ebe6dc] p-3"
+                className="min-h-[420px] rounded-2xl bg-[hsl(var(--app-warn-soft))] p-3"
                 data-testid={`lane-${stationCode}-${lane.key}`}
               >
                 <div className="mb-3 flex items-center justify-between px-1">
@@ -78,7 +78,7 @@ export function ServiceBoard({ station }: { station: "bar" | "kitchen" }) {
                     <i className={`h-2.5 w-2.5 rounded-full ${lane.color}`} />
                     {lane.label}
                   </span>
-                  <span className="grid h-6 min-w-6 place-items-center rounded-full bg-[#f6f1e8] px-1.5 font-mono text-[10px] text-[#77827b]">
+                  <span className="grid h-6 min-w-6 place-items-center rounded-full bg-[hsl(var(--app-raised))] px-1.5 font-mono text-[10px] text-[hsl(var(--app-faint))]">
                     {items.length}
                   </span>
                 </div>
@@ -90,29 +90,29 @@ export function ServiceBoard({ station }: { station: "bar" | "kitchen" }) {
                       data-testid={`card-ticket-${ticket.id}`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-medium text-[#b65332]">
+                        <span className="font-mono text-xs font-medium text-[hsl(var(--app-gold))]">
                           {ticket.table ?? "No table"}
                         </span>
-                        <span className="font-mono text-[10px] text-[#8b958e]">
+                        <span className="font-mono text-[10px] text-[hsl(var(--app-muted))]">
                           {timeAgo(ticket.createdAt)}
                         </span>
                       </div>
                       <h3 className="mt-1 font-display text-lg font-bold">
                         {ticket.number}
                       </h3>
-                      <ul className="mt-2 border-t border-[#eee8de] pt-2 text-xs leading-5 text-[#65716b]">
+                      <ul className="mt-2 border-t border-[hsl(var(--app-line-soft))] pt-2 text-xs leading-5 text-[hsl(var(--app-ink-soft))]">
                         {ticket.items.map((item) => (
                           <li
                             key={item.id}
                             className="flex justify-between gap-2"
                           >
                             <span>
-                              <span className="font-mono text-[#b65332]">
+                              <span className="font-mono text-[hsl(var(--app-gold))]">
                                 {item.quantity}×
                               </span>{" "}
                               {item.name}
                               {item.notes ? (
-                                <span className="block text-[10px] italic text-[#92702b]">
+                                <span className="block text-[10px] italic text-[hsl(var(--app-warn))]">
                                   {item.notes}
                                 </span>
                               ) : null}

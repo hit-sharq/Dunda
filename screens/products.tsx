@@ -58,7 +58,7 @@ export function Products() {
         }
       />
 
-      <label className="mb-4 flex h-11 max-w-md items-center gap-2 rounded-xl border border-[#ded8cd] bg-[#fbf9f3] px-3 text-[#8c958f]">
+      <label className="mb-4 flex h-11 max-w-md items-center gap-2 rounded-xl border border-[hsl(var(--app-line))] bg-[hsl(var(--app-surface))] px-3 text-[hsl(var(--app-muted))]">
         <span aria-hidden>⌕</span>
         <input
           value={search}
@@ -86,7 +86,7 @@ export function Products() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
             <thead>
-              <tr className="border-b border-[#e8e1d6] text-left text-xs uppercase tracking-wider text-[#8b938c]">
+              <tr className="border-b border-[hsl(var(--app-line-soft))] text-left text-xs uppercase tracking-wider text-[hsl(var(--app-faint))]">
                 <th className="px-5 py-3 font-semibold">Product</th>
                 <th className="px-5 py-3 font-semibold">Category</th>
                 <th className="px-5 py-3 font-semibold">Base unit</th>
@@ -101,25 +101,25 @@ export function Products() {
               {filtered.map((p) => (
                 <tr
                   key={p.id}
-                  className="border-b border-[#f0ebe1] last:border-0"
+                  className="border-b border-[hsl(var(--app-raised))] last:border-0"
                   data-testid={`row-product-${p.id}`}
                 >
                   <td className="px-5 py-3">
                     <span className="font-semibold">{p.name}</span>
                     {!p.active && (
-                      <span className="ml-2 rounded-full bg-[#ece8de] px-2 py-0.5 text-[10px] text-[#7c8780]">
+                      <span className="ml-2 rounded-full bg-[hsl(var(--app-line))] px-2 py-0.5 text-[10px] text-[hsl(var(--app-muted))]">
                         inactive
                       </span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-[#65716b]">{p.category}</td>
-                  <td className="px-5 py-3 font-mono text-xs text-[#65716b]">{p.baseUnit}</td>
-                  <td className="px-5 py-3 font-mono text-xs text-[#859089]">{p.sku ?? "—"}</td>
-                  <td className="px-5 py-3 font-mono text-xs text-[#859089]">
+                  <td className="px-5 py-3 text-[hsl(var(--app-ink-soft))]">{p.category}</td>
+                  <td className="px-5 py-3 font-mono text-xs text-[hsl(var(--app-ink-soft))]">{p.baseUnit}</td>
+                  <td className="px-5 py-3 font-mono text-xs text-[hsl(var(--app-muted))]">{p.sku ?? "—"}</td>
+                  <td className="px-5 py-3 font-mono text-xs text-[hsl(var(--app-muted))]">
                     {p.barcode ?? "—"}
                   </td>
                   <td className="px-5 py-3 text-right font-mono">{money(p.price)}</td>
-                  <td className="px-5 py-3 text-right font-mono text-[#65716b]">
+                  <td className="px-5 py-3 text-right font-mono text-[hsl(var(--app-ink-soft))]">
                     {p.trackInventory ? p.stock : "—"}
                   </td>
                   <td className="px-5 py-3 text-right">
@@ -356,7 +356,7 @@ function UnitManager({
       onClose={onClose}
     >
       <div className="grid gap-5">
-        <p className="text-xs text-[#69736f]">
+        <p className="text-xs text-[hsl(var(--app-ink-soft))]">
           Base unit: <strong>{product.baseUnit}</strong>. A conversion factor states
           how many base units one selling unit consumes.
         </p>
@@ -374,18 +374,18 @@ function UnitManager({
           {units.data?.map((u) => (
             <div
               key={u.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-[#e2dbcd] bg-[#fffefb] px-4 py-3"
+              className="flex items-center justify-between gap-3 rounded-xl border border-[hsl(var(--app-raised))] bg-[hsl(var(--app-surface))] px-4 py-3"
             >
               <div>
                 <p className="text-sm font-bold uppercase tracking-wider">
                   {u.name}{" "}
                   {u.isBaseUnit && (
-                    <span className="ml-1 rounded-full bg-[#e2f0e8] px-2 py-0.5 text-[10px] font-semibold text-[#3c7e69]">
+                    <span className="ml-1 rounded-full bg-[hsl(var(--app-success-soft))] px-2 py-0.5 text-[10px] font-semibold text-[hsl(var(--app-success))]">
                       base
                     </span>
                   )}
                 </p>
-                <p className="font-mono text-[10px] text-[#859089]">
+                <p className="font-mono text-[10px] text-[hsl(var(--app-muted))]">
                   {u.conversionFactor} {product.baseUnit} per {u.name.toLowerCase()}
                 </p>
               </div>
@@ -395,7 +395,7 @@ function UnitManager({
                     type="number"
                     value={editPrice}
                     onChange={(e) => setEditPrice(e.target.value)}
-                    className="w-28 rounded-lg border border-[#ded8cd] px-2 py-1 text-sm"
+                    className="w-28 rounded-lg border border-[hsl(var(--app-line))] px-2 py-1 text-sm"
                     data-testid={`input-unit-price-${u.id}`}
                   />
                   <Button
@@ -451,9 +451,9 @@ function UnitManager({
             });
             setDraft({ name: "", abbreviation: "", conversionFactor: "1", sellingPrice: "0" });
           }}
-          className="grid gap-3 border-t border-[#e8e1d6] pt-4"
+          className="grid gap-3 border-t border-[hsl(var(--app-line-soft))] pt-4"
         >
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#8b938c]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--app-faint))]">
             Add a selling unit
           </p>
           <div className="grid gap-3 sm:grid-cols-4">

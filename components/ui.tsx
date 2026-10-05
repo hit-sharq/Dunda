@@ -12,12 +12,12 @@ export function Button({
   [key: string]: unknown;
 }) {
   const variants = {
-    primary: "bg-[#f07a4b] text-[#182127] hover:bg-[#e96738]",
+    primary: "bg-[hsl(var(--app-gold))] text-[hsl(var(--app-ink))] hover:bg-[hsl(var(--app-gold))]",
     outline:
-      "border border-[#dcd6c9] bg-[#fbf9f3] text-[#273239] hover:border-[#f07a4b] hover:text-[#b94d25]",
-    ghost: "text-[#66706f] hover:bg-[#ece8de] hover:text-[#182127]",
-    dark: "bg-[#27373d] text-[#f8f1e5] hover:bg-[#1d2b31]",
-    danger: "bg-[#a8452e] text-[#fff4ec] hover:bg-[#8f3a26]",
+      "border border-[hsl(var(--app-line))] bg-[hsl(var(--app-surface))] text-[hsl(var(--app-info))] hover:border-[hsl(var(--app-gold))] hover:text-[hsl(var(--app-critical))]",
+    ghost: "text-[hsl(var(--app-faint))] hover:bg-[hsl(var(--app-line))] hover:text-[hsl(var(--app-ink))]",
+    dark: "bg-[hsl(var(--app-info))] text-[hsl(var(--app-warn-soft))] hover:bg-[hsl(var(--app-info))]",
+    danger: "bg-[hsl(var(--app-critical))] text-[hsl(var(--app-gold-soft))] hover:bg-[hsl(var(--app-critical))]",
   };
   return (
     <button
@@ -31,7 +31,7 @@ export function Button({
 }
 
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-lg bg-[#e8e3d9] ${className}`} />;
+  return <div className={`animate-pulse rounded-lg bg-[hsl(var(--app-warn-soft))] ${className}`} />;
 }
 
 export function PageIntro({
@@ -48,13 +48,13 @@ export function PageIntro({
   return (
     <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[.2em] text-[#8b938c]">
+        <p className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[.2em] text-[hsl(var(--app-faint))]">
           {eyebrow}
         </p>
-        <h2 className="font-display text-3xl font-extrabold tracking-[-.04em] text-[#182127] md:text-4xl">
+        <h2 className="font-display text-3xl font-extrabold tracking-[-.04em] text-[hsl(var(--app-ink))] md:text-4xl">
           {title}
         </h2>
-        <p className="mt-2 max-w-2xl text-sm text-[#69736f]">{detail}</p>
+        <p className="mt-2 max-w-2xl text-sm text-[hsl(var(--app-ink-soft))]">{detail}</p>
       </div>
       {action}
     </div>
@@ -78,16 +78,16 @@ export function Metric({
     <div
       className={`surface rounded-2xl p-4 md:p-5 ${
         tone === "coral"
-          ? "bg-[#f07a4b] text-[#182127]"
+          ? "bg-[hsl(var(--app-gold))] text-[hsl(var(--app-ink))]"
           : tone === "green"
-            ? "bg-[#dbe9e3]"
+            ? "bg-[hsl(var(--app-success-soft))]"
             : ""
       }`}
     >
       <div className="mb-4 flex items-start justify-between">
         <span
           className={`text-xs font-semibold uppercase tracking-[.12em] ${
-            tone === "plain" ? "text-[#89918b]" : "opacity-70"
+            tone === "plain" ? "text-[hsl(var(--app-muted))]" : "opacity-70"
           }`}
         >
           {label}
@@ -95,7 +95,7 @@ export function Metric({
         {trend && (
           <span
             className={`text-xs font-semibold ${
-              trend === "up" ? "text-[#3e8a71]" : "text-[#a64d39]"
+              trend === "up" ? "text-[hsl(var(--app-success))]" : "text-[hsl(var(--app-critical))]"
             }`}
           >
             {trend === "up" ? "on plan" : "watch"}
@@ -104,7 +104,7 @@ export function Metric({
       </div>
       <div className="font-display text-3xl font-bold tracking-tight">{value}</div>
       <p
-        className={`mt-1 text-xs ${tone === "plain" ? "text-[#7e8882]" : "opacity-70"}`}
+        className={`mt-1 text-xs ${tone === "plain" ? "text-[hsl(var(--app-faint))]" : "opacity-70"}`}
       >
         {note}
       </p>
@@ -125,9 +125,9 @@ export function Modal({
   wide?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#162329]/45 p-4">
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[hsl(var(--app-info))]/45 p-4">
       <div
-        className={`w-full rounded-2xl border border-[#ded7ca] bg-[#fbf9f3] p-5 shadow-2xl md:p-6 ${
+        className={`w-full rounded-2xl border border-[hsl(var(--app-line))] bg-[hsl(var(--app-surface))] p-5 shadow-2xl md:p-6 ${
           wide ? "max-w-3xl" : "max-w-md"
         }`}
         role="dialog"
@@ -137,7 +137,7 @@ export function Modal({
           <h3 className="font-display text-2xl font-bold">{title}</h3>
           <button
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-lg text-[#7f8982] hover:bg-[#eee9df]"
+            className="grid h-9 w-9 place-items-center rounded-lg text-[hsl(var(--app-faint))] hover:bg-[hsl(var(--app-line-soft))]"
             data-testid="button-close-modal"
             aria-label="Close"
           >
@@ -152,7 +152,7 @@ export function Modal({
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="grid gap-1.5 text-xs font-semibold text-[#5d6963]">
+    <label className="grid gap-1.5 text-xs font-semibold text-[hsl(var(--app-faint))]">
       {label}
       {children}
     </label>
@@ -160,7 +160,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export const inputClass =
-  "min-h-10 w-full rounded-xl border border-[#ded8cd] bg-[#fffefb] px-3 text-sm text-[#182127] outline-none focus:border-[#f07a4b]";
+  "min-h-10 w-full rounded-xl border border-[hsl(var(--app-line))] bg-[hsl(var(--app-surface))] px-3 text-sm text-[hsl(var(--app-ink))] outline-none focus:border-[hsl(var(--app-gold))]";
 
 // Money formatting is the organization's own currency, configured by MoneyProvider.
 export { money } from "../lib/money";

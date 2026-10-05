@@ -218,8 +218,8 @@ export function Pos() {
         <div
           className={`mb-4 flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${
             notice.tone === "ok"
-              ? "border-[#b8d5c9] bg-[#e5f1eb] text-[#397463]"
-              : "border-[#e6bdb2] bg-[#fbeae5] text-[#a3452e]"
+              ? "border-[hsl(var(--app-success-soft))] bg-[hsl(var(--app-success-soft))] text-[hsl(var(--app-success))]"
+              : "border-[hsl(var(--app-gold-soft))] bg-[hsl(var(--app-critical-soft))] text-[hsl(var(--app-critical))]"
           }`}
           data-testid="status-pos-notice"
         >
@@ -239,8 +239,8 @@ export function Pos() {
                 onClick={() => setCategory(c)}
                 className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
                   category === c
-                    ? "bg-[#27383e] text-[#f8f1e5]"
-                    : "bg-[#e9e4d9] text-[#66726d] hover:bg-[#ded8cb]"
+                    ? "bg-[hsl(var(--app-info))] text-[hsl(var(--app-warn-soft))]"
+                    : "bg-[hsl(var(--app-line))] text-[hsl(var(--app-faint))] hover:bg-[hsl(var(--app-warn-soft))]"
                 }`}
                 data-testid={`button-category-${c.toLowerCase()}`}
               >
@@ -250,12 +250,12 @@ export function Pos() {
           </div>
 
           <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_auto]">
-            <label className="flex h-11 items-center gap-2 rounded-xl border border-[#ded8cd] bg-[#fbf9f3] px-3 text-[#8c958f]">
+            <label className="flex h-11 items-center gap-2 rounded-xl border border-[hsl(var(--app-line))] bg-[hsl(var(--app-surface))] px-3 text-[hsl(var(--app-muted))]">
               <span aria-hidden>⌕</span>
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-transparent text-sm text-[#182127] outline-none placeholder:text-[#9ca39d]"
+                className="w-full bg-transparent text-sm text-[hsl(var(--app-ink))] outline-none placeholder:text-[hsl(var(--app-muted))]"
                 placeholder="Search drinks, dishes, cover..."
                 data-testid="input-search-products"
               />
@@ -266,9 +266,9 @@ export function Pos() {
                 resolveBarcode(barcode);
                 setBarcode("");
               }}
-              className="flex h-11 items-center gap-2 rounded-xl border border-[#ded8cd] bg-[#fbf9f3] px-3"
+              className="flex h-11 items-center gap-2 rounded-xl border border-[hsl(var(--app-line))] bg-[hsl(var(--app-surface))] px-3"
             >
-              <span className="font-mono text-[10px] uppercase tracking-wider text-[#98a09a]">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-[hsl(var(--app-muted))]">
                 Scan
               </span>
               <input
@@ -307,14 +307,14 @@ export function Pos() {
                   >
                     {p.category.slice(0, 1)}
                   </span>
-                  <span className="font-mono text-[10px] text-[#8a948d]">{p.unit}</span>
+                  <span className="font-mono text-[10px] text-[hsl(var(--app-muted))]">{p.unit}</span>
                 </div>
                 <span className="block text-sm font-semibold leading-tight">{p.name}</span>
-                <span className="mt-1 block font-mono text-sm font-medium text-[#b65332]">
+                <span className="mt-1 block font-mono text-sm font-medium text-[hsl(var(--app-gold))]">
                   {money(p.price)}
                 </span>
                 {p.stock > 0 && (
-                  <span className="mt-1 block font-mono text-[10px] text-[#8d968f]">
+                  <span className="mt-1 block font-mono text-[10px] text-[hsl(var(--app-muted))]">
                     {p.stock} in stock
                   </span>
                 )}
@@ -335,8 +335,8 @@ export function Pos() {
           </div>
 
           {!tab ? (
-            <div className="rounded-xl bg-[#f5f1e8] p-4 text-sm text-[#69736f]">
-              <p className="font-semibold text-[#273239]">No tab selected</p>
+            <div className="rounded-xl bg-[hsl(var(--app-bg))] p-4 text-sm text-[hsl(var(--app-ink-soft))]">
+              <p className="font-semibold text-[hsl(var(--app-info))]">No tab selected</p>
               <p className="mt-1 text-xs">
                 Open a tab for a table, or pick an open tab to add items.
               </p>
@@ -346,7 +346,7 @@ export function Pos() {
                     <button
                       key={t.id}
                       onClick={() => setSelectedTabId(t.id)}
-                      className="flex items-center justify-between rounded-lg border border-[#e2dbcd] bg-[#fffefb] px-3 py-2 text-left text-xs hover:border-[#f07a4b]"
+                      className="flex items-center justify-between rounded-lg border border-[hsl(var(--app-raised))] bg-[hsl(var(--app-surface))] px-3 py-2 text-left text-xs hover:border-[hsl(var(--app-gold))]"
                     >
                       <span className="font-semibold">
                         {t.table} · {t.customer}
@@ -359,8 +359,8 @@ export function Pos() {
             </div>
           ) : (
             <div data-testid="panel-open-tab">
-              <div className="mb-3 rounded-xl bg-[#f5f1e8] p-3">
-                <p className="font-mono text-[10px] uppercase tracking-wider text-[#8b938c]">
+              <div className="mb-3 rounded-xl bg-[hsl(var(--app-bg))] p-3">
+                <p className="font-mono text-[10px] uppercase tracking-wider text-[hsl(var(--app-faint))]">
                   {tab.number}
                 </p>
                 <p className="font-display text-lg font-bold">
@@ -372,11 +372,11 @@ export function Pos() {
                 {tab.items.map((item) => (
                   <li
                     key={item.id}
-                    className="flex items-start justify-between gap-2 border-b border-[#eee8de] pb-2 text-sm last:border-0"
+                    className="flex items-start justify-between gap-2 border-b border-[hsl(var(--app-line-soft))] pb-2 text-sm last:border-0"
                   >
                     <span className="min-w-0">
                       <span className="block font-semibold">{item.name}</span>
-                      <span className="block font-mono text-[10px] text-[#859089]">
+                      <span className="block font-mono text-[10px] text-[hsl(var(--app-muted))]">
                         {item.quantity}
                         {item.unitName ? ` × ${item.unitName}` : ""} @ {money(item.unitPrice)}
                       </span>
@@ -385,7 +385,7 @@ export function Pos() {
                   </li>
                 ))}
                 {tab.items.length === 0 && (
-                  <li className="py-4 text-center text-xs text-[#859089]">
+                  <li className="py-4 text-center text-xs text-[hsl(var(--app-muted))]">
                     Tap a product to start the order.
                   </li>
                 )}
@@ -393,20 +393,20 @@ export function Pos() {
 
               <OutstandingTickets tabId={tab.id} />
 
-              <dl className="mt-4 grid gap-1.5 border-t border-[#e8e1d6] pt-3 text-sm">
-                <div className="flex justify-between text-[#748079]">
+              <dl className="mt-4 grid gap-1.5 border-t border-[hsl(var(--app-line-soft))] pt-3 text-sm">
+                <div className="flex justify-between text-[hsl(var(--app-faint))]">
                   <dt>Subtotal</dt>
                   <dd className="font-mono">{money(tab.subtotal)}</dd>
                 </div>
-                <div className="flex justify-between text-[#748079]">
+                <div className="flex justify-between text-[hsl(var(--app-faint))]">
                   <dt>Service charge</dt>
                   <dd className="font-mono">{money(tab.serviceCharge)}</dd>
                 </div>
-                <div className="flex justify-between text-[#748079]">
+                <div className="flex justify-between text-[hsl(var(--app-faint))]">
                   <dt>Tax</dt>
                   <dd className="font-mono">{money(tab.tax)}</dd>
                 </div>
-                <div className="mt-1 flex justify-between border-t border-[#e8e1d6] pt-2 text-base font-bold">
+                <div className="mt-1 flex justify-between border-t border-[hsl(var(--app-line-soft))] pt-2 text-base font-bold">
                   <dt>Total</dt>
                   <dd className="font-mono" data-testid="tab-total">
                     {money(tab.total)}
@@ -485,7 +485,7 @@ export function Pos() {
               </select>
             </Field>
             {freeTables.length === 0 && (
-              <p className="-mt-2 text-xs text-[#a3452e]">
+              <p className="-mt-2 text-xs text-[hsl(var(--app-critical))]">
                 Every table is currently occupied. Close a tab to free one.
               </p>
             )}
@@ -506,7 +506,7 @@ export function Pos() {
           onClose={() => setUnitPicker(null)}
         >
           <div className="grid gap-4">
-            <p className="text-xs text-[#69736f]">
+            <p className="text-xs text-[hsl(var(--app-ink-soft))]">
               Inventory is tracked in <strong>{unitPicker.unit}</strong>. Selling a
               portion deducts exactly that much.
             </p>
@@ -538,14 +538,14 @@ export function Pos() {
                 <button
                   key={u.id}
                   onClick={() => commitAdd(u.id, u.sellingPrice)}
-                  className="flex items-center justify-between rounded-xl border border-[#e2dbcd] bg-[#fffefb] px-4 py-3 text-left hover:border-[#f07a4b]"
+                  className="flex items-center justify-between rounded-xl border border-[hsl(var(--app-raised))] bg-[hsl(var(--app-surface))] px-4 py-3 text-left hover:border-[hsl(var(--app-gold))]"
                   data-testid={`button-unit-${u.id}`}
                 >
                   <span>
                     <span className="block text-sm font-bold uppercase tracking-wider">
                       {u.name}
                     </span>
-                    <span className="block font-mono text-[10px] text-[#859089]">
+                    <span className="block font-mono text-[10px] text-[hsl(var(--app-muted))]">
                       {u.conversionFactor} {unitPicker.unit} per unit
                     </span>
                   </span>
@@ -555,12 +555,12 @@ export function Pos() {
                 </button>
               ))}
               {unitList.isLoading && (
-                <div className="rounded-xl bg-[#f5f1e8] p-4 text-center text-xs text-[#859089]">
+                <div className="rounded-xl bg-[hsl(var(--app-bg))] p-4 text-center text-xs text-[hsl(var(--app-muted))]">
                   Loading selling units…
                 </div>
               )}
               {unitList.isError && (
-                <div className="rounded-xl bg-[#fbeae5] p-4 text-center text-xs text-[#a3452e]">
+                <div className="rounded-xl bg-[hsl(var(--app-critical-soft))] p-4 text-center text-xs text-[hsl(var(--app-critical))]">
                   Couldn’t load selling units.
                 </div>
               )}
@@ -589,8 +589,8 @@ function OutstandingTickets({ tabId }: { tabId: string }) {
   if (!open.length) return null;
 
   return (
-    <div className="mt-3 rounded-xl bg-[#f5f1e8] p-3" data-testid="panel-outstanding">
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.12em] text-[#8b938c]">
+    <div className="mt-3 rounded-xl bg-[hsl(var(--app-bg))] p-3" data-testid="panel-outstanding">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.12em] text-[hsl(var(--app-faint))]">
         Still with the stations
       </p>
       <div className="grid gap-1.5">
@@ -600,8 +600,8 @@ function OutstandingTickets({ tabId }: { tabId: string }) {
               <span className="font-semibold">
                 {ticket.station === "BAR" ? "Bar" : "Kitchen"}
               </span>
-              <span className="ml-1 text-[#859089]">{ticket.status.toLowerCase()}</span>
-              <span className="block text-[#65716b]">
+              <span className="ml-1 text-[hsl(var(--app-muted))]">{ticket.status.toLowerCase()}</span>
+              <span className="block text-[hsl(var(--app-ink-soft))]">
                 {ticket.items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}
               </span>
             </span>

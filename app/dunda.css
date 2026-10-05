@@ -59,28 +59,28 @@
 
   /* Text. Four steps is enough: heading, body, muted, faint. */
   --app-ink: 40 22% 93%;
-  --app-ink-soft: 150 6% 72%;
-  --app-muted: 155 5% 56%;
-  --app-faint: 155 6% 54%;
+  --app-ink-soft: 155 22% 51%;
+  --app-muted: 155 9% 53%;
+  --app-faint: 155 6% 53%;
 
   /* The accent is gold, per the specification. Amber for warning, green for
      success and red for critical sit far enough apart to be told apart at a
      glance and by someone who cannot rely on hue alone — each is paired with a
      different label wherever it appears. */
-  --app-gold: 34 80% 75%;
+  --app-gold: 34 45% 54%;
   --app-gold-ink: 34 25% 2%;
-  --app-gold-soft: 36 42% 14%;
+  --app-gold-soft: 36 42% 6%;
 
-  --app-success: 152 46% 46%;
+  --app-success: 152 45% 51%;
   --app-success-soft: 152 32% 14%;
 
-  --app-warn: 38 74% 52%;
-  --app-warn-soft: 38 40% 15%;
+  --app-warn: 38 45% 57%;
+  --app-warn-soft: 38 40% 6%;
 
-  --app-critical: 6 66% 56%;
+  --app-critical: 6 45% 59%;
   --app-critical-soft: 6 40% 16%;
 
-  --app-info: 205 48% 52%;
+  --app-info: 205 45% 49%;
   --app-info-soft: 205 34% 15%;
 
   /* The shell's own chrome, which is darker than the content it holds. */
@@ -104,25 +104,25 @@
     --app-line-soft: 36 20% 90%;
 
     --app-ink: 175 22% 12%;
-    --app-ink-soft: 176 12% 32%;
-    --app-muted: 172 10% 40%;
-    --app-faint: 172 9% 42%;
+    --app-ink-soft: 155 22% 40%;
+    --app-muted: 155 9% 41%;
+    --app-faint: 155 6% 41%;
 
-    --app-gold: 34 76% 42%;
+    --app-gold: 34 45% 46%;
     --app-gold-ink: 40 30% 96%;
-    --app-gold-soft: 36 60% 92%;
+    --app-gold-soft: 36 60% 98%;
 
-    --app-success: 152 46% 34%;
-    --app-success-soft: 152 40% 92%;
+    --app-success: 152 45% 38%;
+    --app-success-soft: 152 40% 98%;
 
-    --app-warn: 34 72% 42%;
-    --app-warn-soft: 40 70% 92%;
+    --app-warn: 38 45% 43%;
+    --app-warn-soft: 40 70% 98%;
 
-    --app-critical: 6 66% 48%;
-    --app-critical-soft: 6 60% 94%;
+    --app-critical: 6 45% 46%;
+    --app-critical-soft: 6 60% 98%;
 
-    --app-info: 205 52% 40%;
-    --app-info-soft: 205 50% 94%;
+    --app-info: 205 45% 37%;
+    --app-info-soft: 205 50% 98%;
 
     --app-chrome: 175 16% 15%;
     --app-chrome-raised: 176 15% 20%;

@@ -20,11 +20,11 @@ import {
 import { QueryNotice } from "../components/query-notice";
 
 const statusStyles: Record<string, string> = {
-  AVAILABLE: "border-[#b9d9c9] bg-[#e4f1e9] text-[#397460]",
-  OCCUPIED: "border-[#efc2b3] bg-[#fff0e9] text-[#a84f32]",
-  RESERVED: "border-[#e7d39c] bg-[#fbf2d9] text-[#92702b]",
-  PAYMENT_PENDING: "border-[#e1b3b8] bg-[#f9e2e1] text-[#a54b57]",
-  CLEANING: "border-[#d3d7d6] bg-[#ecefed] text-[#6e7b75]",
+  AVAILABLE: "border-[hsl(var(--app-success-soft))] bg-[hsl(var(--app-success-soft))] text-[hsl(var(--app-success))]",
+  OCCUPIED: "border-[hsl(var(--app-gold-soft))] bg-[hsl(var(--app-gold-soft))] text-[hsl(var(--app-gold))]",
+  RESERVED: "border-[hsl(var(--app-warn-soft))] bg-[hsl(var(--app-warn-soft))] text-[hsl(var(--app-warn))]",
+  PAYMENT_PENDING: "border-[hsl(var(--app-critical-soft))] bg-[hsl(var(--app-critical-soft))] text-[hsl(var(--app-critical))]",
+  CLEANING: "border-[hsl(var(--app-line))] bg-[hsl(var(--app-raised))] text-[hsl(var(--app-muted))]",
 };
 
 const statuses = ["AVAILABLE", "OCCUPIED", "RESERVED", "PAYMENT_PENDING", "CLEANING"] as const;
@@ -113,7 +113,7 @@ export function FloorDesigner() {
                 setBranchId(e.target.value);
                 setSelected(null);
               }}
-              className="h-10 rounded-xl border border-[#dcd6c9] bg-[#fbf9f3] px-3 text-sm font-semibold outline-none"
+              className="h-10 rounded-xl border border-[hsl(var(--app-line))] bg-[hsl(var(--app-surface))] px-3 text-sm font-semibold outline-none"
               data-testid="select-designer-branch"
             >
               {branches.data?.map((b) => (
@@ -153,10 +153,10 @@ export function FloorDesigner() {
       <div className="grid gap-5 xl:grid-cols-[1fr_300px]">
         <div
           ref={canvasRef}
-          className="surface relative min-h-[560px] overflow-hidden rounded-2xl bg-[#fbf9f3]"
+          className="surface relative min-h-[560px] overflow-hidden rounded-2xl bg-[hsl(var(--app-surface))]"
           style={{
             backgroundImage:
-              "linear-gradient(#e8e1d6 1px, transparent 1px), linear-gradient(90deg, #e8e1d6 1px, transparent 1px)",
+              "linear-gradient(hsl(var(--app-line-soft)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--app-line-soft)) 1px, transparent 1px)",
             backgroundSize: "40px 40px",
           }}
           data-testid="floor-canvas"
@@ -171,7 +171,7 @@ export function FloorDesigner() {
               onClick={() => setSelected(t)}
               className={`absolute rounded-xl border-2 p-2 text-left transition-shadow ${
                 statusStyles[t.status] ?? statusStyles.AVAILABLE
-              } ${selected?.id === t.id ? "shadow-lg ring-2 ring-[#f07a4b]" : ""}`}
+              } ${selected?.id === t.id ? "shadow-lg ring-2 ring-[hsl(var(--app-gold))]" : ""}`}
               style={{
                 left: t.x,
                 top: t.y,
@@ -195,7 +195,7 @@ export function FloorDesigner() {
             </button>
           ))}
           {rows.length === 0 && !tables.isLoading && (
-            <p className="absolute inset-0 grid place-items-center text-sm text-[#859089]">
+            <p className="absolute inset-0 grid place-items-center text-sm text-[hsl(var(--app-muted))]">
               Empty floor. Add a table to begin.
             </p>
           )}
@@ -204,7 +204,7 @@ export function FloorDesigner() {
         <aside className="surface h-fit rounded-2xl p-4">
           <h3 className="mb-4 font-display text-lg font-bold">Inspector</h3>
           {!live ? (
-            <p className="text-sm text-[#69736f]">
+            <p className="text-sm text-[hsl(var(--app-ink-soft))]">
               Select a table on the canvas to edit its name, capacity, size and status.
             </p>
           ) : (
@@ -263,8 +263,8 @@ export function FloorDesigner() {
                       }}
                       className={`rounded-lg border px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide ${
                         live.status === s
-                          ? "border-[#f07a4b] bg-[#f07a4b] text-[#182127]"
-                          : "border-[#e2dbcd] bg-[#fffefb] text-[#69736f]"
+                          ? "border-[hsl(var(--app-gold))] bg-[hsl(var(--app-gold))] text-[hsl(var(--app-ink))]"
+                          : "border-[hsl(var(--app-raised))] bg-[hsl(var(--app-surface))] text-[hsl(var(--app-ink-soft))]"
                       }`}
                       data-testid={`button-status-${s}`}
                     >
@@ -288,11 +288,11 @@ export function FloorDesigner() {
             </div>
           )}
 
-          <div className="mt-6 border-t border-[#e8e1d6] pt-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#8b938c]">
+          <div className="mt-6 border-t border-[hsl(var(--app-line-soft))] pt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[hsl(var(--app-faint))]">
               Sections
             </p>
-            <ul className="grid gap-1 text-xs text-[#65716b]">
+            <ul className="grid gap-1 text-xs text-[hsl(var(--app-ink-soft))]">
               {sections.map((s: string) => (
                 <li key={s} className="flex justify-between">
                   <span>{s}</span>
@@ -302,7 +302,7 @@ export function FloorDesigner() {
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-[10px] text-[#98a09a]">
+            <p className="mt-3 text-[10px] text-[hsl(var(--app-muted))]">
               {floors.data?.floors.length ?? 0} floor(s) configured
             </p>
           </div>

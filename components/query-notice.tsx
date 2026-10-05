@@ -4,19 +4,19 @@ import { Button, Skeleton } from "./ui";
 
 const toneStyles = {
   error: {
-    panel: "bg-[#fbeae5] border-[#e6bdb2]",
-    title: "text-[#a3452e]",
-    detail: "text-[#8a5140]",
+    panel: "bg-[hsl(var(--app-critical-soft))] border-[hsl(var(--app-gold-soft))]",
+    title: "text-[hsl(var(--app-critical))]",
+    detail: "text-[hsl(var(--app-critical))]",
   },
   warning: {
-    panel: "bg-[#fbf2d9] border-[#e7d39c]",
-    title: "text-[#92702b]",
-    detail: "text-[#7d6636]",
+    panel: "bg-[hsl(var(--app-warn-soft))] border-[hsl(var(--app-warn-soft))]",
+    title: "text-[hsl(var(--app-warn))]",
+    detail: "text-[hsl(var(--app-warn))]",
   },
   info: {
-    panel: "bg-[#e9efee] border-[#cfdedb]",
-    title: "text-[#3f6b62]",
-    detail: "text-[#4f736a]",
+    panel: "bg-[hsl(var(--app-success-soft))] border-[hsl(var(--app-success-soft))]",
+    title: "text-[hsl(var(--app-success))]",
+    detail: "text-[hsl(var(--app-success))]",
   },
 } as const;
 
@@ -86,16 +86,16 @@ export function QueryNotice({
   if (empty) {
     return (
       <div
-        className="grid place-items-center gap-2 p-10 text-center text-sm text-[#69736f]"
+        className="grid place-items-center gap-2 p-10 text-center text-sm text-[hsl(var(--app-ink-soft))]"
         data-testid="status-empty"
       >
-        <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#e8f0ed] text-[#397f71]">
+        <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[hsl(var(--app-success-soft))] text-[hsl(var(--app-success))]">
           <span className="text-lg">◦</span>
         </div>
-        <p className="font-semibold text-[#273239]">
+        <p className="font-semibold text-[hsl(var(--app-info))]">
           {emptyTitle ?? (what ? `No ${what} yet.` : "Nothing here yet.")}
         </p>
-        <p className="max-w-xs text-xs text-[#859089]">
+        <p className="max-w-xs text-xs text-[hsl(var(--app-muted))]">
           {emptyHint ??
             (what
               ? `${what[0].toUpperCase()}${what.slice(1)} appear here as soon as they exist.`
