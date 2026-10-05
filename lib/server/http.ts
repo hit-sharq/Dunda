@@ -42,10 +42,10 @@ function operatorIds(): Set<string> {
 }
 
 export async function resolveSession(): Promise<Session | null> {
-  const { userId } = await auth();
+  const { userId, sessionClaims } = await auth();
   if (!userId) return null;
 
-  const staff = await prisma.dunda_staff.findFirst({
+  let staff = await prisma.dunda_staff.findFirst({
     where: { clerk_user_id: userId, status: "ACTIVE" },
     include: {
       dunda_roles: {
@@ -55,6 +55,61 @@ export async function resolveSession(): Promise<Session | null> {
       },
     },
   });
+
+  // A club adds its crew by name and email before anybody signs up, so a staff row
+  // usually exists with no login attached. When that person does sign up, their
+  // account claims the row on first sight rather than being asked to be added
+  // again by somebody who has already added them.
+  //
+  // Matched on email and only where clerk_user_id is still null: a row that
+  // already belongs to another login is never taken over, and the unique
+  // constraint on clerk_user_id is what stops two accounts claiming one row.
+  if (!staff) {
+    const email = sessionClaims?.email as string | undefined;
+    if (email) {
+      staff = await prisma.dunda_staff.findFirst({
+        where: {
+          email: { equals: email.toLowerCase(), mode: "insensitive" },
+          clerk_user_id: null,
+          status: "ACTIVE",
+        },
+        include: {
+          dunda_roles: {
+            include: {
+              dunda_role_permissions: { include: { dunda_permissions: true } },
+            },
+          },
+        },
+      });
+
+      if (staff) {
+        try {
+          await prisma.dunda_staff.update({
+            where: { id: staff.id },
+            data: { clerk_user_id: userId },
+          });
+          await prisma.dunda_audit_logs.create({
+            data: {
+              organization_id: staff.organization_id,
+              branch_id: staff.branch_id,
+              staff_id: staff.id,
+              action: "LINK",
+              entity: "staff",
+              entity_id: staff.id,
+              detail: `${staff.name} signed up and claimed their place on the roster`,
+              previous_value: { clerkUserId: null },
+              new_value: { clerkUserId: userId },
+            },
+          });
+        } catch {
+          // Another request claimed the same row first. That is a race with a
+          // correct outcome, not a failure: the row is now linked and the next
+          // request resolves this person normally.
+          staff = null;
+        }
+      }
+    }
+  }
 
   if (!staff) {
     return {
