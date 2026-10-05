@@ -173,10 +173,37 @@ export function StaffManager() {
                   onSuccess: (created) => {
                     qc.invalidateQueries({ queryKey: getGetStaffQueryKey() });
                     setInviting(null);
-                    setNotice({
-                      tone: "ok",
-                      text: `${created.name} added as ${created.role}. They are linked as soon as they sign up with ${created.email ?? "that email"}.`,
-                    });
+                    // Say what actually happened to the invitation rather than a
+                    // line that reads the same either way. Somebody added to a
+                    // night roster is waiting on an email; whether it went out is
+                    // the first thing they want to know.
+                    // Say what actually happened to the invitation rather than a
+                    // line that reads the same either way. Somebody added to a
+                    // night roster is waiting on an email; whether it went out is
+                    // the first thing they want to know.
+                    (function report() {
+                      const outcome = created as unknown as {
+                        invitation?: { sent: boolean; reason?: string };
+                      };
+                      if (outcome.invitation?.sent) {
+                        setNotice({
+                          tone: "ok",
+                          text: `${created.name} added as ${created.role}. An invitation is on its way to ${created.email} \u2014 their tabs are already set for it.`,
+                        });
+                        return;
+                      }
+                      if (outcome.invitation?.reason) {
+                        setNotice({
+                          tone: "err",
+                          text: `${created.name} added as ${created.role}, but the invitation did not go out: ${outcome.invitation.reason} They can still sign up themselves with that address.`,
+                        });
+                        return;
+                      }
+                      setNotice({
+                        tone: "ok",
+                        text: `${created.name} added as ${created.role}, with no email to invite. They can sign up and will be linked on their first sign-in.`,
+                      });
+                    })()
                   },
                   onError: (err: unknown) =>
                     setNotice({ tone: "err", text: describeActionError(err, { what: "this person" }) }),
@@ -206,9 +233,16 @@ export function StaffManager() {
                 value={inviting.email}
                 onChange={(e) => setInviting({ ...inviting, email: e.target.value })}
                 className={inputClass}
-                placeholder="nia@example.com"
+                placeholder="the address they will sign up with"
                 data-testid="input-invite-email"
               />
+              {/* The invitation goes to this address, and so does the claim when
+                  they accept, so it is not decoration: a different address means a
+                  person who signs up is not linked to this row. */}
+              <p className="mt-1 text-xs text-[#8b938c]">
+                The invitation goes here, and this is what links their account to
+                the role you pick.
+              </p>
             </Field>
             <Field label="Phone (optional)">
               <input

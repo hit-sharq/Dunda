@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/client";
 import { route, requireSession, requirePermission, orgWhere, assertSameOrg } from "@/lib/server/http";
 import { createStaffSchema, createShiftSchema, clockOutSchema } from "@/lib/server/schemas";
@@ -128,8 +129,70 @@ export const POST = route(async (request: Request) => {
     return created;
   });
 
+  // Clerk sends the invitation, so the club is not running its own mail and does
+  // not need its own bounce handling, token store or resend logic. The staff row
+  // is already written, so when the person accepts and signs up, their claim
+  // matches this address and their role's tabs appear immediately.
+  //
+  // A failure here is reported but does not undo the row: the person is on the
+  // roster either way, and a manager can resend. Losing the invite while losing
+  // the person is the worse of the two failures.
+  let invitation: { sent: boolean; reason?: string; url?: string } = { sent: false };
+
+  if (!parsed.data.email) {
+    invitation = { sent: false, reason: 'No email address was given, so there was nothing to send.' };
+  } else {
+    try {
+      const clerk = await clerkClient();
+      const created = await clerk.invitations.createInvitation({
+        emailAddress: parsed.data.email,
+        // A week is long enough for somebody on a night shift to see it, and short
+        // enough that an old invite in a forwarded message is not a live key.
+        expiresInDays: 7,
+        // They land on the app, signed in, with their tabs already correct.
+        redirectUrl: new URL('/', request.url).toString(),
+      });
+      invitation = { sent: true, url: created.url };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The invitation could not be sent.';
+      // Clerk refuses to invite an address that already has an account or a pending
+      // invitation. That is information the manager needs, not a crash.
+      const alreadyKnown = /already|exists|invited/i.test(message);
+      invitation = {
+        sent: false,
+        reason: alreadyKnown
+          ? 'That address already has an account or a pending invitation.'
+          : message,
+      };
+    }
+  }
+
+  if (parsed.data.email) {
+    await prisma.dunda_audit_logs.create({
+      data: {
+        organization_id: organizationId,
+        branch_id: parsed.data.branchId ?? session.branchId,
+        staff_id: session.staffId,
+        action: 'INVITE',
+        entity: 'staff',
+        entity_id: member.id,
+        detail: invitation.sent
+          ? `Invitation sent to ${parsed.data.email} for ${role.name}`
+          : `${member.name} added without an invitation: ${invitation.reason ?? 'unknown reason'}`,
+      },
+    });
+  }
+
   return NextResponse.json(
-    { id: member.id, name: member.name, roleId: member.role_id, status: member.status },
+    {
+      id: member.id,
+      name: member.name,
+      email: member.email,
+      roleId: member.role_id,
+      role: role.name,
+      status: member.status,
+      invitation,
+    },
     { status: 201 },
   );
 });
