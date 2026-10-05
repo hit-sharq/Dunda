@@ -270,7 +270,7 @@ export function StaffManager() {
                   onSuccess: () => {
                     qc.invalidateQueries({ queryKey: getGetStaffQueryKey() });
                     setEditing(null);
-                    setNotice({ tone: "ok", text: `${editing.staff.name} updated.` });
+                    setNotice({ tone: "ok", text: `${editing.staff.name} updated. Their tabs change the next time they open the app or come back to this window.` });
                   },
                   onError: (err: unknown) =>
                     setNotice({ tone: "err", text: describeActionError(err) }),

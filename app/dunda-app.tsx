@@ -59,7 +59,11 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 15_000,
-      refetchOnWindowFocus: false,
+      // Refetching on focus is what makes a permission change visible. A manager
+      // moves somebody into a role, and the only thing that changes on their
+      // screen is the sidebar — which reads /me. Without this, the tabs stay as
+      // they were until something else happened to invalidate the query.
+      refetchOnWindowFocus: true,
       // 4xx responses are answers, not transient faults: retrying an
       // unauthorized or forbidden call can only produce the same answer.
       retry: (failureCount, error) => {
