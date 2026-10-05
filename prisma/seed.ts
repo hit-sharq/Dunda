@@ -186,16 +186,16 @@ const TABLES = [
 ] as const;
 
 const STAFF = [
-  { name: "Wanjiku Kamau", role: "owner", email: "wanjiku@singaporeclub.co.ke", phone: "+254722100001" },
-  { name: "Brian Otieno", role: "general_manager", email: "brian@singaporeclub.co.ke", phone: "+254722100002" },
-  { name: "Mercy Achieng", role: "manager", email: "mercy@singaporeclub.co.ke", phone: "+254722100003" },
-  { name: "Kevin Mwangi", role: "cashier", email: "kevin@singaporeclub.co.ke", phone: "+254722100004" },
-  { name: "Peter Njoroge", role: "bartender", email: "peter@singaporeclub.co.ke", phone: "+254722100005" },
-  { name: "Alice Chebet", role: "bartender", email: "alice@singaporeclub.co.ke", phone: "+254722100006" },
-  { name: "David Kimani", role: "waiter", email: "david@singaporeclub.co.ke", phone: "+254722100007" },
-  { name: "Grace Wambui", role: "waiter", email: "grace@singaporeclub.co.ke", phone: "+254722100008" },
-  { name: "Samuel Kiptoo", role: "pool_attendant", email: "samuel@singaporeclub.co.ke", phone: "+254722100009" },
-  { name: "Faith Nyambura", role: "inventory_manager", email: "faith@singaporeclub.co.ke", phone: "+254722100010" },
+  { name: "Wanjiku Kamau", role: "owner", email: "wanjiku@example.com", phone: "+254722100001" },
+  { name: "Brian Otieno", role: "general_manager", email: "brian@example.com", phone: "+254722100002" },
+  { name: "Mercy Achieng", role: "manager", email: "mercy@example.com", phone: "+254722100003" },
+  { name: "Kevin Mwangi", role: "cashier", email: "kevin@example.com", phone: "+254722100004" },
+  { name: "Peter Njoroge", role: "bartender", email: "peter@example.com", phone: "+254722100005" },
+  { name: "Alice Chebet", role: "bartender", email: "alice@example.com", phone: "+254722100006" },
+  { name: "David Kimani", role: "waiter", email: "david@example.com", phone: "+254722100007" },
+  { name: "Grace Wambui", role: "waiter", email: "grace@example.com", phone: "+254722100008" },
+  { name: "Samuel Kiptoo", role: "pool_attendant", email: "samuel@example.com", phone: "+254722100009" },
+  { name: "Faith Nyambura", role: "inventory_manager", email: "faith@example.com", phone: "+254722100010" },
 ] as const;
 
 const CUSTOMERS = [
@@ -309,7 +309,7 @@ async function main() {
       id: ORG_ID,
       name: "Singapore Club",
       slug: "singapore-club",
-      domain: "singaporeclub.co.ke",
+      domain: "example.com",
       currency: "KES",
       tax_rate: 16,
       service_charge_rate: 10,
@@ -430,7 +430,7 @@ async function main() {
       status: "LIVE",
       timezone: "Africa/Nairobi",
       phone: "+254202000100",
-      email: "info@singaporeclub.co.ke",
+      email: "info@example.com",
     },
   });
 
