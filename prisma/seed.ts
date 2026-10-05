@@ -31,7 +31,7 @@ const ROLES = [
     isOwner: false,
     description: "Runs the club day to day",
     permissions: [
-      "view_pos", "create_order", "modify_order", "update_ticket", "apply_discount",
+      "view_pos", "view_orders", "manage_pool", "create_order", "modify_order", "update_ticket", "apply_discount",
       "void_order", "refund_payment", "close_order", "manage_payments", "view_inventory",
       "adjust_inventory", "approve_transfer", "manage_products", "manage_prices",
       "manage_staff", "manage_roles", "clock_shift", "manage_events",
@@ -45,7 +45,7 @@ const ROLES = [
     isOwner: false,
     description: "Floor and till oversight",
     permissions: [
-      "view_pos", "create_order", "modify_order", "update_ticket", "apply_discount",
+      "view_pos", "view_orders", "manage_pool", "create_order", "modify_order", "update_ticket", "apply_discount",
       "void_order", "refund_payment", "close_order", "manage_payments", "view_inventory",
       "adjust_inventory", "approve_transfer", "manage_products", "manage_reservations",
       "manage_customers", "manage_floor", "view_reports", "clock_shift",
@@ -63,21 +63,21 @@ const ROLES = [
     name: "Bartender",
     isOwner: false,
     description: "Works the bar",
-    permissions: ["view_pos", "create_order", "modify_order", "update_ticket", "view_inventory", "clock_shift"],
+    permissions: ["view_pos", "view_orders", "create_order", "modify_order", "update_ticket", "view_inventory", "clock_shift"],
   },
   {
     key: "waiter",
     name: "Waiter",
     isOwner: false,
     description: "Takes orders on the floor",
-    permissions: ["view_pos", "create_order", "modify_order", "update_ticket", "manage_floor", "clock_shift"],
+    permissions: ["view_pos", "view_orders", "create_order", "modify_order", "update_ticket", "clock_shift"],
   },
   {
     key: "pool_attendant",
     name: "Pool Attendant",
     isOwner: false,
     description: "Runs the pool tables",
-    permissions: ["view_pos", "manage_floor", "manage_reservations", "clock_shift"],
+    permissions: ["manage_pool", "manage_reservations", "view_inventory", "clock_shift"],
   },
   {
     key: "inventory_manager",
@@ -101,6 +101,13 @@ const PERMISSIONS = [
   ["refund_payment", "Issue refunds", "Payments"],
   ["close_order", "Close orders", "POS"],
   ["manage_payments", "Take payment", "Payments"],
+  // Split from view_pos so the order queue can be granted on its own. A bartender
+  // needs their own station, not every order in the building, and a cashier needs
+  // the queue without needing anything else the till exposes.
+  ["view_orders", "See the order queue", "POS"],
+  // A pool attendant runs tables, not the bar. Borrowing view_pos gave them the
+  // till, the floor screen and the full order queue, none of which is their work.
+  ["manage_pool", "Run the pool tables", "Pool"],
   ["view_inventory", "View stock", "Inventory"],
   ["adjust_inventory", "Adjust stock", "Inventory"],
   ["approve_transfer", "Approve transfers", "Inventory"],

@@ -1,12 +1,12 @@
 'use client';
 
-import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ClerkProvider, SignIn, SignUp, useAuth, useClerk, useUser } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
-  Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bell, CalendarDays, ChevronDown,
+  Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bell, CalendarDays, ChevronDown, CircleDot,
   ChevronRight, CircleHelp, ClipboardList, CreditCard, Database, DoorOpen, Grid2X2,
   LayoutDashboard, Menu, Package, Plus, RefreshCw, Search, Settings2, ShoppingBag,
   SlidersHorizontal, Sparkles, Store,   Ticket, UserRound, Users, Utensils, WalletCards, X,
@@ -132,26 +132,30 @@ const nav: Array<{
   permission?: string;
   /** Never rendered unless /me says the caller may. */
   operatorOnly?: boolean;
+  /** Which part of the job this screen serves. Drives the grouped navigation. */
+  group?: 'Tonight' | 'Selling' | 'Running the club' | 'Numbers' | 'Platform';
 }> = [
-  { href: '/overview', label: 'Overview', icon: LayoutDashboard },
-  { href: '/pos', label: 'Point of sale', icon: ShoppingBag, permission: 'view_pos' },
-  { href: '/floor', label: 'Floor', icon: Grid2X2, permission: 'view_pos' },
-  { href: '/orders', label: 'Orders', icon: ClipboardList, permission: 'view_pos' },
-  { href: '/bar', label: 'Bar / Kitchen', icon: Utensils, permission: 'update_ticket' },
-  { href: '/designer', label: 'Floor designer', icon: SlidersHorizontal, permission: 'manage_floor' },
-  { href: '/products', label: 'Products', icon: Package, permission: 'manage_products' },
-  { href: '/inventory', label: 'Inventory', icon: WalletCards, permission: 'view_inventory' },
-  { href: '/reservations', label: 'Reservations', icon: Ticket, permission: 'manage_reservations' },
-  { href: '/customers', label: 'Customers', icon: Users, permission: 'manage_customers' },
-  { href: '/events', label: 'Events', icon: CalendarDays, permission: 'manage_events' },
-  { href: '/staff', label: 'Staff', icon: UserRound, permission: 'manage_staff' },
-  { href: '/reports', label: 'Reports', icon: BarChart3, permission: 'view_reports' },
-  { href: '/hq', label: 'HQ', icon: Store, permission: 'view_reports' },
-  { href: '/settings', label: 'Settings', icon: Settings2, permission: 'manage_roles' },
+  { href: '/overview', label: 'Overview', icon: LayoutDashboard, group: 'Tonight' },
+  { href: '/floor', label: 'Floor', icon: Grid2X2, permission: 'view_pos', group: 'Tonight' },
+  { href: '/orders', label: 'Orders', icon: ClipboardList, permission: 'view_orders', group: 'Tonight' },
+  { href: '/bar', label: 'Bar / Kitchen', icon: Utensils, permission: 'update_ticket', group: 'Tonight' },
+  { href: '/pool', label: 'Pool', icon: CircleDot, permission: 'manage_pool', group: 'Tonight' },
+  { href: '/pos', label: 'Point of sale', icon: ShoppingBag, permission: 'view_pos', group: 'Selling' },
+  { href: '/products', label: 'Products', icon: Package, permission: 'manage_products', group: 'Selling' },
+  { href: '/inventory', label: 'Inventory', icon: WalletCards, permission: 'view_inventory', group: 'Selling' },
+  { href: '/designer', label: 'Floor designer', icon: SlidersHorizontal, permission: 'manage_floor', group: 'Selling' },
+  { href: '/reservations', label: 'Reservations', icon: Ticket, permission: 'manage_reservations', group: 'Running the club' },
+  { href: '/customers', label: 'Customers', icon: Users, permission: 'manage_customers', group: 'Running the club' },
+  { href: '/events', label: 'Events', icon: CalendarDays, permission: 'manage_events', group: 'Running the club' },
+  { href: '/staff', label: 'Staff', icon: UserRound, permission: 'manage_staff', group: 'Running the club' },
+  { href: '/reports', label: 'Reports', icon: BarChart3, permission: 'view_reports', group: 'Numbers' },
+  { href: '/hq', label: 'HQ', icon: Store, permission: 'view_reports', group: 'Numbers' },
+  { href: '/settings', label: 'Settings', icon: Settings2, permission: 'manage_roles', group: 'Numbers' },
   {
     href: '/admin',
     label: 'Operator',
     icon: Store,
+    group: 'Platform',
     /** Shown only when /me says so, so it is never present in a club user's page. */
     operatorOnly: true,
   },
@@ -326,7 +330,36 @@ function AppShell({ children }: { children: ReactNode }) {
           {branches.data?.map((branch) => <div key={branch.id} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm" data-testid={`button-branch-${branch.id}`}><span className="truncate">{branch.name}{branch.city ? <span className="ml-1 text-xs text-[var(--app-faint)]">{branch.city}</span> : null}</span><span className={branch.status === 'LIVE' ? 'text-xs text-[var(--app-success)]' : 'text-xs text-[var(--app-faint)]'}>{branch.status}</span></div>)}
         </div>}
       </div>}
-      <nav className="grid gap-1" aria-label="Main navigation">{visibleNav.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => setMobileOpen(false)} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors ${location === href ? 'bg-[var(--app-gold)] font-semibold text-[var(--app-ink)]' : 'text-[var(--app-muted)] hover:bg-[var(--app-chrome-raised)] hover:text-[var(--app-chrome-ink)]'}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}><Icon size={17} strokeWidth={1.8} /><span>{label}</span>{label === 'Orders' && openOrderCount > 0 && <span className="ml-auto rounded-full bg-[var(--app-critical)] px-1.5 py-0.5 text-[10px] text-[var(--app-gold-ink)]">{openOrderCount}</span>}</Link>)}</nav>
+      {/* Grouped by the job rather than the module, because a cashier's shift is
+          "sell, take money, close" and a flat list of sixteen screens in whatever
+          order they were written in does not say that. A section with nothing in
+          it is dropped rather than left as a heading over nothing. */}
+      <nav className="grid gap-4" aria-label="Main navigation">
+        {(['Tonight', 'Selling', 'Running the club', 'Numbers', 'Platform'] as const).map((group) => {
+          const items = visibleNav.filter((item) => item.group === group);
+          if (items.length === 0) return null;
+          return (
+            <div key={group} className="grid gap-1">
+              <p className="px-3 pb-1 font-mono text-[9px] font-semibold uppercase tracking-[.18em] text-[var(--app-faint)]">{group}</p>
+              {items.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors ${location === href ? 'bg-[var(--app-gold)] font-semibold text-[var(--app-ink)]' : 'text-[var(--app-muted)] hover:bg-[var(--app-chrome-raised)] hover:text-[var(--app-chrome-ink)]'}`}
+                  data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}
+                >
+                  <Icon size={17} strokeWidth={1.8} />
+                  <span>{label}</span>
+                  {label === 'Orders' && openOrderCount > 0 && (
+                    <span className="ml-auto rounded-full bg-[var(--app-critical)] px-1.5 py-0.5 text-[10px] text-[var(--app-gold-ink)]">{openOrderCount}</span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          );
+        })}
+      </nav>
        <div className="mt-auto grid gap-1 border-t border-[var(--app-line)] pt-4"><button onClick={signOutAndReturn} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-[var(--app-muted)] hover:bg-[var(--app-chrome-raised)] hover:text-[var(--app-chrome-ink)]" data-testid="button-sign-out"><DoorOpen size={17} /> Sign out</button></div>
       <div className="mt-5 rounded-xl border border-[var(--app-info)] bg-[var(--app-info)] p-3"><div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[.16em] text-[var(--app-success)]"><span>Table occupancy</span><span className="text-[var(--app-success)]">Live</span></div><div className="mb-2 flex items-end justify-between"><span className="font-display text-2xl font-bold">{pulseSummary.data ? `${shiftPulse.summary.occupancy}%` : '—'}</span><Activity size={17} className="text-[var(--app-gold)]" /></div><div className="h-1.5 overflow-hidden rounded-full bg-[var(--app-info)]"><div className="h-full rounded-full bg-[var(--app-gold)]" style={{ width: `${shiftPulse.summary.occupancy}%` }} /></div><p className="mt-2 text-[11px] text-[var(--app-success)]">{shiftPulse.summary.label}</p></div>
     </aside>
@@ -478,6 +511,193 @@ function Floor() {
   return <div className="rise"><PageIntro eyebrow={`Live floor / ${tableCount} tables`} title="Know every seat." detail="A live read of the room. Tap a table to see its current check and handoff." action={<select value={id} onChange={(e) => setBranchId(e.target.value)} className="h-10 rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-3 text-sm font-semibold outline-none" data-testid="select-floor-branch">{branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>} /><div className="mb-5 flex flex-wrap gap-2">{Object.entries({ AVAILABLE: 'Available', OCCUPIED: 'Occupied', RESERVED: 'Reserved', PAYMENT_PENDING: 'Payment due', CLEANING: 'Resetting' }).map(([key, label]) => <span key={key} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${colors[key]}`}><i className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current" />{label}</span>)}</div><QueryNotice loading={floor.isLoading || branches.isLoading} error={floor.isError || branches.isError} empty={!floor.isLoading && !floor.isError && !sections.length} onRetry={() => floor.refetch()} /><div className="grid gap-5 lg:grid-cols-2">{sections.map((section) => <section key={section.id} className="surface rounded-2xl p-5"><div className="mb-4 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[var(--app-faint)]">Section</p><h3 className="font-display text-xl font-bold">{section.name}</h3></div><span className="font-mono text-xs text-[var(--app-muted)]">{section.tables.length} seats</span></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{section.tables.map((t) => <button key={t.id} className={`min-h-[116px] rounded-xl border p-3 text-left transition-transform hover:-translate-y-0.5 ${colors[t.status]}`} data-testid={`button-table-${t.id}`}><div className="flex items-start justify-between"><span className="font-display text-xl font-bold">{t.name}</span><span className="font-mono text-[10px]">{t.seats} pax</span></div><span className="mt-5 block text-xs font-semibold">{t.status.replace('_', ' ')}</span><span className="mt-1 block font-mono text-sm font-medium">{t.total ? money(t.total) : '—'}</span></button>)}</div></section>)}</div></div>;
 }
 
+interface PoolTableView {
+  id: string;
+  name: string;
+  status: string;
+  rate: number;
+  minimumMinutes: number;
+  hasRate: boolean;
+  session: {
+    id: string;
+    status: string;
+    elapsedSeconds: number;
+    rate: number;
+    accrued: number;
+  } | null;
+}
+
+/** A running game reads as hours and minutes rather than a raw seconds count. */
+function formatDuration(seconds: number): string {
+  const safe = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  if (hours === 0) return `${minutes}m`;
+  return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+}
+
+
+/**
+ * Where a role lands when it signs in.
+ *
+ * Everyone opening on the same screen is why the app can feel generic: a
+ * bartender and the owner both got the revenue command centre, and neither of
+ * those was what they opened the app to do. Each role now starts on the screen
+ * that is its work, and the list is ordered so the first entry they may use
+ * wins — a permission the role does not hold is skipped rather than sent
+ * somewhere they cannot follow.
+ */
+const ROLE_LANDING: { match: string[]; href: string }[] = [
+  // Management first. A manager can do everything a pool attendant can, so
+  // ordering by permission rather than by seniority would drop the owner of the
+  // club onto the pool screen — which is why this list is built from what each
+  // role is for, and the manager entries come ahead of the floor ones.
+  { match: ['manage_staff', 'manage_roles'], href: '/overview' },
+  { match: ['void_order', 'refund_payment'], href: '/overview' },
+  { match: ['adjust_inventory', 'approve_transfer'], href: '/inventory' },
+  { match: ['view_reports'], href: '/reports' },
+  { match: ['manage_payments'], href: '/pos' },
+  { match: ['update_ticket'], href: '/bar' },
+  // Before reservations on purpose. A pool attendant takes bookings, but the
+  // tables themselves are the job — landing them on a calendar to manage the
+  // exception rather than the norm is the wrong first screen.
+  { match: ['manage_pool'], href: '/pool' },
+  { match: ['manage_reservations'], href: '/reservations' },
+  { match: ['view_pos'], href: '/pos' },
+];
+
+function landingFor(permissions: string[] | undefined): string | null {
+  if (!permissions) return null;
+  for (const candidate of ROLE_LANDING) {
+    if (candidate.match.some((permission) => permissions.includes(permission))) {
+      return candidate.href;
+    }
+  }
+  return null;
+}
+
+/**
+ * The pool area.
+ *
+ * A pool attendant's whole job is these five tables, so it is its own screen
+ * rather than something buried in the floor view. Rate and accrued time come from
+ * the server on every read, so the number an attendant quotes is the number the
+ * session will actually settle at — the charge is worked out from the rate rules
+ * in the database, never from a value held in the browser.
+ */
+function Pool() {
+  const [tables, setTables] = useState<PoolTableView[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const response = await fetch('/api/pool/tables', { credentials: 'include' });
+      if (!response.ok) throw new Error('Could not read the pool tables.');
+      const body = (await response.json()) as { tables: PoolTableView[] };
+      setTables(body.tables);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not read the pool tables.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    // A running session's charge moves on its own, so the table is re-read on a
+    // timer rather than only when the attendant presses something.
+    const timer = setInterval(() => void load(), 15000);
+    return () => clearInterval(timer);
+  }, [load]);
+
+  async function act(poolTableId: string, action: 'PAUSE' | 'RESUME' | 'END') {
+    const session = tables.find((t) => t.session)?.session;
+    if (!session) return;
+    setBusy(`${poolTableId}:${action}`);
+    try {
+      const response = await fetch(`/api/pool/sessions/${session.id}?action=${action}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? 'That could not be done.');
+      }
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'That could not be done.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function start(poolTableId: string) {
+    setBusy(`${poolTableId}:START`);
+    try {
+      const response = await fetch('/api/pool/tables', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ poolTableId }),
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? 'That table could not be opened.');
+      }
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'That table could not be opened.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return <div className="rise">
+    <PageIntro eyebrow="Tonight / Pool" title="Pool tables."
+      detail="Start a game, pause it while the table turns over, end it when they leave. The charge follows the rate the club has configured."
+      action={<button onClick={() => void load()} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--app-line)] px-4 text-sm font-semibold text-[var(--app-ink-soft)] hover:bg-[var(--app-raised)]">Refresh</button>} />
+    {error && <p role="alert" className="mb-4 rounded-xl border border-[var(--app-critical)] bg-[var(--app-critical-soft)] px-4 py-3 text-sm text-[var(--app-critical)]">{error}</p>}
+    {loading ? <p className="text-sm text-[var(--app-faint)]">Reading the pool area…</p>
+      : tables.length === 0 ? <p className="text-sm text-[var(--app-faint)]">No pool tables are set up for this branch yet.</p>
+      : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {tables.map((table) => {
+          const s = table.session;
+          return <div key={table.id} className="surface rounded-2xl p-4" data-testid={`pool-${table.id}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-display text-lg font-bold">{table.name}</h3>
+                <p className="mt-0.5 text-xs text-[var(--app-muted)]">
+                  {money(table.rate)} per hour
+                  {table.minimumMinutes > 0 ? ` · ${table.minimumMinutes} min minimum` : ''}
+                </p>
+              </div>
+              <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${s ? 'bg-[var(--app-success-soft)] text-[var(--app-success)]' : table.hasRate ? 'bg-[var(--app-raised)] text-[var(--app-muted)]' : 'bg-[var(--app-critical-soft)] text-[var(--app-critical)]'}`}>
+                {s ? (s.status === 'PAUSED' ? 'Paused' : 'In play') : table.hasRate ? 'Free' : 'No rate'}
+              </span>
+            </div>
+            {s ? <>
+              <p className="mt-4 font-mono text-3xl font-semibold tabular-nums text-[var(--app-ink)]">{formatDuration(s.elapsedSeconds)}</p>
+              <p className="mt-1 text-sm text-[var(--app-muted)]">Running total <span className="font-mono text-[var(--app-gold)]">{money(s.accrued)}</span></p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {s.status === 'ACTIVE'
+                  ? <button onClick={() => void act(table.id, 'PAUSE')} disabled={busy !== null} className="inline-flex min-h-10 items-center rounded-xl border border-[var(--app-line)] px-3 text-sm font-semibold text-[var(--app-ink-soft)] hover:bg-[var(--app-raised)] disabled:opacity-50">Pause</button>
+                  : <button onClick={() => void act(table.id, 'RESUME')} disabled={busy !== null} className="inline-flex min-h-10 items-center rounded-xl border border-[var(--app-line)] px-3 text-sm font-semibold text-[var(--app-ink-soft)] hover:bg-[var(--app-raised)] disabled:opacity-50">Resume</button>}
+                <button onClick={() => void act(table.id, 'END')} disabled={busy !== null} className="inline-flex min-h-10 items-center rounded-xl bg-[var(--app-gold)] px-3 text-sm font-semibold text-[var(--app-ink)] hover:opacity-90 disabled:opacity-50">End game</button>
+              </div>
+            </> : <button onClick={() => void start(table.id)} disabled={busy !== null || !table.hasRate}
+                className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-[var(--app-gold)] text-sm font-semibold text-[var(--app-ink)] hover:opacity-90 disabled:opacity-40"
+                title={table.hasRate ? 'Start a game' : 'This table has no rate configured'}>
+              {table.hasRate ? 'Start game' : 'No rate configured'}
+            </button>}
+          </div>;
+        })}
+      </div>}
+  </div>;
+}
+
 function Orders() {
   const orders = useGetOrders();
   const columns = [{ key: 'PENDING', label: 'New', color: 'bg-[var(--app-info-soft)]' }, { key: 'ACCEPTED', label: 'Accepted', color: 'bg-[var(--app-success-soft)]' }, { key: 'PREPARING', label: 'Preparing', color: 'bg-[var(--app-warn-soft)]' }, { key: 'READY', label: 'Ready', color: 'bg-[var(--app-critical-soft)]' }, { key: 'SERVED', label: 'Served', color: 'bg-[var(--app-warn-soft)]' }];
@@ -592,6 +812,7 @@ function Landing() {
 
 function ProtectedRouter() {
   const { isLoaded, isSignedIn } = useAuth();
+  const [pathname] = useLocation();
   useApiAuth();
   useSessionGuard();
   // Serverless hosting cannot hold a WebSocket open, so live screens poll.
@@ -610,6 +831,14 @@ function ProtectedRouter() {
     me.isError &&
     (me.error as { status?: number })?.status === 403;
   if (!isLoaded) return <div className="grid min-h-[100dvh] place-items-center bg-[var(--app-bg)] text-sm text-[var(--app-ink-soft)]">Loading your workspace…</div>;
+
+  // A platform operator lands on the console; anybody else lands on their own
+  // first screen. Only for a session with no club, since an operator may also be
+  // staff and the club screens are then the right ones.
+  const home = isOperator && !me.data?.staff ? '/admin' : landingFor(me.data?.permissions);
+  if (isSignedIn && me.data && home && pathname === '/') {
+    return <Redirect to={home} />;
+  }
   if (isSignedIn && unlinked) {
     return <div className="grid min-h-[100dvh] place-items-center gap-4 bg-[var(--app-bg)] p-6">
       <div className="surface max-w-md rounded-2xl p-6 text-center">
@@ -632,7 +861,7 @@ function ProtectedRouter() {
 <Route path="/admin/people" component={() => <RequireOperator><OperatorPeople /></RequireOperator>} />
 <Route path="/admin/audit" component={() => <RequireOperator><OperatorAudit /></RequireOperator>} />
 <Route path="/admin/plans" component={() => <RequireOperator><OperatorPlans /></RequireOperator>} />
-<Route path="/overview" component={Overview} /><Route path="/pos" component={wrap("view_pos", <NewPos />)} /><Route path="/floor" component={wrap("view_pos", <Floor />)} /><Route path="/designer" component={wrap("manage_floor", <FloorDesigner />)} /><Route path="/orders" component={wrap("view_pos", <Orders />)} /><Route path="/bar" component={wrap("update_ticket", <ServiceBoard station="bar" />)} /><Route path="/kitchen" component={wrap("update_ticket", <ServiceBoard station="kitchen" />)} /><Route path="/products" component={wrap("manage_products", <Products />)} /><Route path="/inventory" component={wrap("view_inventory", <Inventory />)} /><Route path="/staff" component={wrap("manage_staff", <Staff />)} /><Route path="/customers" component={wrap("manage_customers", <Customers />)} /><Route path="/events" component={wrap("manage_events", <Events />)} /><Route path="/reservations" component={wrap("manage_reservations", <Reservations />)} /><Route path="/reports" component={wrap("view_reports", <Reports />)} /><Route path="/hq" component={wrap("view_reports", <Hq />)} /><Route path="/settings" component={wrap("manage_roles", <Settings />)} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
+<Route path="/overview" component={Overview} /><Route path="/pos" component={wrap("view_pos", <NewPos />)} /><Route path="/floor" component={wrap("view_pos", <Floor />)} /><Route path="/designer" component={wrap("manage_floor", <FloorDesigner />)} /><Route path="/orders" component={wrap("view_orders", <Orders />)} /><Route path="/pool" component={wrap("manage_pool", <Pool />)} /><Route path="/bar" component={wrap("update_ticket", <ServiceBoard station="bar" />)} /><Route path="/kitchen" component={wrap("update_ticket", <ServiceBoard station="kitchen" />)} /><Route path="/products" component={wrap("manage_products", <Products />)} /><Route path="/inventory" component={wrap("view_inventory", <Inventory />)} /><Route path="/staff" component={wrap("manage_staff", <Staff />)} /><Route path="/customers" component={wrap("manage_customers", <Customers />)} /><Route path="/events" component={wrap("manage_events", <Events />)} /><Route path="/reservations" component={wrap("manage_reservations", <Reservations />)} /><Route path="/reports" component={wrap("view_reports", <Reports />)} /><Route path="/hq" component={wrap("view_reports", <Hq />)} /><Route path="/settings" component={wrap("manage_roles", <Settings />)} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
 }
 
 function Router() { return <Switch><Route path="/" component={Landing} /><Route path="/sign-in/*?" component={() => <Auth mode="sign-in" />} /><Route path="/sign-up/*?" component={() => <Auth mode="sign-up" />} /><Route component={ProtectedRouter} /></Switch>; }
