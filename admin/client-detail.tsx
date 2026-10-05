@@ -28,6 +28,19 @@ export function ClientDetail({ id }: { id: string }) {
   const setSubscription = useSetSubscription();
   const org = orgs.data?.find((o) => o.id === id);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/admin/plans", { credentials: "include" })
+      .then((r) => r.json())
+      .then((b: { roles?: { id: string; name: string; isOwner: boolean }[] }) => {
+        if (!cancelled && b.roles) setRoles(b.roles);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [currency, setCurrency] = useState("");
   const [taxRate, setTaxRate] = useState("");
   const [serviceChargeRate, setServiceChargeRate] = useState("");
@@ -37,6 +50,12 @@ export function ClientDetail({ id }: { id: string }) {
   const [cycle, setCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
   const [subStatus, setSubStatus] = useState<NonNullable<SetSubscriptionInput["status"]>>("ACTIVE");
   const [usage, setUsage] = useState<SubscriptionResultUsage | null>(null);
+  // Operator-granted access. The owner of a club cannot add somebody when nobody
+  // on it has ever signed in, so this is the only path that works on day one.
+  const [grant, setGrant] = useState({ name: "", email: "", roleId: "" });
+  const [grantResult, setGrantResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [grantPending, setGrantPending] = useState(false);
+  const [roles, setRoles] = useState<{ id: string; name: string; isOwner: boolean }[]>([]);
   const [planNote, setPlanNote] = useState<string | null>(null);
 
   useEffect(() => {
@@ -223,6 +242,115 @@ export function ClientDetail({ id }: { id: string }) {
           <p style={{ margin: 0, fontSize: 13, color: colors.red }}>
             {(setSubscription.error as { data?: { error?: string } })?.data?.error ??
               "Could not save that plan."}
+          </p>
+        )}
+      </Card>
+
+      <Card style={{ display: "grid", gap: 16, maxWidth: 640 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
+            Grant access
+          </h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: colors.muted }}>
+            Add somebody to this club's roster. Clerk emails them an invitation; when
+            they accept and sign up with that address their role is already waiting,
+            and their tabs follow from it. This is how a club gets its first manager
+            — the club's own staff screen cannot be used until somebody has signed in.
+          </p>
+        </div>
+        <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+          {field("Name", (
+            <input
+              value={grant.name}
+              onChange={(e) => setGrant({ ...grant, name: e.target.value })}
+              placeholder="Grace Wambui"
+              style={inputStyle}
+              data-testid="input-grant-name"
+            />
+          ))}
+          {field("Email", (
+            <input
+              type="email"
+              value={grant.email}
+              onChange={(e) => setGrant({ ...grant, email: e.target.value })}
+              placeholder="where they will sign up"
+              style={inputStyle}
+              data-testid="input-grant-email"
+            />
+          ))}
+          {field("Role", (
+            <select
+              value={grant.roleId}
+              onChange={(e) => setGrant({ ...grant, roleId: e.target.value })}
+              style={inputStyle}
+              data-testid="select-grant-role"
+            >
+              <option value="">Pick a role…</option>
+              {roles
+                .filter((r) => !r.isOwner)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+            </select>
+          ))}
+        </div>
+        <div>
+          <button
+            style={{ ...primaryButton, opacity: grantPending || !grant.email.trim() || !grant.roleId ? 0.5 : 1 }}
+            disabled={grantPending || !grant.email.trim() || !grant.roleId}
+            data-testid="button-grant-access"
+            onClick={() => {
+              setGrantPending(true);
+              setGrantResult(null);
+              void fetch(`/api/admin/organizations/${id}/staff`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  email: grant.email.trim().toLowerCase(),
+                  ...(grant.name.trim() ? { name: grant.name.trim() } : {}),
+                  roleId: grant.roleId,
+                }),
+              })
+                .then(async (r) => {
+                  const body = (await r.json()) as {
+                    error?: string;
+                    invitation?: { sent: boolean; reason?: string };
+                    owner?: { name?: string; role?: string };
+                  };
+                  if (!r.ok) throw new Error(body.error ?? "Could not grant access.");
+                  const person = body.owner?.name ?? (grant.name.trim() || grant.email.trim());
+                  setGrantResult(
+                    body.invitation?.sent
+                      ? {
+                          ok: true,
+                          text: `${person} is on the roster as ${body.owner?.role}. An invitation is on its way to ${grant.email.trim()} — their tabs are already set for it.`,
+                        }
+                      : {
+                          ok: false,
+                          text: `${person} is on the roster, but the invitation did not go out: ${body.invitation?.reason ?? "unknown reason"} They can still sign up themselves with that address.`,
+                        },
+                  );
+                  setGrant({ name: "", email: "", roleId: "" });
+                  orgs.refetch();
+                })
+                .catch((e: unknown) =>
+                  setGrantResult({
+                    ok: false,
+                    text: e instanceof Error ? e.message : "Could not grant access.",
+                  }),
+                )
+                .finally(() => setGrantPending(false));
+            }}
+          >
+            {grantPending ? "Granting…" : "Grant access and invite"}
+          </button>
+        </div>
+        {grantResult && (
+          <p style={{ margin: 0, fontSize: 13, color: grantResult.ok ? colors.green : colors.red }}>
+            {grantResult.text}
           </p>
         )}
       </Card>
