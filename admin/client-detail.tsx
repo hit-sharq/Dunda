@@ -30,10 +30,10 @@ export function ClientDetail({ id }: { id: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/admin/plans", { credentials: "include" })
+    void fetch("/api/admin/roles", { credentials: "include" })
       .then((r) => r.json())
-      .then((b: { roles?: { id: string; name: string; isOwner: boolean }[] }) => {
-        if (!cancelled && b.roles) setRoles(b.roles);
+      .then((b: { id: string; name: string; isOwner: boolean }[]) => {
+        if (!cancelled && Array.isArray(b)) setRoles(b);
       })
       .catch(() => undefined);
     return () => {

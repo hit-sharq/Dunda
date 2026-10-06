@@ -4,6 +4,66 @@ import { Card, State } from "./ui";
 import { dateOnly } from "./theme";
 import { colors } from "./theme";
 
+interface StaffRow {
+  id: string;
+  name: string;
+  email: string | null;
+  organization: string | null;
+  role: string;
+  status: string;
+  linked: boolean;
+  createdAt: string;
+}
+
+interface AdminStaffResponse {
+  administrators: {
+    id: string;
+    clerkUserId: string | null;
+    name: string;
+    email: string | null;
+    role: string | null;
+    status: string;
+    createdAt: string;
+  }[];
+  clubUsers: {
+    id: string;
+    clerkUserId: string | null;
+    name: string;
+    email: string | null;
+    role: string;
+    status: string;
+    organizationId: string;
+    organizationName: string;
+    createdAt: string;
+  }[];
+  totals: Record<string, number>;
+}
+
+function normalizeStaff(data: AdminStaffResponse | undefined): StaffRow[] {
+  if (!data) return [];
+  const admins: StaffRow[] = data.administrators.map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email ?? null,
+    organization: "Platform",
+    role: u.role ?? "PLATFORM_ADMIN",
+    status: u.status ?? "ACTIVE",
+    linked: Boolean(u.clerkUserId),
+    createdAt: u.createdAt,
+  }));
+  const clubUsers: StaffRow[] = data.clubUsers.map((s) => ({
+    id: s.id,
+    name: s.name,
+    email: s.email ?? null,
+    organization: s.organizationName ?? null,
+    role: s.role ?? "Staff",
+    status: s.status ?? "ACTIVE",
+    linked: Boolean(s.clerkUserId),
+    createdAt: s.createdAt,
+  }));
+  return [...admins, ...clubUsers];
+}
+
 /**
  * Everyone who can sign in to a client.
  *
@@ -15,8 +75,10 @@ export function PlatformStaff() {
   const staff = useGetAdminStaff();
   const [search, setSearch] = useState("");
 
-  const rows = useMemo(() => {
-    const list = staff.data ?? [];
+  const data = staff.data as unknown as AdminStaffResponse | undefined;
+
+  const rows = useMemo<StaffRow[]>(() => {
+    const list = normalizeStaff(data);
     if (!search.trim()) return list;
     const q = search.trim().toLowerCase();
     return list.filter(
@@ -25,9 +87,12 @@ export function PlatformStaff() {
         (s.email ?? "").toLowerCase().includes(q) ||
         (s.organization ?? "").toLowerCase().includes(q),
     );
-  }, [staff.data, search]);
+  }, [data, search]);
 
-  const unlinked = (staff.data ?? []).filter((s) => !s.linked).length;
+  const unlinked = useMemo(
+    () => normalizeStaff(data).filter((s) => !s.linked).length,
+    [data],
+  );
 
   return (
     <div style={{ display: "grid", gap: 20 }}>

@@ -22,14 +22,8 @@ export const GET = route(async () => {
   });
   const countByPlan = new Map(counts.map((c) => [c.plan_id, c._count._all]));
 
-  const roles = await prisma.dunda_roles.findMany({
-    select: { id: true, name: true, is_owner: true },
-    orderBy: { sort_order: "asc" },
-  });
-
-  return NextResponse.json({
-    roles: roles.map((r) => ({ id: r.id, name: r.name, isOwner: r.is_owner })),
-    plans: plans.map((plan) => ({
+  return NextResponse.json(
+    plans.map((plan) => ({
       id: plan.id,
       code: plan.code,
       name: plan.name,
@@ -44,7 +38,7 @@ export const GET = route(async () => {
       sortOrder: plan.sort_order,
       organizations: plan.id ? (countByPlan.get(plan.id) ?? 0) : (countByPlan.get(null) ?? 0),
     })),
-  });
+  );
 });
 
 /** Creates or edits a plan. Pricing is never hardcoded in the application. */
