@@ -50,7 +50,14 @@ export const GET = route(
       prisma.dunda_staff.findMany({
         where: { organization_id: organizationId },
         orderBy: { name: "asc" },
-        select: { id: true, name: true, email: true, status: true, dunda_roles: { select: { name: true } } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          status: true,
+          clerk_user_id: true,
+          dunda_roles: { select: { name: true } },
+        },
       }),
       prisma.dunda_subscriptions.findFirst({
         where: { organization_id: organizationId },
@@ -84,6 +91,7 @@ export const GET = route(
         email: s.email,
         status: s.status,
         role: s.dunda_roles.name,
+        claimed: Boolean(s.clerk_user_id),
       })),
       subscription: subscription
         ? {
@@ -114,7 +122,6 @@ export const GET = route(
   },
 );
 
-/** Suspends or reinstates a club, on the platform owner's authority only. */
 export const PATCH = route(
   async (request: Request, context: { params: Promise<{ organizationId: string }> }) => {
     const session = await resolveSession();
@@ -123,49 +130,144 @@ export const PATCH = route(
 
     const { organizationId } = await context.params;
     const body = (await request.json().catch(() => ({}))) as {
+      name?: string;
+      currency?: string;
+      taxRate?: number;
+      serviceChargeRate?: number;
       status?: string;
       reason?: string;
     };
 
+    const status = body.status;
     const allowed = ["ACTIVE", "SUSPENDED"];
-    if (!body.status || !allowed.includes(body.status)) {
+    if (status !== undefined && !allowed.includes(status)) {
       return NextResponse.json(
         { error: `An organization can be ${allowed.join(" or ")}.`, code: "VALIDATION_FAILED" },
         { status: 422 },
       );
     }
 
-    // A suspension has to say why. Without a reason the club has no way to know
-    // what to put right, and the platform owner will have forgotten by the audit.
-    if (body.status === "SUSPENDED" && !body.reason?.trim()) {
+    if (status === "SUSPENDED" && !body.reason?.trim()) {
       return NextResponse.json(
         { error: "Say why the club is being suspended.", code: "VALIDATION_FAILED" },
         { status: 422 },
       );
     }
 
-    const organization = await prisma.dunda_organizations.update({
+    const touchesSettings =
+      body.name !== undefined ||
+      body.currency !== undefined ||
+      body.taxRate !== undefined ||
+      body.serviceChargeRate !== undefined;
+    if (status === undefined && !touchesSettings) {
+      return NextResponse.json(
+        { error: "Nothing to change.", code: "VALIDATION_FAILED" },
+        { status: 422 },
+      );
+    }
+
+    const organization = await prisma.dunda_organizations.findUnique({
+      where: { id: organizationId },
+      select: {
+        id: true,
+        name: true,
+        currency: true,
+        tax_rate: true,
+        service_charge_rate: true,
+        status: true,
+      },
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "That organization no longer exists.", code: "NOT_FOUND" },
+        { status: 404 },
+      );
+    }
+
+    const updated = await prisma.dunda_organizations.update({
       where: { id: organizationId },
       data: {
-        status: body.status,
-        suspended_at: body.status === "SUSPENDED" ? new Date() : null,
-        suspended_reason: body.status === "SUSPENDED" ? body.reason : null,
+        ...(body.name !== undefined && body.name.trim()
+          ? { name: body.name.trim() }
+          : {}),
+        ...(body.currency !== undefined
+          ? { currency: body.currency.toUpperCase() }
+          : {}),
+        ...(body.taxRate !== undefined ? { tax_rate: body.taxRate } : {}),
+        ...(body.serviceChargeRate !== undefined
+          ? { service_charge_rate: body.serviceChargeRate }
+          : {}),
+        ...(status !== undefined
+          ? {
+              status,
+              suspended_at: status === "SUSPENDED" ? new Date() : null,
+              suspended_reason:
+                status === "SUSPENDED" ? body.reason?.trim() ?? null : null,
+            }
+          : {}),
       },
       select: { id: true, name: true, status: true, suspended_reason: true },
     });
+
+    if (touchesSettings) {
+      await prisma.dunda_organization_settings.upsert({
+        where: { organization_id: organizationId },
+        create: {
+          organization_id: organizationId,
+          currency: body.currency?.toUpperCase() ?? organization.currency,
+          timezone: "Africa/Nairobi",
+          tax_rate: body.taxRate ?? organization.tax_rate,
+          service_charge_rate:
+            body.serviceChargeRate ?? organization.service_charge_rate,
+        },
+        update: {
+          ...(body.currency !== undefined
+            ? { currency: body.currency.toUpperCase() }
+            : {}),
+          ...(body.taxRate !== undefined ? { tax_rate: body.taxRate } : {}),
+          ...(body.serviceChargeRate !== undefined
+            ? { service_charge_rate: body.serviceChargeRate }
+            : {}),
+        },
+      });
+    }
 
     await prisma.dunda_platform_audit_logs.create({
       data: {
         organization_id: organizationId,
         actor_clerk_user_id: session.clerkUserId,
-        action: body.status === "SUSPENDED" ? "SUSPEND" : "REACTIVATE",
+        action:
+          status === "SUSPENDED"
+            ? "SUSPEND"
+            : status === "ACTIVE"
+              ? "REACTIVATE"
+              : "UPDATE",
         entity: "organization",
         entity_id: organizationId,
-        detail: `${organization.name} ${body.status === "SUSPENDED" ? "suspended" : "reinstated"}${body.reason ? `: ${body.reason}` : ""}`,
-        new_value: { status: body.status },
+        detail:
+          status === "SUSPENDED"
+            ? `${updated.name} suspended: ${body.reason?.trim() ?? ""}`
+            : status === "ACTIVE"
+              ? `${updated.name} reinstated`
+              : `${updated.name} settings changed`,
+        previous_value:
+          status !== undefined ? { status: organization.status } : undefined,
+        new_value: {
+          ...(status !== undefined ? { status } : {}),
+          ...(body.name !== undefined && body.name.trim()
+            ? { name: body.name.trim() }
+            : {}),
+          ...(body.currency !== undefined
+            ? { currency: body.currency.toUpperCase() }
+            : {}),
+          ...(body.taxRate !== undefined ? { taxRate: body.taxRate } : {}),
+          ...(body.serviceChargeRate !== undefined
+            ? { serviceChargeRate: body.serviceChargeRate }
+            : {}),
+        },
       },
     });
 
-    return NextResponse.json(organization);
+    return NextResponse.json(updated);
   },
 );

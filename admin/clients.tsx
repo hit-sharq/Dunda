@@ -160,6 +160,23 @@ export function Clients() {
                             .filter(Boolean)
                             .join(" · ")}
                         </p>
+                        {o.status === "SUSPENDED" && (
+                          <span
+                            style={{
+                              display: "inline-block",
+                              marginTop: 4,
+                              background: colors.redSoft,
+                              color: colors.red,
+                              borderRadius: 999,
+                              padding: "2px 8px",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: 0.5,
+                            }}
+                          >
+                            DISABLED{o.suspendedReason ? ` · ${o.suspendedReason}` : ""}
+                          </span>
+                        )}
                       </td>
                       <td style={{ padding: "12px 14px", fontVariantNumeric: "tabular-nums" }}>
                         {o.branches}

@@ -1068,6 +1068,10 @@ function ProtectedRouter() {
   const me = useGetMe();
   const { user } = useUser();
   const isOperator = me.data?.operator === true;
+  const meError = me.error as {
+    status?: number;
+    data?: { code?: string; reason?: string };
+  } | null;
   // An operator is never blocked here. They may own no club yet, which is the
   // normal state for someone who provisions clients, so refusing them would
   // leave the console unreachable exactly when it is needed.
@@ -1075,6 +1079,10 @@ function ProtectedRouter() {
     !isOperator &&
     me.isError &&
     (me.error as { status?: number })?.status === 403;
+  const suspendedClub =
+    !isOperator &&
+    me.isError &&
+    meError?.data?.code === "ORGANIZATION_SUSPENDED";
   if (!isLoaded) return <div className="grid min-h-[100dvh] place-items-center bg-[var(--app-bg)] text-sm text-[var(--app-ink-soft)]">Loading your workspace…</div>;
 
   // A platform operator lands on the console; anybody else lands on their own
@@ -1083,6 +1091,19 @@ function ProtectedRouter() {
   const home = isOperator && !me.data?.staff ? '/admin' : landingFor(me.data?.permissions);
   if (isSignedIn && me.data && home && pathname === '/') {
     return <Redirect to={home} />;
+  }
+  if (isSignedIn && suspendedClub) {
+    return <div className="grid min-h-[100dvh] place-items-center gap-4 bg-[var(--app-bg)] p-6">
+      <div className="surface max-w-md rounded-2xl p-6 text-center">
+        <h1 className="font-display text-2xl font-bold">This club has been disabled</h1>
+        <p className="mt-2 text-sm text-[var(--app-ink-soft)]">
+          {meError?.data?.reason ?? "The platform has suspended the club you belong to."}
+        </p>
+        <p className="mt-3 text-xs text-[var(--app-faint)]">
+          Signed in as {user?.primaryEmailAddress?.emailAddress ?? "this account"}. Ask the platform owner to reinstate the club.
+        </p>
+      </div>
+    </div>;
   }
   if (isSignedIn && unlinked) {
     return <div className="grid min-h-[100dvh] place-items-center gap-4 bg-[var(--app-bg)] p-6">

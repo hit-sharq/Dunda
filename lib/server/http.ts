@@ -3,6 +3,7 @@ import { ZodError, type ZodType, type z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/client";
 import { ApiError } from "@/lib/errors.server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { scheduleDueJobs } from "@/lib/server/cron";
 
 /**
@@ -24,6 +25,7 @@ export interface Session {
   permissions: Set<string>;
   isOwner: boolean;
   isOperator: boolean;
+  suspended: { reason: string | null } | null;
 }
 
 /**
@@ -54,6 +56,7 @@ export async function resolveSession(): Promise<Session | null> {
           dunda_role_permissions: { include: { dunda_permissions: true } },
         },
       },
+      dunda_organizations: { select: { status: true, suspended_reason: true } },
     },
   });
 
@@ -66,11 +69,11 @@ export async function resolveSession(): Promise<Session | null> {
   // already belongs to another login is never taken over, and the unique
   // constraint on clerk_user_id is what stops two accounts claiming one row.
   if (!staff) {
-    const email = sessionClaims?.email as string | undefined;
+    const email = await accountEmail(userId, sessionClaims);
     if (email) {
       staff = await prisma.dunda_staff.findFirst({
         where: {
-          email: { equals: email.toLowerCase(), mode: "insensitive" },
+          email: { equals: email, mode: "insensitive" },
           clerk_user_id: null,
           status: "ACTIVE",
         },
@@ -79,6 +82,9 @@ export async function resolveSession(): Promise<Session | null> {
             include: {
               dunda_role_permissions: { include: { dunda_permissions: true } },
             },
+          },
+          dunda_organizations: {
+            select: { status: true, suspended_reason: true },
           },
         },
       });
@@ -123,8 +129,15 @@ export async function resolveSession(): Promise<Session | null> {
       permissions: new Set(),
       isOwner: false,
       isOperator: operatorIds().has(userId),
+      suspended: null,
     };
   }
+
+  const suspended =
+    staff.dunda_organizations.status === "SUSPENDED"
+      ? { reason: staff.dunda_organizations.suspended_reason }
+      : null;
+  const lockedOut = suspended !== null && !operatorIds().has(userId);
 
   const permissions = new Set(
     staff.dunda_roles.dunda_role_permissions.map((rp) => rp.dunda_permissions.name),
@@ -132,15 +145,54 @@ export async function resolveSession(): Promise<Session | null> {
 
   return {
     clerkUserId: userId,
-    organizationId: staff.organization_id,
-    staffId: staff.id,
-    branchId: staff.branch_id,
-    roleId: staff.role_id,
-    roleName: staff.dunda_roles.name,
-    permissions,
-    isOwner: staff.dunda_roles.is_owner,
+    organizationId: lockedOut ? null : staff.organization_id,
+    staffId: lockedOut ? null : staff.id,
+    branchId: lockedOut ? null : staff.branch_id,
+    roleId: lockedOut ? null : staff.role_id,
+    roleName: lockedOut ? null : staff.dunda_roles.name,
+    permissions: lockedOut ? new Set() : permissions,
+    isOwner: lockedOut ? false : staff.dunda_roles.is_owner,
     isOperator: operatorIds().has(userId),
+    suspended,
   };
+}
+
+/**
+ * The email an account signs in with.
+ *
+ * A session token does not carry the email address, so
+ * the account's own record on the provider is the only
+ * place to read it from. That record is asked for only
+ * when the first roster lookup found nobody — a linked
+ * account never asks the provider again — and the
+ * answer is kept briefly, because a console polls its
+ * session on every screen.
+ */
+const emailCache = new Map<string, { email: string | null; until: number }>();
+const EMAIL_CACHE_MS = 60_000;
+
+async function accountEmail(
+  userId: string,
+  sessionClaims: unknown,
+): Promise<string | null> {
+  const claimed = (sessionClaims as { email?: string } | null)?.email;
+  if (claimed) return claimed.toLowerCase();
+
+  const cached = emailCache.get(userId);
+  if (cached && cached.until > Date.now()) return cached.email;
+
+  let email: string | null = null;
+  try {
+    const clerk = await clerkClient();
+    const user = await clerk.users.getUser(userId);
+    email = user.primaryEmailAddress?.emailAddress.toLowerCase() ?? null;
+  } catch {
+    // The provider is unreachable; the claim waits for
+    // the next request rather than taking the sign-in
+    // down with it.
+  }
+  emailCache.set(userId, { email, until: Date.now() + EMAIL_CACHE_MS });
+  return email;
 }
 
 /** Sign-in failed, or the session is gone. */
@@ -148,6 +200,17 @@ export class Unauthenticated extends Error {}
 
 /** Signed in, but not attached to any club. */
 export class NotProvisioned extends Error {}
+
+export class OrganizationSuspended extends Error {
+  constructor(readonly reason: string | null) {
+    super(
+      reason
+        ? `This club has been suspended: ${reason}`
+        : "This club has been suspended.",
+    );
+    this.name = "OrganizationSuspended";
+  }
+}
 
 /** Signed in and attached, but the role does not permit this action. */
 export class Forbidden extends Error {
@@ -165,6 +228,9 @@ export class Forbidden extends Error {
 export async function requireSession(): Promise<Session> {
   const session = await resolveSession();
   if (!session) throw new Unauthenticated();
+  if (session.suspended && !session.isOperator) {
+    throw new OrganizationSuspended(session.suspended.reason);
+  }
   if (!session.organizationId) throw new NotProvisioned();
   return session;
 }
@@ -271,6 +337,16 @@ function errorResponse(error: unknown): NextResponse {
       {
         error: "Your account isn't set up yet.",
         code: "ACCOUNT_NOT_PROVISIONED",
+      },
+      { status: 403 },
+    );
+  }
+  if (error instanceof OrganizationSuspended) {
+    return NextResponse.json(
+      {
+        error: error.message,
+        code: "ORGANIZATION_SUSPENDED",
+        reason: error.reason,
       },
       { status: 403 },
     );

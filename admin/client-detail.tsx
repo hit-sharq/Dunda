@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   useAssignOrganizationOwner,
   useGetPlans,
@@ -60,6 +60,32 @@ export function ClientDetail({ id }: { id: string }) {
   // The first payment's checkout link, so the
   // operator can send it to the club's owner.
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [roster, setRoster] = useState<
+    {
+      id: string;
+      name: string;
+      email: string;
+      status: string;
+      role: string;
+      claimed: boolean;
+    }[] | null
+  >(null);
+  const [suspendReason, setSuspendReason] = useState("");
+  const [clubAction, setClubAction] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
+  const [clubPending, setClubPending] = useState(false);
+  const [resendPendingId, setResendPendingId] = useState<string | null>(null);
+  const [resendResult, setResendResult] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
+  const [duplicate, setDuplicate] = useState<{
+    staffId: string;
+    name: string;
+    email: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!org) return;
@@ -68,6 +94,117 @@ export function ClientDetail({ id }: { id: string }) {
     setTaxRate(String(org.taxRate));
     setServiceChargeRate(String(org.serviceChargeRate));
   }, [org?.id, org?.currency, org?.taxRate, org?.serviceChargeRate]);
+
+  const reloadRoster = useCallback(() => {
+    void fetch(`/api/admin/organizations/${id}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then(
+        (b: {
+          staff?: {
+            id: string;
+            name: string;
+            email: string;
+            status: string;
+            role: string;
+            claimed: boolean;
+          }[];
+        }) => {
+          if (Array.isArray(b.staff)) setRoster(b.staff);
+        },
+      )
+      .catch(() => undefined);
+  }, [id]);
+
+  useEffect(() => {
+    reloadRoster();
+  }, [reloadRoster]);
+
+  function resendInvitation(member: {
+    id: string;
+    name: string;
+    email: string;
+  }) {
+    setResendPendingId(member.id);
+    setResendResult(null);
+    setDuplicate(null);
+    void fetch(
+      `/api/admin/organizations/${id}/staff/${member.id}/invitation`,
+      { method: "POST", credentials: "include" },
+    )
+      .then(async (r) => {
+        const body = (await r
+          .json()
+          .catch(() => ({}))) as {
+          error?: string;
+          invitation?: { sent: boolean; reason?: string };
+        };
+        if (!r.ok) throw new Error(body.error ?? "Could not resend the invitation.");
+        return body;
+      })
+      .then((body) => {
+        setResendResult(
+          body.invitation?.sent
+            ? {
+                ok: true,
+                text: `A fresh invitation is on its way to ${member.email}.`,
+              }
+            : {
+                ok: false,
+                text: `The invitation did not go out: ${body.invitation?.reason ?? "unknown reason"} An invitation may still be waiting for them.`,
+              },
+        );
+        reloadRoster();
+      })
+      .catch((e: unknown) =>
+        setResendResult({
+          ok: false,
+          text: e instanceof Error ? e.message : "Could not resend the invitation.",
+        }),
+      )
+      .finally(() => setResendPendingId(null));
+  }
+
+  function setClubStatus(status: "ACTIVE" | "SUSPENDED") {
+    setClubPending(true);
+    setClubAction(null);
+    void fetch(`/api/admin/organizations/${id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(
+        status === "SUSPENDED"
+          ? { status, reason: suspendReason.trim() }
+          : { status },
+      ),
+    })
+      .then(async (r) => {
+        const body = (await r.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        if (!r.ok) throw new Error(body.error ?? "Could not update the club.");
+        setClubAction(
+          status === "SUSPENDED"
+            ? {
+                ok: true,
+                text: "Club disabled. Its staff are signed out of the app until it is reinstated.",
+              }
+            : {
+                ok: true,
+                text: "Club reinstated. Its staff can sign back in.",
+              },
+        );
+        setSuspendReason("");
+        orgs.refetch();
+        reloadRoster();
+      })
+      .catch((e: unknown) =>
+        setClubAction({
+          ok: false,
+          text: e instanceof Error ? e.message : "Could not update the club.",
+        }),
+      )
+      .finally(() => setClubPending(false));
+  }
 
   if (orgs.isLoading) {
     return (
@@ -330,6 +467,8 @@ export function ClientDetail({ id }: { id: string }) {
             onClick={() => {
               setGrantPending(true);
               setGrantResult(null);
+              setDuplicate(null);
+              setResendResult(null);
               void fetch(`/api/admin/organizations/${id}/staff`, {
                 method: "POST",
                 credentials: "include",
@@ -341,12 +480,33 @@ export function ClientDetail({ id }: { id: string }) {
                 }),
               })
                 .then(async (r) => {
-                  const body = (await r.json()) as {
+                  const body = (await r.json().catch(() => ({}))) as {
                     error?: string;
+                    code?: string;
+                    staffId?: string;
+                    name?: string;
+                    organizationId?: string;
+                    claimed?: boolean;
                     invitation?: { sent: boolean; reason?: string };
                     owner?: { name?: string; role?: string };
                   };
-                  if (!r.ok) throw new Error(body.error ?? "Could not grant access.");
+                  if (!r.ok) {
+                    if (
+                      r.status === 409 &&
+                      body.code === "DUPLICATE_STAFF" &&
+                      body.staffId &&
+                      !body.claimed &&
+                      body.organizationId === id
+                    ) {
+                      setDuplicate({
+                        staffId: body.staffId,
+                        name: body.name ?? grant.email.trim(),
+                        email: grant.email.trim(),
+                      });
+                      return;
+                    }
+                    throw new Error(body.error ?? "Could not grant access.");
+                  }
                   const person = body.owner?.name ?? (grant.name.trim() || grant.email.trim());
                   setGrantResult(
                     body.invitation?.sent
@@ -377,6 +537,123 @@ export function ClientDetail({ id }: { id: string }) {
         {grantResult && (
           <p style={{ margin: 0, fontSize: 13, color: grantResult.ok ? colors.green : colors.red }}>
             {grantResult.text}
+          </p>
+        )}
+        {duplicate && (
+          <div style={{ display: "grid", gap: 8 }}>
+            <p style={{ margin: 0, fontSize: 13, color: colors.amber }}>
+              {duplicate.name} is already on this club's roster with that
+              address and has not signed up yet.
+            </p>
+            <div>
+              <button
+                style={{ ...linkButton, marginTop: 0 }}
+                disabled={resendPendingId === duplicate.staffId}
+                onClick={() =>
+                  resendInvitation({
+                    id: duplicate.staffId,
+                    name: duplicate.name,
+                    email: duplicate.email,
+                  })
+                }
+                data-testid="button-resend-invitation"
+              >
+                {resendPendingId === duplicate.staffId
+                  ? "Sending…"
+                  : "Resend invitation"}
+              </button>
+            </div>
+            {resendResult && (
+              <p style={{ margin: 0, fontSize: 13, color: resendResult.ok ? colors.green : colors.red }}>
+                {resendResult.text}
+              </p>
+            )}
+          </div>
+        )}
+      </Card>
+
+      <Card style={{ display: "grid", gap: 12, maxWidth: 640 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
+            People
+          </h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: colors.muted }}>
+            Everybody this club has access for. Somebody who has not signed
+            up yet is waiting on an invitation — resend it if it never
+            arrived or has expired.
+          </p>
+        </div>
+        {roster === null ? (
+          <p style={{ margin: 0, fontSize: 13, color: colors.muted }}>
+            Loading…
+          </p>
+        ) : roster.length === 0 ? (
+          <p style={{ margin: 0, fontSize: 13, color: colors.muted }}>
+            Nobody has been added to this club yet.
+          </p>
+        ) : (
+          <ul
+            style={{
+              margin: 0,
+              padding: 0,
+              listStyle: "none",
+              display: "grid",
+              gap: 8,
+            }}
+          >
+            {roster.map((member) => (
+              <li
+                key={member.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  border: `1px solid ${colors.line}`,
+                  borderRadius: 10,
+                  padding: "10px 12px",
+                }}
+              >
+                <div>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>
+                    {member.name}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 12, color: colors.muted }}>
+                    {member.email} · {member.role}
+                    {member.status !== "ACTIVE"
+                      ? ` · ${member.status.toLowerCase()}`
+                      : ""}
+                  </p>
+                </div>
+                {!member.claimed && member.status === "ACTIVE" ? (
+                  <button
+                    style={{ ...linkButton, marginTop: 0 }}
+                    disabled={resendPendingId === member.id}
+                    onClick={() => resendInvitation(member)}
+                    data-testid={`button-resend-invitation-${member.id}`}
+                  >
+                    {resendPendingId === member.id
+                      ? "Sending…"
+                      : "Resend invitation"}
+                  </button>
+                ) : member.claimed ? (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: colors.green,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Signed up
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+        {resendResult && !duplicate && (
+          <p style={{ margin: 0, fontSize: 13, color: resendResult.ok ? colors.green : colors.red }}>
+            {resendResult.text}
           </p>
         )}
       </Card>
@@ -464,6 +741,64 @@ export function ClientDetail({ id }: { id: string }) {
             </button>
           ) : null}
         </div>
+      </Card>
+
+      <Card
+        style={{
+          display: "grid",
+          gap: 12,
+          maxWidth: 640,
+          borderColor: org.status === "SUSPENDED" ? colors.red : colors.line,
+        }}
+      >
+        <div>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
+            {org.status === "SUSPENDED" ? "Club disabled" : "Disable club"}
+          </h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: colors.muted }}>
+            {org.status === "SUSPENDED"
+              ? `Disabled${org.suspendedAt ? ` on ${dateOnly(org.suspendedAt)}` : ""}${org.suspendedReason ? ` — ${org.suspendedReason}` : ""}. The club's staff are signed out of the app until it is reinstated.`
+              : "Takes the club out of service. Its staff are signed out of the app and every screen refuses them until it is reinstated."}
+          </p>
+        </div>
+        {org.status === "SUSPENDED" ? (
+          <div>
+            <button
+              style={{ ...primaryButton, opacity: clubPending ? 0.5 : 1 }}
+              disabled={clubPending}
+              onClick={() => setClubStatus("ACTIVE")}
+              data-testid="button-reinstate-club"
+            >
+              {clubPending ? "Reinstating…" : "Reinstate club"}
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            <input
+              value={suspendReason}
+              onChange={(e) => setSuspendReason(e.target.value)}
+              placeholder="Why is this club being disabled?"
+              style={inputStyle}
+              data-testid="input-suspend-reason"
+            />
+            <button
+              style={{
+                ...primaryButton,
+                opacity: clubPending || !suspendReason.trim() ? 0.5 : 1,
+              }}
+              disabled={clubPending || !suspendReason.trim()}
+              onClick={() => setClubStatus("SUSPENDED")}
+              data-testid="button-disable-club"
+            >
+              {clubPending ? "Disabling…" : "Disable club"}
+            </button>
+          </div>
+        )}
+        {clubAction && (
+          <p style={{ margin: 0, fontSize: 13, color: clubAction.ok ? colors.green : colors.red }}>
+            {clubAction.text}
+          </p>
+        )}
       </Card>
 
       <Card style={{ maxWidth: 640, display: "grid", gap: 12 }}>

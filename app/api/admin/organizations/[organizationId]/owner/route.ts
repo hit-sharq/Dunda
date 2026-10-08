@@ -3,6 +3,7 @@ import { z } from "zod";
 import { clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/client";
 import { route, Forbidden, NotProvisioned, resolveSession, parseBody } from "@/lib/server/http";
+import { invitationFailureReason, invitationRedirectUrl } from "@/lib/server/clerk";
 
 export const dynamic = "force-dynamic";
 
@@ -17,15 +18,19 @@ export const dynamic = "force-dynamic";
  * the general manager rather than leaving two owners who each believe they hold
  * the club.
  */
-const assignOwnerSchema = z.object({
-  // The email is what identifies the owner. A Clerk user id is an internal
-  // identifier the operator has no way of knowing, and requiring one made this
-  // unusable from the console.
-  email: z.string().min(1, "An email address is required."),
-  name: z.string().min(1).optional(),
-  clerkUserId: z.string().optional(),
-  roleId: z.string().optional(),
-});
+const assignOwnerSchema = z
+  .object({
+    email: z.string().trim().min(1, "An email address is required."),
+    name: z.string().trim().optional(),
+    clerkUserId: z.string().optional(),
+    roleId: z.string().optional(),
+  })
+  .transform((input) => ({
+    email: input.email,
+    name: input.name || undefined,
+    clerkUserId: input.clerkUserId || undefined,
+    roleId: input.roleId || undefined,
+  }));
 
 export const POST = route(
   async (request: Request, context: { params: Promise<{ organizationId: string }> }) => {
@@ -121,17 +126,11 @@ export const POST = route(
       await clerk.invitations.createInvitation({
         emailAddress: input.email,
         expiresInDays: 7,
-        redirectUrl: new URL('/', request.url).toString(),
+        redirectUrl: invitationRedirectUrl(),
       });
       invitation = { sent: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'The invitation could not be sent.';
-      invitation = {
-        sent: false,
-        reason: /already|exists|invited/i.test(message)
-          ? 'That address already has an account or a pending invitation.'
-          : message,
-      };
+      invitation = { sent: false, reason: invitationFailureReason(error) };
     }
 
     return NextResponse.json({

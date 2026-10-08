@@ -164,6 +164,7 @@ export const POST = route(async (request: Request) => {
     amount: number;
     currency: string;
   } | null = null;
+  let paymentFailed = false;
   if (organization.subscription.amount > 0) {
     payment = await initiateBillingPayment({
       organizationId: organization.org.id,
@@ -183,6 +184,7 @@ export const POST = route(async (request: Request) => {
           "[dunda] could not start the first subscription payment",
           error,
         );
+        paymentFailed = true;
         return null;
       });
   }
@@ -195,6 +197,7 @@ export const POST = route(async (request: Request) => {
       branchId: organization.branch.id,
       trialEndsAt: trialEndsAt.toISOString(),
       payment,
+      paymentFailed,
     },
     { status: 201 },
   );

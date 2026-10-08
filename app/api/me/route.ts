@@ -6,6 +6,7 @@ import {
   orgWhere,
   NotProvisioned,
   Unauthenticated,
+  OrganizationSuspended,
 } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,10 @@ export const GET = route(async () => {
       .catch((error: unknown) => {
         console.error("[dunda] could not record platform user", error);
       });
+  }
+
+  if (session.suspended && !session.isOperator) {
+    throw new OrganizationSuspended(session.suspended.reason);
   }
 
   // A platform operator legitimately runs no club. Anybody else with no staff

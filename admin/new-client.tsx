@@ -30,6 +30,7 @@ export function NewClient() {
   // The first payment's checkout link, so
   // the operator can send it to the owner.
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [paymentFailed, setPaymentFailed] = useState(false);
   const [owner, setOwner] = useState({ name: "", email: "" });
   const [ownerResult, setOwnerResult] = useState<{ ok: boolean; text: string } | null>(null);
   const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
@@ -48,6 +49,13 @@ export function NewClient() {
           <p style={{ margin: 0, fontWeight: 700, color: colors.green }}>
             {form.name} is created.
           </p>
+          {paymentFailed && (
+            <p style={{ margin: 0, fontSize: 13, color: colors.red }}>
+              The first payment link could not be created. Collect it from
+              the Billing screen, or the club's home screen will offer one
+              once the owner signs up.
+            </p>
+          )}
           {paymentUrl && (
             <p style={{ margin: 0, fontSize: 13 }}>
               <span style={{ color: colors.muted }}>First payment: </span>
@@ -235,6 +243,7 @@ export function NewClient() {
                       slug: string;
                       name?: string;
                       payment?: { redirectUrl: string } | null;
+                      paymentFailed?: boolean;
                     };
                     setCreated({
                       id: created.id,
@@ -244,6 +253,7 @@ export function NewClient() {
                       name: created.name ?? form.name,
                     });
                     setPaymentUrl(created.payment?.redirectUrl ?? null);
+                    setPaymentFailed(created.paymentFailed ?? false);
                   },
                 },
               )

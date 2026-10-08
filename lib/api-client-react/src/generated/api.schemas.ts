@@ -847,6 +847,8 @@ export interface CreatedOrganization {
     amount: number;
     currency: string;
   } | null;
+  /** True when a first payment was due but could not be started. */
+  paymentFailed?: boolean;
 }
 
 export interface AdminOrganization {
@@ -864,6 +866,11 @@ export interface AdminOrganization {
   tables: number;
   ordersInWindow: number;
   revenueInWindow: number;
+  status: string;
+  /** @nullable */
+  suspendedAt?: string | null;
+  /** @nullable */
+  suspendedReason?: string | null;
   /** @nullable */
   lastOrderAt?: string | null;
   /** @nullable */

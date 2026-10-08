@@ -10,6 +10,7 @@ import {
   orgWhere,
   parseBody,
 } from "@/lib/server/http";
+import { invitationFailureReason, invitationRedirectUrl } from "@/lib/server/clerk";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,10 @@ export const POST = route(
         {
           error: `${existing.name} is already on ${existing.dunda_organizations.name}'s roster with that address. Change their role there instead.`,
           code: "DUPLICATE_STAFF",
+          staffId: existing.id,
+          name: existing.name,
+          organizationId: existing.organization_id,
+          claimed: Boolean(existing.clerk_user_id),
         },
         { status: 409 },
       );
@@ -138,16 +143,13 @@ export const POST = route(
       const created = await clerk.invitations.createInvitation({
         emailAddress: email,
         expiresInDays: 7,
-        redirectUrl: new URL('/', request.url).toString(),
+        redirectUrl: invitationRedirectUrl(),
       });
       invitation = { sent: true, url: created.url };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'The invitation could not be sent.';
       invitation = {
         sent: false,
-        reason: /already|exists|invited/i.test(message)
-          ? 'That address already has an account or a pending invitation.'
-          : message,
+        reason: invitationFailureReason(error),
       };
     }
 
