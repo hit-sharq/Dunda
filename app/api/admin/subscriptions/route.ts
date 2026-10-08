@@ -60,6 +60,7 @@ export const GET = route(async (request: Request) => {
           : null,
       renewsAt: renewsAt?.toISOString() ?? null,
       renewalDue,
+      autoRenew: sub.auto_renew,
       cancelledAt: sub.cancelled_at?.toISOString() ?? null,
       failedPaymentCount: sub.failed_payment_count,
       createdAt: sub.created_at.toISOString(),

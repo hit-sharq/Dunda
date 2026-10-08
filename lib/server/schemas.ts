@@ -38,20 +38,53 @@ export const closeTabSchema = z.object({
   reason: z.string().nullable().optional(),
 });
 
-export const checkoutSchema = z.object({
-  payments: z
-    .array(
-      z.object({
-        method: z.enum(["CASH", "MPESA", "CARD", "BANK_TRANSFER", "OTHER"]),
-        amount: positiveInt,
-        reference: z.string().nullable().optional(),
-        paidBy: z.string().nullable().optional(),
-      }),
-    )
-    .min(1, "A payment needs an amount and a method.")
-    .max(10, "A tab is settled by a handful of payments, not a spreadsheet."),
-  idempotencyKey: z.string().min(8).max(200).nullable().optional(),
-});
+/**
+ * A checkout request.
+ *
+ * The till sends one payment; a split bill sends several. Both
+ * spellings are accepted and normalized to the list, so a
+ * terminal that has not been updated still settles its bills
+ * while a split can be paid across three phones.
+ */
+export const checkoutSchema = z.preprocess(
+  (body) => {
+    if (body && typeof body === "object" && !("payments" in body)) {
+      const single = body as {
+        method?: unknown;
+        amount?: unknown;
+        reference?: unknown;
+        paidBy?: unknown;
+      };
+      if (typeof single.method === "string" && typeof single.amount === "number") {
+        return {
+          payments: [
+            {
+              method: single.method,
+              amount: single.amount,
+              reference: single.reference ?? null,
+              paidBy: single.paidBy ?? null,
+            },
+          ],
+        };
+      }
+    }
+    return body;
+  },
+  z.object({
+    payments: z
+      .array(
+        z.object({
+          method: z.enum(["CASH", "MPESA", "CARD", "BANK_TRANSFER", "OTHER"]),
+          amount: positiveInt,
+          reference: z.string().nullable().optional(),
+          paidBy: z.string().nullable().optional(),
+        }),
+      )
+      .min(1, "A payment needs an amount and a method.")
+      .max(10, "A tab is settled by a handful of payments, not a spreadsheet."),
+    idempotencyKey: z.string().min(8).max(200).nullable().optional(),
+  }),
+);
 
 export const createOrderSchema = z.object({
   tableId: uuid.nullable().optional(),

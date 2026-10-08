@@ -31,6 +31,7 @@ export function Subscriptions() {
     currency: string;
     renewsAt?: string | null;
     renewalDue: boolean;
+    autoRenew?: boolean;
     trialEndsAt?: string | null;
   }[];
   const counts = subs.data?.counts;
@@ -181,6 +182,11 @@ export function Subscriptions() {
                     </td>
                     <td style={{ ...tdStyle, fontFamily: "var(--app-font-mono)", color: r.renewalDue ? colors.amber : undefined }}>
                       {r.renewsAt ? new Date(r.renewsAt).toISOString().slice(0, 10) : "—"}
+                      {r.autoRenew && (
+                        <span style={{ color: colors.green, marginLeft: 6, fontFamily: "inherit" }}>
+                          auto
+                        </span>
+                      )}
                     </td>
                     <td style={{ ...tdStyle, textAlign: "right" }}>
                       <button style={linkButton} onClick={() => setLocation(`/admin/clients/${r.organizationId}`)}>

@@ -180,20 +180,62 @@ export const CheckoutInputMethod = {
   OTHER: 'OTHER',
 } as const;
 
-export interface CheckoutInput {
+export interface CheckoutInputPayment {
   method: CheckoutInputMethod;
-  /** @minimum 0 */
+  /** @minimum 1 */
   amount: number;
   /** @nullable */
   reference?: string | null;
+  /** @nullable */
+  paidBy?: string | null;
 }
 
-export interface CheckoutResult {
-  tab: Tab;
-  receiptNumber: string;
-  paymentMethod: string;
-  paidAt: string;
+export interface CheckoutInput {
+  payments: CheckoutInputPayment[];
+  /** @nullable */
+  idempotencyKey?: string | null;
 }
+
+/** A payment the provider has been asked to take. */
+export interface PendingCheckoutResult {
+  status: "PENDING";
+  attemptId: string;
+  orderTrackingId: string;
+  redirectUrl: string;
+  amount: number;
+  currency: string;
+  method: string;
+}
+
+export interface CheckoutPayment {
+  id: string;
+  method: string;
+  amount: number;
+  reference: string | null;
+}
+
+export interface CheckoutReceipt {
+  id: string;
+  number: string;
+  total: number;
+  issuedAt: string;
+}
+
+/** A bill settled here and now, from the drawer. */
+export interface SettledCheckoutResult {
+  tab: {
+    id: string;
+    number: string;
+    total: number;
+    outstanding: number;
+    status: string;
+  };
+  payments: CheckoutPayment[];
+  receipt: CheckoutReceipt;
+  tabClosed: boolean;
+}
+
+export type CheckoutResult = PendingCheckoutResult | SettledCheckoutResult;
 
 export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
 
@@ -793,6 +835,18 @@ export interface CreatedOrganization {
   id: string;
   slug: string;
   branchId: string;
+  /**
+   * The checkout link for the club's first
+   * payment, when one was started.
+   * @nullable
+   */
+  payment?: {
+    billingPaymentId: string;
+    orderTrackingId: string;
+    redirectUrl: string;
+    amount: number;
+    currency: string;
+  } | null;
 }
 
 export interface AdminOrganization {
@@ -872,11 +926,23 @@ export interface AdminSubscriptionRow {
   billingCycle: string;
   amount: number;
   currency: string;
+  branchLimit?: number;
+  branchUsage?: number;
+  userLimit?: number;
+  userUsage?: number;
   /** @nullable */
   startedAt?: string | null;
   /** @nullable */
+  trialEndsAt?: string | null;
+  trialDaysLeft?: number | null;
+  /** @nullable */
   renewsAt?: string | null;
   renewalDue: boolean;
+  autoRenew: boolean;
+  /** @nullable */
+  cancelledAt?: string | null;
+  failedPaymentCount?: number;
+  createdAt?: string;
 }
 
 export type AdminSubscriptionsCounts = {
@@ -1005,6 +1071,18 @@ export interface SubscriptionResult {
   /** @nullable */
   monthlyPrice?: number | null;
   usage: SubscriptionResultUsage;
+  /**
+   * The checkout link for the club's first payment,
+   * when one was started by setting the plan.
+   * @nullable
+   */
+  payment?: {
+    billingPaymentId: string;
+    orderTrackingId: string;
+    redirectUrl: string;
+    amount: number;
+    currency: string;
+  } | null;
 }
 
 export type SetSubscriptionInputBillingCycle = typeof SetSubscriptionInputBillingCycle[keyof typeof SetSubscriptionInputBillingCycle];

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useGlobalSearch, useMarkAllNotificationsRead, useGetNotificationUnreadCount, useGetNotifications, useUpdateNotification } from "@/lib/api-client-react/src";
+import { useGlobalSearch, useMarkAllNotificationsRead, useGetNotificationUnreadCount, useGetNotifications, useUpdateNotification, useGetMe } from "@/lib/api-client-react/src";
 import { timeAgo } from "./ui";
 
 interface Hit {
@@ -141,8 +141,10 @@ export function GlobalSearch({
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const unread = useGetNotificationUnreadCount();
-  const list = useGetNotifications({ unread: false, limit: 20 });
+  const me = useGetMe();
+  const hasClub = Boolean(me.data?.organizationId);
+  const unread = useGetNotificationUnreadCount({ query: { queryKey: ['getNotificationUnreadCount'], enabled: hasClub } });
+  const list = useGetNotifications({ unread: false, limit: 20 }, { query: { queryKey: ['getNotifications'], enabled: hasClub } });
   const markRead = useUpdateNotification();
   const markAll = useMarkAllNotificationsRead();
 

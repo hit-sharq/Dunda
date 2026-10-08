@@ -389,18 +389,27 @@ export async function closeTab(
   }, TRANSACTION_OPTIONS);
 }
 
+export interface CheckoutPayment {
+  method: string;
+  amount: number;
+  reference?: string | null;
+  paidBy?: string | null;
+  /** Set when the money arrived through a provider such as Pesapal. */
+  provider?: string | null;
+}
+
 export interface CheckoutInput {
   organizationId: string;
   tabId: string;
   branchId: string;
-  payments: {
-    method: string;
-    amount: number;
-    reference?: string | null;
-    paidBy?: string | null;
-  }[];
+  payments: CheckoutPayment[];
   staffId: string | null;
   idempotencyKey?: string | null;
+  /**
+   * The provider attempt this settlement resolves. Claimed inside the
+   * transaction, so a callback that arrives twice settles the tab once.
+   */
+  attemptId?: string | null;
 }
 
 export interface CheckoutResult {
@@ -429,18 +438,18 @@ function idempotencyPrefix(key: string): string {
  * split bill across three phones cannot quietly pay twice. Every payment is its own
  * row, because "who paid the M-Pesa half" has to remain answerable after the
  * table has moved on.
+ *
+ * The idempotency key makes a retried request safe: a till that times out and is
+ * pressed again must not take a second payment for the same bill. Each payment in
+ * a split is stored under a derived key so two identical-looking payments in one
+ * request stay distinct rows, which means the lookup has to match the prefix
+ * rather than one exact value.
  */
 export async function checkoutTab(input: CheckoutInput): Promise<CheckoutResult> {
   if (input.payments.length === 0) {
     throw wrongState("A payment needs an amount and a method.");
   }
 
-  // The idempotency key makes a retried request safe. A till that times out and is
-  // pressed again must not take a second payment for the same bill.
-  //
-  // Each payment in a split is stored under a derived key so two identical-looking
-  // payments in one request stay distinct rows, which means the lookup has to
-  // match the prefix rather than one exact value.
   if (input.idempotencyKey) {
     const existing = await prisma.dunda_payments.findFirst({
       where: {
@@ -454,7 +463,33 @@ export async function checkoutTab(input: CheckoutInput): Promise<CheckoutResult>
     }
   }
 
+  return applyTabPayment(input);
+}
+
+/**
+ * The settlement itself, inside one transaction.
+ *
+ * Exported because a provider callback settles a tab the same way a
+ * till does: the money has already been confirmed with the provider,
+ * and the only thing left is to write it against the bill.
+ */
+export async function applyTabPayment(
+  input: CheckoutInput,
+): Promise<CheckoutResult> {
   return prisma.$transaction(async (tx) => {
+    // A callback that arrives twice is a provider retry, not a second
+    // payment. The attempt is claimed here, inside the transaction, so
+    // the claim and the settlement commit together or not at all.
+    if (input.attemptId) {
+      const claimed = await tx.dunda_payment_attempts.updateMany({
+        where: { id: input.attemptId, status: "INITIATED" },
+        data: { status: "RESOLVED", resolved_at: new Date() },
+      });
+      if (claimed.count === 0) {
+        return rebuildResult(input.organizationId, input.tabId, true);
+      }
+    }
+
     const tab = await tx.dunda_tabs.findFirst({
       where: orgWhere(input.organizationId, { id: input.tabId }),
       include: { dunda_payments: { select: { amount: true, status: true } } },
@@ -483,6 +518,10 @@ export async function checkoutTab(input: CheckoutInput): Promise<CheckoutResult>
     }
 
     const createdPayments = [];
+    // A settlement that arrives through a provider callback has no
+    // request-side key, so the attempt stands in for one: the payment
+    // row stays traceable to the order the provider confirmed.
+    const idempotencyKey = input.idempotencyKey ?? input.attemptId ?? null;
     for (const [paymentIndex, payment] of input.payments.entries()) {
       createdPayments.push(
         await tx.dunda_payments.create({
@@ -492,16 +531,26 @@ export async function checkoutTab(input: CheckoutInput): Promise<CheckoutResult>
             tab_id: tab.id,
             amount: payment.amount,
             method: payment.method,
+            provider: payment.provider ?? null,
             reference: payment.reference ?? null,
             status: "SUCCESSFUL",
             cashier_id: input.staffId,
             paid_by: payment.paidBy ?? null,
-            idempotency_key: input.idempotencyKey
-              ? `${idempotencyPrefix(input.idempotencyKey)}${paymentIndex}:${payment.method}:${payment.amount}`
+            idempotency_key: idempotencyKey
+              ? `${idempotencyPrefix(idempotencyKey)}${paymentIndex}:${payment.method}:${payment.amount}`
               : null,
           },
         }),
       );
+    }
+
+    // The attempt is the record of the provider order, so it points
+    // at the payment row that resolved it.
+    if (input.attemptId && createdPayments[0]) {
+      await tx.dunda_payment_attempts.update({
+        where: { id: input.attemptId },
+        data: { payment_id: createdPayments[0].id },
+      });
     }
 
     const newPaid = alreadyPaid + tendered;
@@ -659,7 +708,7 @@ async function issueReceipt(
 }
 
 /** Rebuilds the checkout response from what is already recorded. */
-async function rebuildResult(
+export async function rebuildResult(
   organizationId: string,
   tabId: string,
   tabClosed: boolean,

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { route, Forbidden, NotProvisioned, resolveSession } from "@/lib/server/http";
+import {
+  getOpenBillingPayment,
+  initiateBillingPayment,
+  runRenewalSweep,
+} from "@/lib/server/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -128,4 +133,99 @@ export const GET = route(async (request: Request) => {
     revenueByCurrency: [...totals.entries()].map(([label, value]) => ({ label, value })),
     revenueByPlan: [...revenueByPlan.entries()].map(([label, value]) => ({ label, value })),
   });
+});
+
+/**
+ * Collects what a club owes, through Pesapal.
+ *
+ * The operator sends the club the link that comes back;
+ * the club's owner pays it, and the callback completes
+ * the billing payment and renews the subscription. The
+ * amount is the subscription's own, so the console
+ * cannot ask a club for a different figure than the
+ * one it agreed to.
+ */
+export const POST = route(async (request: Request) => {
+  const session = await resolveSession();
+  if (!session) throw new NotProvisioned();
+  if (!session.isOperator) throw new Forbidden("platform_console");
+
+  const body = (await request.json().catch(() => ({}))) as {
+    organizationId?: string;
+    subscriptionId?: string;
+    kind?: string;
+    /** Offer the club an automatic renewal mandate. */
+    autoRenew?: boolean;
+    /** Start a payment for every renewal coming due. */
+    sweep?: boolean;
+  };
+
+  // The sweep is the same work the schedule
+  // does, offered to the console so a
+  // renewal can be chased without waiting
+  // for the next run.
+  if (body.sweep) {
+    const result = await runRenewalSweep();
+    return NextResponse.json(result);
+  }
+
+  if (!body.organizationId) {
+    return NextResponse.json(
+      { error: "Say which club is paying.", code: "VALIDATION_FAILED" },
+      { status: 422 },
+    );
+  }
+
+  // The club's newest subscription is the one that
+  // renews; an explicit id collects against a specific
+  // one instead.
+  const subscription = body.subscriptionId
+    ? await prisma.dunda_subscriptions.findFirst({
+        where: {
+          id: body.subscriptionId,
+          organization_id: body.organizationId,
+        },
+      })
+    : await prisma.dunda_subscriptions.findFirst({
+        where: { organization_id: body.organizationId },
+        orderBy: { created_at: "desc" },
+      });
+
+  if (!subscription) {
+    return NextResponse.json(
+      { error: "That club has no subscription to pay.", code: "NOT_FOUND" },
+      { status: 404 },
+    );
+  }
+
+  let initiation;
+  try {
+    initiation = await initiateBillingPayment({
+      organizationId: body.organizationId,
+      subscriptionId: subscription.id,
+      kind: body.kind,
+      // Collecting is offered as an automatic
+      // renewal by default: that is the point
+      // of a subscription.
+      autoRenew: body.autoRenew ?? true,
+    });
+  } catch (error) {
+    // A payment already open is the answer to
+    // "collect", not an error: the club's own
+    // screen shows it, and a second order would
+    // ask for the same money twice.
+    const open = await getOpenBillingPayment(body.organizationId);
+    if (open) {
+      return NextResponse.json({
+        billingPaymentId: open.billingPaymentId,
+        orderTrackingId: open.orderTrackingId,
+        redirectUrl: open.redirectUrl,
+        amount: open.amount,
+        currency: open.currency,
+      });
+    }
+    throw error;
+  }
+
+  return NextResponse.json(initiation, { status: 201 });
 });

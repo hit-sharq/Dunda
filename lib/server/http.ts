@@ -3,6 +3,7 @@ import { ZodError, type ZodType, type z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/client";
 import { ApiError } from "@/lib/errors.server";
+import { scheduleDueJobs } from "@/lib/server/cron";
 
 /**
  * Everything a request handler needs in order to act as somebody: who they are,
@@ -237,6 +238,16 @@ export function route<Args extends unknown[]>(
   handler: (...args: Args) => Promise<Response>,
 ): (...args: Args) => Promise<Response> {
   return async (...args: Args) => {
+    // The in-app clock ticks on traffic: a job
+    // that is due runs after the answer is sent.
+    // It is asked before the handler, so the
+    // claim is made while the request is still
+    // open, and a clock that cannot read the
+    // database never takes the request down.
+    const request = args[0] as Request | undefined;
+    if (request?.url) {
+      await scheduleDueJobs(request.url).catch(() => undefined);
+    }
     try {
       return await handler(...args);
     } catch (error) {

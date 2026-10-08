@@ -2,6 +2,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { route, Forbidden, NotProvisioned, resolveSession, parseBody } from "@/lib/server/http";
+import { initiateBillingPayment } from "@/lib/server/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -119,7 +120,7 @@ export const POST = route(async (request: Request) => {
       });
     }
 
-    await tx.dunda_subscriptions.create({
+    const subscription = await tx.dunda_subscriptions.create({
       data: {
         organization_id: org.id,
         plan_id: plan?.id ?? null,
@@ -135,7 +136,7 @@ export const POST = route(async (request: Request) => {
       },
     });
 
-    return { org, branch };
+    return { org, branch, subscription };
   });
 
   await prisma.dunda_platform_audit_logs.create({
@@ -150,6 +151,42 @@ export const POST = route(async (request: Request) => {
     },
   });
 
+  // A club's first bill goes out with the club
+  // itself: the owner pays from their own home
+  // screen rather than being chased afterwards.
+  // Without a provider configured the club is
+  // still provisioned — the operator collects
+  // by hand from the console.
+  let payment: {
+    billingPaymentId: string;
+    orderTrackingId: string;
+    redirectUrl: string;
+    amount: number;
+    currency: string;
+  } | null = null;
+  if (organization.subscription.amount > 0) {
+    payment = await initiateBillingPayment({
+      organizationId: organization.org.id,
+      subscriptionId: organization.subscription.id,
+      kind: "SUBSCRIPTION_FIRST",
+      autoRenew: true,
+    })
+      .then((initiation) => ({
+        billingPaymentId: initiation.billingPaymentId,
+        orderTrackingId: initiation.orderTrackingId,
+        redirectUrl: initiation.redirectUrl,
+        amount: initiation.amount,
+        currency: initiation.currency,
+      }))
+      .catch((error: unknown) => {
+        console.error(
+          "[dunda] could not start the first subscription payment",
+          error,
+        );
+        return null;
+      });
+  }
+
   return NextResponse.json(
     {
       id: organization.org.id,
@@ -157,6 +194,7 @@ export const POST = route(async (request: Request) => {
       slug,
       branchId: organization.branch.id,
       trialEndsAt: trialEndsAt.toISOString(),
+      payment,
     },
     { status: 201 },
   );

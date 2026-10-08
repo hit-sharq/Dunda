@@ -25,6 +25,11 @@ import {
 import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch, NotificationBell } from '@/components/chrome';
 import { useLiveRefresh } from '@/hooks/use-live-refresh';
+import { usePaymentAttempt } from '@/hooks/use-payment-attempt';
+import {
+  useSubscriptionPayment,
+  useRequestSubscriptionPayment,
+} from '@/hooks/use-subscription-payment';
 import { useApiAuth } from '@/hooks/use-api-auth';
 import { useSessionGuard } from '@/hooks/use-session-guard';
 import { MoneyProvider, money } from '@/lib/money';
@@ -51,10 +56,6 @@ import { Hq } from '@/screens/hq';
 import NotFound, { NotAnOperator } from '@/screens/not-found';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 
-// Operational screens poll because the realtime socket only fires on changes
-// made through this API. Without a floor, a failing request retried every few
-// seconds flooded the server log with identical 403s.
-/** The studio that builds and maintains Dunda. Credited in every footer. */
 const VENDOR_URL = "https://www.lumyn.co.ke/";
 const VENDOR_NAME = "Lumyn Technologies";
 
@@ -62,13 +63,9 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 15_000,
-      // Refetching on focus is what makes a permission change visible. A manager
-      // moves somebody into a role, and the only thing that changes on their
-      // screen is the sidebar — which reads /me. Without this, the tabs stay as
-      // they were until something else happened to invalidate the query.
+     
       refetchOnWindowFocus: true,
-      // 4xx responses are answers, not transient faults: retrying an
-      // unauthorized or forbidden call can only produce the same answer.
+    
       retry: (failureCount, error) => {
         const status = (error as { status?: number })?.status;
         if (typeof status === 'number' && status >= 400 && status < 500) return false;
@@ -78,18 +75,14 @@ const queryClient = new QueryClient({
     },
   },
 });
-// The repo-root .env uses NEXT_PUBLIC_ names, so accept either prefix.
-// A client component's module body still evaluates during prerender, so the
-// hostname has to be read lazily rather than at module scope.
+
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 function resolveClerkPublishableKey() {
   const hostname =
     typeof window === 'undefined' ? 'localhost' : window.location.hostname;
   return publishableKeyFromHost(hostname, clerkPublishableKey);
 }
-// The Clerk frontend-API proxy only exists behind the deployment edge, where
-// the API server mounts it in production. In development it must stay unset,
-// otherwise Clerk tries to load clerk.js from a host that doesn't resolve.
+
 const clerkProxyUrl = process.env.NEXT_PUBLIC_CLERK_PROXY_URL || undefined;
 const basePath = '';
 function logoImageUrl() {
@@ -123,14 +116,7 @@ function Button({ children, className = '', variant = 'primary', ...props }: { c
 }
 
 
-/**
- * Each screen declares the permission that opens it.
- *
- * The server already refuses a call the role is not entitled to, but showing a
- * waiter fifteen links and answering with 403 on the three they cannot use is
- * poor. The list is filtered to what the signed-in role can actually do, and an
- * owner sees all of it.
- */
+
 const nav: Array<{
   href: string;
   label: string;
@@ -425,7 +411,7 @@ function AppShell({ children }: { children: ReactNode }) {
       .map((part) => part[0]?.toUpperCase() ?? '')
       .join('') || '?';
 
-  const pulseSummary = useGetDashboardSummary();
+  const pulseSummary = useGetDashboardSummary({ query: { queryKey: ['getDashboardSummary'], enabled: hasClub } });
   const shiftPulse = (() => {
     const d = pulseSummary.data;
     if (!d) return { summary: { occupancy: 0, label: 'Loading live count' } };
@@ -522,8 +508,85 @@ function AppShell({ children }: { children: ReactNode }) {
       <div className="mt-5 rounded-xl border border-[var(--app-info)] bg-[var(--app-info)] p-3"><div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[.16em] text-[var(--app-success)]"><span>Table occupancy</span><span className="text-[var(--app-success)]">Live</span></div><div className="mb-2 flex items-end justify-between"><span className="font-display text-2xl font-bold">{pulseSummary.data ? `${shiftPulse.summary.occupancy}%` : '—'}</span><Activity size={17} className="text-[var(--app-gold)]" /></div><div className="h-1.5 overflow-hidden rounded-full bg-[var(--app-info)]"><div className="h-full rounded-full bg-[var(--app-gold)]" style={{ width: `${shiftPulse.summary.occupancy}%` }} /></div><p className="mt-2 text-[11px] text-[var(--app-success)]">{shiftPulse.summary.label}</p></div>
     </aside>
     {mobileOpen && <button onClick={() => setMobileOpen(false)} className="fixed inset-0 z-30 bg-[var(--app-info)]/45 md:hidden" aria-label="Close menu" data-testid="button-overlay-close" />}
-    <main className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-[var(--app-warn-soft)] bg-[var(--app-bg)]/95 px-4 backdrop-blur md:px-8"><div className="flex items-center gap-3"><Button variant="ghost" className="px-2 md:hidden" onClick={() => setMobileOpen(true)} data-testid="button-open-menu"><Menu size={20} /></Button><div><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[var(--app-muted)]">{todayLabel}</p><h1 className="font-display text-xl font-bold tracking-tight text-[var(--app-ink)]">{location === '/overview' ? 'Tonight at a glance' : nav.find((x) => x.href === location)?.label ?? (location === '/settings' ? 'Workspace settings' : 'Dunda')}</h1></div></div><div className="flex items-center gap-2"><GlobalSearch onNavigate={(href) => setLocation(href)} /><NotificationBell /><div className="hidden h-7 w-px bg-[var(--app-line)] sm:block" /><button onClick={() => void openUserProfile()} className="flex items-center gap-2 rounded-xl p-1.5 pr-2 hover:bg-[var(--app-line)]" data-testid="button-user-menu"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--app-success-soft)] text-xs font-bold text-[var(--app-success)]">{initials}</span><span className="hidden text-left sm:block"><span className="block max-w-[16ch] truncate text-xs font-semibold">{displayName}</span><span className="block max-w-[16ch] truncate text-[10px] text-[var(--app-muted)]">{roleLabel}</span></span></button></div></header><div className="mx-auto max-w-[1500px] p-4 md:p-8">{children}<footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--app-line-soft)] pt-4 text-[11px] text-[var(--app-faint)]" data-testid="app-footer"><span>© {new Date().getFullYear()} Dunda</span><a href={VENDOR_URL} target="_blank" rel="noopener noreferrer" className="font-medium underline decoration-[var(--app-line)] underline-offset-4 transition-colors hover:text-[var(--app-gold)]">Built and maintained by {VENDOR_NAME}</a></footer></div></main>
+    <main className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-[var(--app-warn-soft)] bg-[var(--app-bg)]/95 px-4 backdrop-blur md:px-8"><div className="flex items-center gap-3"><Button variant="ghost" className="px-2 md:hidden" onClick={() => setMobileOpen(true)} data-testid="button-open-menu"><Menu size={20} /></Button><div><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[var(--app-muted)]">{todayLabel}</p><h1 className="font-display text-xl font-bold tracking-tight text-[var(--app-ink)]">{location === '/overview' ? 'Tonight at a glance' : nav.find((x) => x.href === location)?.label ?? (location === '/settings' ? 'Workspace settings' : 'Dunda')}</h1></div></div><div className="flex items-center gap-2"><GlobalSearch onNavigate={(href) => setLocation(href)} /><NotificationBell /><div className="hidden h-7 w-px bg-[var(--app-line)] sm:block" /><button onClick={() => void openUserProfile()} className="flex items-center gap-2 rounded-xl p-1.5 pr-2 hover:bg-[var(--app-line)]" data-testid="button-user-menu"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--app-success-soft)] text-xs font-bold text-[var(--app-success)]">{initials}</span><span className="hidden text-left sm:block"><span className="block max-w-[16ch] truncate text-xs font-semibold">{displayName}</span><span className="block max-w-[16ch] truncate text-[10px] text-[var(--app-muted)]">{roleLabel}</span></span></button></div></header><SubscriptionPaymentNotice enabled={hasClub && !isOperator} canRequest={isOwner} /><div className="mx-auto max-w-[1500px] p-4 md:p-8">{children}<footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--app-line-soft)] pt-4 text-[11px] text-[var(--app-faint)]" data-testid="app-footer"><span>© {new Date().getFullYear()} Dunda</span><a href={VENDOR_URL} target="_blank" rel="noopener noreferrer" className="font-medium underline decoration-[var(--app-line)] underline-offset-4 transition-colors hover:text-[var(--app-gold)]">Built and maintained by {VENDOR_NAME}</a></footer></div></main>
   </div>;
+}
+
+/**
+ * The club's subscription payment, at the top of every
+ * screen until it is paid.
+ *
+ * The link opens Pesapal on the owner's own device,
+ * which is the only place the payment can be made: it
+ * is their card and their mandate, not the club's till.
+ * A club whose last link expired — the provider lets
+ * them lapse — is offered a fresh one instead.
+ */
+function SubscriptionPaymentNotice({
+  enabled,
+  canRequest,
+}: {
+  enabled: boolean;
+  canRequest: boolean;
+}) {
+  const { data } = useSubscriptionPayment(enabled);
+  const request = useRequestSubscriptionPayment();
+  const payment = data?.payment ?? null;
+  const subscription = data?.subscription ?? null;
+  const owesWithoutLink =
+    payment === null &&
+    subscription !== null &&
+    subscription.amount > 0 &&
+    ['TRIAL', 'PAST_DUE', 'PAYMENT_PENDING', 'PAYMENT_FAILED'].includes(
+      subscription.status,
+    );
+
+  if (payment === null && !owesWithoutLink) return null;
+
+  const amount = payment?.amount ?? subscription?.amount ?? 0;
+
+  return (
+    <div
+      className="border-b border-[var(--app-gold)] bg-[var(--app-gold)] px-4 py-2.5 md:px-8"
+      data-testid="subscription-payment-due"
+    >
+      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3">
+        <p className="flex items-center gap-2 text-sm font-semibold text-[var(--app-ink)]">
+          <CreditCard size={15} />
+          Subscription payment due — {money(amount)}
+          {subscription?.autoRenew && (
+            <span className="text-xs font-medium opacity-70">
+              · renews automatically
+            </span>
+          )}
+        </p>
+        {payment !== null ? (
+          <a
+            href={payment.redirectUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[var(--app-ink)] px-3 text-xs font-bold text-[var(--app-bg)] hover:opacity-90"
+            data-testid="link-pay-subscription"
+          >
+            Pay now <ChevronRight size={13} />
+          </a>
+        ) : canRequest ? (
+          <button
+            onClick={() => request.mutate()}
+            disabled={request.isPending}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[var(--app-ink)] px-3 text-xs font-bold text-[var(--app-bg)] hover:opacity-90 disabled:opacity-50"
+            data-testid="button-request-payment-link"
+          >
+            {request.isPending ? 'Getting link…' : 'Get payment link'}
+          </button>
+        ) : (
+          <span className="text-xs font-medium text-[var(--app-ink)] opacity-70">
+            The club owner can pay from their account.
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function PageIntro({ eyebrow, title, detail, action }: { eyebrow: string; title: string; detail: string; action?: ReactNode }) {
@@ -639,10 +702,14 @@ function Pos() {
   const [table, setTable] = useState('');
   const [payment, setPayment] = useState<CheckoutInputMethod>('MPESA');
   const [notice, setNotice] = useState('');
+  // A payment the provider is taking. The till cannot
+  // close the tab itself — the provider's answer does.
+  const [pendingPayment, setPendingPayment] = useState<{ attemptId: string; redirectUrl: string; amount: number } | null>(null);
   const qc = useQueryClient();
   const createTab = useCreateTab();
   const addItem = useAddTabItem();
   const checkout = useCheckoutTab();
+  const attempt = usePaymentAttempt(pendingPayment?.attemptId ?? null);
   const detail = allTabs.data?.find((t) => t.id === selectedId);
   const list = products.data ?? [];
   const cats = ['All', ...Array.from(new Set(list.map((p) => p.category)))];
@@ -650,11 +717,28 @@ function Pos() {
   const openTab = detail ?? tabs.data?.find((tab) => tab.id === selectedId);
   const create = (event: FormEvent) => { event.preventDefault(); if (!customer || !table) return; createTab.mutate({ data: { customer, table } }, { onSuccess: (tab) => { setSelectedId(tab.id); setShowNew(false); setCustomer(''); setTable(''); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); } }); };
   const add = (p: Product) => { if (!selectedId) { setNotice('Open a tab first, then add items.'); return; } addItem.mutate({ tabId: selectedId, data: { productId: p.id, quantity: 1 } }, { onSuccess: (tab) => {       qc.setQueryData(getGetTabsQueryKey({ status: 'OPEN' }), tabs.data); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); setNotice(`${p.name} added`); } }); };
-  const pay = () => { if (!openTab) return; checkout.mutate({ tabId: openTab.id, data: { method: payment, amount: openTab.total, reference: null } }, { onSuccess: (result) => { setNotice(`Receipt ${result.receiptNumber} closed successfully`); setSelectedId(undefined); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); } }); };
+  const pay = () => { if (!openTab) return; checkout.mutate({ tabId: openTab.id, data: { payments: [{ method: payment, amount: openTab.total }], idempotencyKey: crypto.randomUUID() } }, { onSuccess: (result) => { if ('status' in result) { setPendingPayment({ attemptId: result.attemptId, redirectUrl: result.redirectUrl, amount: result.amount }); return; } setNotice(`Receipt ${result.receipt.number} closed successfully`); setSelectedId(undefined); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); } }); };
+  // The poll answers what the callback may have missed:
+  // a resolved attempt settles the tab, a failed one
+  // leaves the bill open.
+  useEffect(() => {
+    if (!pendingPayment || !attempt.data) return;
+    if (attempt.data.status === 'RESOLVED') {
+      setNotice(`Payment of ${money(attempt.data.amount)} received · tab settled`);
+      setPendingPayment(null);
+      setSelectedId(undefined);
+      qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) });
+      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+    } else if (attempt.data.status === 'FAILED') {
+      setNotice(attempt.data.failureReason ?? 'The payment did not go through.');
+      setPendingPayment(null);
+    }
+  }, [attempt.data, pendingPayment, qc]);
   return <div className="rise"><PageIntro eyebrow="Fast lane / POS" title="Take the order." detail="Tap a product to send it to the selected tab. Built for a busy counter and a 10-inch tablet." action={<Button onClick={() => setShowNew(true)} data-testid="button-new-tab"><Plus size={16} /> New tab</Button>} />
     {notice && <div className="mb-4 flex items-center justify-between rounded-xl border border-[var(--app-success-soft)] bg-[var(--app-success-soft)] px-4 py-3 text-sm text-[var(--app-success)]" data-testid="status-pos-success"><span>{notice}</span><button onClick={() => setNotice('')} data-testid="button-dismiss-notice"><X size={15} /></button></div>}
     <div className="grid gap-5 xl:grid-cols-[1fr_370px]"><section className="min-w-0"><div className="mb-4 flex gap-2 overflow-x-auto pb-1 mobile-scroll">{cats.map((cat) => <button key={cat} onClick={() => setCategory(cat)} className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition-colors ${category === cat ? 'bg-[var(--app-chrome-raised)] text-[var(--app-chrome-ink)]' : 'bg-[var(--app-line)] text-[var(--app-faint)] hover:bg-[var(--app-warn-soft)]'}`} data-testid={`button-category-${cat.toLowerCase()}`}>{cat}</button>)}</div><label className="mb-5 flex h-11 items-center gap-2 rounded-xl border border-[var(--app-warn-soft)] bg-[var(--app-surface)] px-3 text-[var(--app-muted)]"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-transparent text-sm text-[var(--app-ink)] outline-none placeholder:text-[var(--app-muted)]" placeholder="Search drinks, dishes, cover..." data-testid="input-search-products" /></label><QueryNotice loading={products.isLoading} error={products.error} what="products" empty={!products.isLoading && !products.isError && !filtered.length} onRetry={() => products.refetch()} /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{filtered.map((p) => <button key={p.id} onClick={() => add(p)} disabled={!p.available || addItem.isPending} className="surface group min-h-[142px] rounded-2xl p-4 text-left transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-45" data-testid={`button-product-${p.id}`}><div className="mb-6 flex items-start justify-between"><span className="grid h-9 w-9 place-items-center rounded-xl text-sm font-bold" style={{ background: `${p.accent}25`, color: p.accent }}>{p.category.slice(0, 1)}</span><span className="font-mono text-xs text-[var(--app-faint)]">{p.unit}</span></div><span className="block text-sm font-semibold leading-tight">{p.name}</span><span className="mt-1 block font-mono text-sm font-medium text-[var(--app-gold)]">{money(p.price)}</span></button>)}</div></section><aside className="surface h-fit rounded-2xl p-4 md:sticky md:top-[88px]"><div className="mb-4 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-[var(--app-faint)]">Checkout rail</p><h3 className="font-display text-xl font-bold">Open tabs</h3></div><span className="rounded-full bg-[var(--app-gold-soft)] px-2 py-1 font-mono text-[10px] font-medium text-[var(--app-critical)]">{tabs.data?.length ?? 0} live</span></div><div className="mb-4 grid gap-2">{tabs.isLoading ? <><Skeleton className="h-16" /><Skeleton className="h-16" /></> : tabs.isError ? <QueryNotice error onRetry={() => tabs.refetch()} /> : tabs.data?.length ? tabs.data.map((tab) => <button key={tab.id} onClick={() => setSelectedId(tab.id)} className={`rounded-xl border p-3 text-left ${selectedId === tab.id ? 'border-[var(--app-gold)] bg-[var(--app-gold-ink)]' : 'border-[var(--app-line-soft)] bg-[var(--app-warn-soft)] hover:border-[var(--app-warn-soft)]'}`} data-testid={`button-tab-${tab.id}`}><div className="flex items-center justify-between"><span className="text-sm font-semibold">{tab.customer}</span><span className="font-mono text-[10px] text-[var(--app-faint)]">#{tab.number}</span></div><div className="mt-1 flex items-center justify-between text-xs text-[var(--app-muted)]"><span>{tab.table} · {tab.items.length} items</span><span className="font-mono font-medium text-[var(--app-ink)]">{money(tab.total)}</span></div></button>) : <QueryNotice empty />}</div>{openTab ? <div className="border-t border-[var(--app-line-soft)] pt-4"><div className="mb-3 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-[var(--app-faint)]">Tab #{openTab.number}</p><h4 className="font-display text-lg font-bold">{openTab.customer}</h4></div><span className="rounded-full bg-[var(--app-success-soft)] px-2 py-1 text-[10px] font-semibold text-[var(--app-success)]">{openTab.table}</span></div><div className="scroll-thin max-h-44 overflow-auto">{openTab.items.map((item) => <div key={item.id} className="flex items-center justify-between border-b border-[var(--app-line-soft)] py-2 text-sm"><span><b className="mr-2 font-mono text-xs text-[var(--app-gold)]">{item.quantity}×</b>{item.name}</span><span className="font-mono text-xs">{money(item.total)}</span></div>)}</div><div className="mt-3 grid gap-1 text-xs text-[var(--app-muted)]"><div className="flex justify-between"><span>Subtotal</span><span className="font-mono">{money(openTab.subtotal)}</span></div><div className="flex justify-between"><span>Service + tax</span><span className="font-mono">{money(openTab.serviceCharge + openTab.tax)}</span></div><div className="mt-2 flex justify-between border-t border-[var(--app-warn-soft)] pt-2 text-base font-bold text-[var(--app-ink)]"><span>Total</span><span className="font-mono">{money(openTab.total)}</span></div></div><div className="mt-4 grid grid-cols-3 gap-1.5">{(['CASH', 'MPESA', 'CARD'] as CheckoutInputMethod[]).map((method) => <button key={method} onClick={() => setPayment(method)} className={`rounded-lg py-2 text-[10px] font-semibold ${payment === method ? 'bg-[var(--app-chrome-raised)] text-[var(--app-warn-soft)]' : 'bg-[var(--app-line-soft)] text-[var(--app-muted)]'}`} data-testid={`button-payment-${method.toLowerCase()}`}>{method === 'MPESA' ? 'M-Pesa' : method[0] + method.slice(1).toLowerCase()}</button>)}</div><Button className="mt-3 w-full" onClick={pay} disabled={checkout.isPending} data-testid="button-checkout">{checkout.isPending ? 'Closing tab…' : `Charge ${money(openTab.total)}`}</Button></div> : <div className="rounded-xl bg-[var(--app-bg)] p-5 text-center text-sm text-[var(--app-muted)]"><CreditCard className="mx-auto mb-2 text-[var(--app-success)]" size={22} /><p>Select an open tab to see its check.</p></div>}</aside></div>
     {showNew && <Modal title="Open a new tab" onClose={() => setShowNew(false)}><form onSubmit={create} className="grid gap-4"><Field label="Customer name"><input required value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="e.g. Nia" data-testid="input-tab-customer" /></Field><Field label="Table or seat"><input required value={table} onChange={(e) => setTable(e.target.value)} placeholder="e.g. T-14" data-testid="input-tab-table" /></Field><Button className="mt-2 w-full" disabled={createTab.isPending} data-testid="button-create-tab">{createTab.isPending ? 'Opening…' : 'Open tab'}</Button></form></Modal>}
+    {pendingPayment && <Modal title="Waiting for payment" onClose={() => setPendingPayment(null)}><div className="grid gap-4"><p className="text-sm text-[var(--app-ink-soft)]">Send the guest this link to pay <strong>{money(pendingPayment.amount)}</strong>. The tab settles on its own when the payment goes through.</p><a href={pendingPayment.redirectUrl} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center rounded-xl bg-[var(--app-gold)] px-4 text-sm font-semibold text-[var(--app-ink)]" data-testid="link-open-payment">Open payment page</a><p className="text-center font-mono text-[10px] uppercase tracking-wider text-[var(--app-faint)]">Checking every few seconds…</p></div></Modal>}
   </div>;
 }
 

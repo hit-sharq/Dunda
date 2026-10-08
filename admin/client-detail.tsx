@@ -57,6 +57,9 @@ export function ClientDetail({ id }: { id: string }) {
   const [grantPending, setGrantPending] = useState(false);
   const [roles, setRoles] = useState<{ id: string; name: string; isOwner: boolean }[]>([]);
   const [planNote, setPlanNote] = useState<string | null>(null);
+  // The first payment's checkout link, so the
+  // operator can send it to the club's owner.
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!org) return;
@@ -220,6 +223,21 @@ export function ClientDetail({ id }: { id: string }) {
         {planNote && (
           <p style={{ margin: 0, fontSize: 13, color: colors.green }}>{planNote}</p>
         )}
+        {paymentUrl && (
+          <p style={{ margin: 0, fontSize: 13 }}>
+            <span style={{ color: colors.muted }}>First payment: </span>
+            <a
+              href={paymentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: colors.green, fontWeight: 600 }}
+              data-testid="link-first-payment"
+            >
+              Open the club's payment link
+            </a>
+            <span style={{ color: colors.muted }}> — the owner pays on their own device, and the link also waits on their Dunda home screen.</span>
+          </p>
+        )}
 
         <div>
           <button
@@ -235,6 +253,7 @@ export function ClientDetail({ id }: { id: string }) {
                   onSuccess: (r) => {
                     setUsage(r.usage);
                     setPlanNote(`Set to ${r.subscription.plan} on ${r.subscription.billingCycle.toLowerCase()}.`);
+                    setPaymentUrl(r.payment?.redirectUrl ?? null);
                     orgs.refetch();
                   },
                 },

@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useGetAdminBilling, useGetAdminSubscriptions } from "@/lib/api-client-react/src";
-import { Card, State, inputStyle } from "./ui";
+import { Card, State, inputStyle, linkButton } from "./ui";
 import { colors, money } from "./theme";
 
 /**
@@ -15,8 +16,85 @@ export function Billing() {
   const billing = useGetAdminBilling();
   const [filter, setFilter] = useState<string>("ALL");
   const [, setLocation] = useLocation();
+  const qc = useQueryClient();
+  // Collecting a renewal: the club is
+  // sent to Pesapal, and the callback
+  // completes the payment here.
+  const [collecting, setCollecting] = useState<string | null>(null);
+  const [collectError, setCollectError] = useState<string | null>(null);
+  // The link from the last collect. It lands on
+  // the club's own home screen, so it is kept
+  // only to send by hand when the owner is on
+  // the phone rather than watching their app.
+  const [collectLink, setCollectLink] = useState<{
+    organization: string;
+    url: string;
+  } | null>(null);
+  // The sweep: one button that starts
+  // a payment for every renewal coming
+  // due, rather than one club at a time.
+  const [sweeping, setSweeping] = useState(false);
+  const [sweepResult, setSweepResult] = useState<{
+    checked: number;
+    initiated: number;
+    skipped: number;
+  } | null>(null);
 
   const counts = subs.data?.counts;
+
+  const collect = async (organizationId: string, organization: string) => {
+    setCollecting(organizationId);
+    setCollectError(null);
+    setCollectLink(null);
+    try {
+      const response = await fetch("/api/admin/billing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setCollectError(data.error ?? "The payment could not be started.");
+        return;
+      }
+      // The club's owner pays on their own device, and
+      // their home screen offers the link itself, so
+      // nothing is opened on this screen.
+      setCollectLink({ organization, url: data.redirectUrl });
+      qc.invalidateQueries();
+    } catch {
+      setCollectError("The payment provider could not be reached.");
+    } finally {
+      setCollecting(null);
+    }
+  };
+
+  const sweep = async () => {
+    setSweeping(true);
+    setSweepResult(null);
+    try {
+      const response = await fetch("/api/admin/billing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sweep: true }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setCollectError(data.error ?? "The renewals could not be collected.");
+        return;
+      }
+      setSweepResult({
+        checked: data.checked ?? 0,
+        initiated: data.initiated?.length ?? 0,
+        skipped: data.skipped ?? 0,
+      });
+      qc.invalidateQueries();
+    } catch {
+      setCollectError("The payment provider could not be reached.");
+    } finally {
+      setSweeping(false);
+    }
+  };
 
   const visible = useMemo(() => {
     const list = subs.data?.subscriptions ?? [];
@@ -40,6 +118,25 @@ export function Billing() {
         <p style={{ margin: "4px 0 0", color: colors.muted, fontSize: 14 }}>
           Who is paying, who is not, and what failed.
         </p>
+        {collectError && (
+          <p style={{ margin: "8px 0 0", fontSize: 13, color: colors.red }}>
+            {collectError}
+          </p>
+        )}
+        {collectLink && (
+          <p style={{ margin: "8px 0 0", fontSize: 13, color: colors.green }}>
+            {collectLink.organization}'s home screen now shows this payment.{" "}
+            <a
+              href={collectLink.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontWeight: 700 }}
+            >
+              Open the link
+            </a>{" "}
+            to send it by hand instead.
+          </p>
+        )}
       </div>
 
       <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
@@ -74,6 +171,28 @@ export function Billing() {
       <Card style={{ display: "grid", gap: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>Subscriptions</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {sweepResult && (
+              <span style={{ fontSize: 12, color: colors.muted }}>
+                {sweepResult.initiated} of {sweepResult.checked} renewals collected
+                {sweepResult.skipped > 0 ? `, ${sweepResult.skipped} already in progress` : ""}
+              </span>
+            )}
+            <button
+              onClick={sweep}
+              disabled={sweeping}
+              style={{
+                ...linkButton,
+                marginTop: 0,
+                minHeight: 30,
+                padding: "0 10px",
+                fontSize: 12,
+                opacity: sweeping ? 0.5 : 1,
+              }}
+            >
+              {sweeping ? "Collecting…" : "Collect due renewals"}
+            </button>
+          </div>
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -129,8 +248,28 @@ export function Billing() {
                         {s.renewalDue && (
                           <span style={{ color: colors.amber, marginLeft: 6 }}>due</span>
                         )}
+                        {s.autoRenew && (
+                          <span style={{ color: colors.green, marginLeft: 6 }}>auto</span>
+                        )}
                       </td>
-                      <td style={tdStyle} />
+                      <td style={tdStyle}>
+                        <button
+                          onClick={() => collect(s.organizationId, s.organization ?? "That club")}
+                          disabled={collecting === s.organizationId}
+                          style={{
+                            ...linkButton,
+                            marginTop: 0,
+                            minHeight: 30,
+                            padding: "0 10px",
+                            fontSize: 12,
+                            opacity: collecting === s.organizationId ? 0.5 : 1,
+                          }}
+                        >
+                          {collecting === s.organizationId
+                            ? "Starting…"
+                            : "Collect"}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

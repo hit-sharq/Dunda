@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { route, Forbidden, NotProvisioned, resolveSession, parseBody } from "@/lib/server/http";
+import { initiateBillingPayment } from "@/lib/server/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ const setSubscriptionSchema = z.object({
     ])
     .optional(),
   renewsAt: z.string().nullable().optional(),
+  autoRenew: z.boolean().optional(),
 });
 
 const STATUSES = [
@@ -111,6 +113,13 @@ export const POST = route(
     if (input.renewsAt !== undefined) {
       data.renews_at = input.renewsAt ? new Date(input.renewsAt) : null;
     }
+    // Automatic renewal is the club's
+    // choice to make, so the console can
+    // turn a mandate offer off — and back
+    // on — without touching anything else.
+    if (input.autoRenew !== undefined) {
+      data.auto_renew = input.autoRenew;
+    }
     if (input.status === "ACTIVE" && !existing?.started_at) data.started_at = new Date();
 
     const subscription = existing
@@ -169,21 +178,69 @@ export const POST = route(
       },
     });
 
+    // A club's first bill goes out with its first
+    // plan: the owner pays before the software is
+    // theirs to run, rather than being chased
+    // afterwards. A deployment without a provider
+    // still provisions the club — the operator
+    // collects by hand from the console instead.
+    let payment: {
+      billingPaymentId: string;
+      orderTrackingId: string;
+      redirectUrl: string;
+      amount: number;
+      currency: string;
+    } | null = null;
+    if (!existing && subscription.amount > 0) {
+      payment = await initiateBillingPayment({
+        organizationId,
+        subscriptionId: subscription.id,
+        kind: "SUBSCRIPTION_FIRST",
+        // The mandate is offered unless the
+        // operator explicitly turned it off.
+        autoRenew: input.autoRenew ?? true,
+      })
+        .then((initiation) => ({
+          billingPaymentId: initiation.billingPaymentId,
+          orderTrackingId: initiation.orderTrackingId,
+          redirectUrl: initiation.redirectUrl,
+          amount: initiation.amount,
+          currency: initiation.currency,
+        }))
+        .catch((error: unknown) => {
+          console.error(
+            "[dunda] could not start the first subscription payment",
+            error,
+          );
+          return null;
+        });
+    }
+
     return NextResponse.json({
-      id: subscription.id,
-      organizationId,
-      planId: subscription.plan_id,
-      plan: subscription.plan,
-      status: subscription.status,
-      billingCycle: subscription.billing_cycle,
-      amount: subscription.amount,
-      currency: subscription.currency,
-      branchLimit: subscription.branch_limit,
-      branchUsage: branches,
-      userLimit: subscription.user_limit,
-      userUsage: users,
-      renewsAt: subscription.renews_at?.toISOString() ?? null,
-      cancelledAt: subscription.cancelled_at?.toISOString() ?? null,
+      subscription: {
+        id: subscription.id,
+        organizationId,
+        plan: subscription.plan,
+        planId: subscription.plan_id,
+        status: subscription.status,
+        billingCycle: subscription.billing_cycle,
+        branchLimit: subscription.branch_limit,
+        userLimit: subscription.user_limit,
+        currentBranches: branches,
+        currentUsers: users,
+        renewsAt: subscription.renews_at?.toISOString() ?? null,
+      },
+      monthlyPrice: amount,
+      usage: {
+        branches,
+        branchLimit: subscription.branch_limit,
+        users,
+        userLimit: subscription.user_limit,
+      },
+      // The link the club's owner pays on, so the
+      // console can send it and the club's own
+      // screen can offer it.
+      payment,
       statuses: STATUSES,
     });
   },

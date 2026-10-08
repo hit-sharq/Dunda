@@ -12,8 +12,10 @@ import {
   useGetTicketsByTab,
   useGetProducts,
   useGetTabs,
+  type CheckoutInputMethod,
   type Product,
 } from "@/lib/api-client-react/src";
+import { usePaymentAttempt } from "../hooks/use-payment-attempt";
 import { Button, Field, Modal, inputClass, money } from "../components/ui";
 import { QueryNotice } from '../components/query-notice';
 import { describeActionError } from '../lib/errors';
@@ -45,10 +47,18 @@ export function Pos() {
   const [notice, setNotice] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [barcode, setBarcode] = useState("");
   const [scanned, setScanned] = useState<string | null>(null);
+  // A payment the provider is taking. The till cannot
+  // close the tab itself — the provider's answer does.
+  const [pendingPayment, setPendingPayment] = useState<{
+    attemptId: string;
+    redirectUrl: string;
+    amount: number;
+  } | null>(null);
   const qc = useQueryClient();
   const addItem = useAddTabItem();
   const openTab = useCreateTab();
   const checkout = useCheckoutTab();
+  const attempt = usePaymentAttempt(pendingPayment?.attemptId ?? null);
   const barcodeLookup = useGetProductByBarcode(scanned ?? "", {
     query: { enabled: Boolean(scanned), queryKey: ["getProductByBarcode", scanned] },
   });
@@ -197,12 +207,30 @@ export function Pos() {
   function pay() {
     if (!tab) return;
     checkout.mutate(
-      { tabId: tab.id, data: { method: method as never, amount: tab.total, reference: null } },
+      {
+        tabId: tab.id,
+        data: {
+          payments: [{ method: method as CheckoutInputMethod, amount: tab.total }],
+          idempotencyKey: crypto.randomUUID(),
+        },
+      },
       {
         onSuccess: (result) => {
+          // Money that moves through a provider is
+          // initiated, not taken: the guest pays on
+          // their own device, and the tab settles
+          // when the provider says so.
+          if ("status" in result) {
+            setPendingPayment({
+              attemptId: result.attemptId,
+              redirectUrl: result.redirectUrl,
+              amount: result.amount,
+            });
+            return;
+          }
           setNotice({
             tone: "ok",
-            text: `Receipt ${result.receiptNumber} · ${money(tab.total)} closed`,
+            text: `Receipt ${result.receipt.number} · ${money(tab.total)} closed`,
           });
           setSelectedTabId(undefined);
           qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: "OPEN" }) });
@@ -211,6 +239,28 @@ export function Pos() {
       },
     );
   }
+
+  // The poll answers what the callback may have missed:
+  // a resolved attempt settles the tab, a failed one
+  // puts the money back on the bill.
+  useEffect(() => {
+    if (!pendingPayment || !attempt.data) return;
+    if (attempt.data.status === "RESOLVED") {
+      setNotice({
+        tone: "ok",
+        text: `Payment of ${money(attempt.data.amount)} received · tab settled`,
+      });
+      setPendingPayment(null);
+      setSelectedTabId(undefined);
+      qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: "OPEN" }) });
+    } else if (attempt.data.status === "FAILED") {
+      setNotice({
+        tone: "err",
+        text: attempt.data.failureReason ?? "The payment did not go through.",
+      });
+      setPendingPayment(null);
+    }
+  }, [attempt.data, pendingPayment, qc]);
 
   return (
     <div className="rise">
@@ -497,6 +547,38 @@ export function Pos() {
               {openTab.isPending ? "Opening…" : "Open tab"}
             </Button>
           </form>
+        </Modal>
+      )}
+
+      {pendingPayment && (
+        <Modal
+          title="Waiting for payment"
+          onClose={() => setPendingPayment(null)}
+        >
+          <div className="grid gap-4">
+            <p className="text-sm text-[hsl(var(--app-ink-soft))]">
+              Send the guest this link to pay{" "}
+              <strong>{money(pendingPayment.amount)}</strong>. The tab
+              settles on its own when the payment goes through.
+            </p>
+            <a
+              href={pendingPayment.redirectUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex min-h-11 items-center justify-center rounded-xl bg-[hsl(var(--app-gold))] px-4 text-sm font-semibold text-[hsl(var(--app-ink))] hover:bg-[hsl(var(--app-gold))]"
+              data-testid="link-open-payment"
+            >
+              Open payment page
+            </a>
+            {attempt.error && (
+              <p className="text-xs text-[hsl(var(--app-critical))]">
+                {attempt.error}
+              </p>
+            )}
+            <p className="text-center font-mono text-[10px] uppercase tracking-wider text-[hsl(var(--app-faint))]">
+              Checking every few seconds…
+            </p>
+          </div>
         </Modal>
       )}
 

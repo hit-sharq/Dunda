@@ -27,6 +27,9 @@ export function NewClient() {
     serviceChargeRate: "10",
   });
   const [created, setCreated] = useState<{ id: string; slug: string; name: string } | null>(null);
+  // The first payment's checkout link, so
+  // the operator can send it to the owner.
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [owner, setOwner] = useState({ name: "", email: "" });
   const [ownerResult, setOwnerResult] = useState<{ ok: boolean; text: string } | null>(null);
   const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
@@ -45,6 +48,23 @@ export function NewClient() {
           <p style={{ margin: 0, fontWeight: 700, color: colors.green }}>
             {form.name} is created.
           </p>
+          {paymentUrl && (
+            <p style={{ margin: 0, fontSize: 13 }}>
+              <span style={{ color: colors.muted }}>First payment: </span>
+              <a
+                href={paymentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: colors.green, fontWeight: 700 }}
+                data-testid="link-first-payment"
+              >
+                Open the club's payment link
+              </a>
+              <span style={{ color: colors.muted }}>
+                {" "}— it also waits on the owner's home screen once they sign up.
+              </span>
+            </p>
+          )}
           <p style={{ margin: 0, fontSize: 13, color: colors.muted }}>
             Now name its owner. They get the Owner role and are the only person who
             can hand out the rest.
@@ -210,7 +230,12 @@ export function NewClient() {
                 },
                 {
                   onSuccess: (r: unknown) => {
-                    const created = r as { id: string; slug: string; name?: string };
+                    const created = r as {
+                      id: string;
+                      slug: string;
+                      name?: string;
+                      payment?: { redirectUrl: string } | null;
+                    };
                     setCreated({
                       id: created.id,
                       slug: created.slug,
@@ -218,6 +243,7 @@ export function NewClient() {
                       // club is never referred to as blank in the next step.
                       name: created.name ?? form.name,
                     });
+                    setPaymentUrl(created.payment?.redirectUrl ?? null);
                   },
                 },
               )
