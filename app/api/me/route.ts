@@ -76,17 +76,18 @@ export const GET = route(async () => {
 
   const organizationId = session.organizationId;
 
-  const [organization, staff, branches, roles, settingsRow] = await Promise.all([
-    prisma.dunda_organizations.findUnique({
-      where: { id: organizationId },
-      select: {
-        id: true,
-        name: true,
-        currency: true,
-        tax_rate: true,
-        service_charge_rate: true,
-      },
-    }),
+  const [organization, staff, branches, roles, settingsRow, subscription] =
+    await Promise.all([
+      prisma.dunda_organizations.findUnique({
+        where: { id: organizationId },
+        select: {
+          id: true,
+          name: true,
+          currency: true,
+          tax_rate: true,
+          service_charge_rate: true,
+        },
+      }),
     session.staffId
       ? prisma.dunda_staff.findUnique({
           where: { id: session.staffId },
@@ -113,6 +114,11 @@ export const GET = route(async () => {
     prisma.dunda_organization_settings.findUnique({
       where: { organization_id: organizationId },
       select: { currency: true, timezone: true, tax_rate: true, service_charge_rate: true },
+    }),
+    prisma.dunda_subscriptions.findFirst({
+      where: { organization_id: organizationId },
+      orderBy: { created_at: "desc" },
+      select: { branch_limit: true },
     }),
   ]);
 
@@ -150,6 +156,7 @@ export const GET = route(async () => {
     // everyone would invite staff to try roles they cannot grant.
     canGrantStaff: session.permissions.has("manage_staff"),
     operator: session.isOperator,
+    branchLimit: subscription?.branch_limit ?? 1,
     roles:
       session.permissions.has("manage_staff") || session.isOwner
         ? roles.map((r) => ({

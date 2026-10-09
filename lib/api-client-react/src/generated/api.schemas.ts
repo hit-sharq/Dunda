@@ -1317,6 +1317,7 @@ export interface Me {
   isOwner: boolean;
   canGrantStaff?: boolean;
   operator?: boolean;
+  branchLimit?: number;
   roles?: MeRolesItem[];
   settings?: MeSettings;
 }

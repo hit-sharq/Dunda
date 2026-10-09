@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import {
   useAssignOrganizationOwner,
   useGetPlans,
@@ -86,6 +86,15 @@ export function ClientDetail({ id }: { id: string }) {
     name: string;
     email: string;
   } | null>(null);
+  const [clubBranches, setClubBranches] = useState<
+    { id: string; name: string; city: string; status: string }[] | null
+  >(null);
+  const [branchForm, setBranchForm] = useState({ name: "", city: "" });
+  const [branchPending, setBranchPending] = useState(false);
+  const [branchResult, setBranchResult] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!org) return;
@@ -108,8 +117,15 @@ export function ClientDetail({ id }: { id: string }) {
             role: string;
             claimed: boolean;
           }[];
+          branches?: {
+            id: string;
+            name: string;
+            city: string;
+            status: string;
+          }[];
         }) => {
           if (Array.isArray(b.staff)) setRoster(b.staff);
+          if (Array.isArray(b.branches)) setClubBranches(b.branches);
         },
       )
       .catch(() => undefined);
@@ -162,6 +178,39 @@ export function ClientDetail({ id }: { id: string }) {
         }),
       )
       .finally(() => setResendPendingId(null));
+  }
+
+  function addClubBranch(event: FormEvent) {
+    event.preventDefault();
+    setBranchPending(true);
+    setBranchResult(null);
+    void fetch(`/api/admin/organizations/${id}/branches`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: branchForm.name.trim(),
+        city: branchForm.city.trim(),
+      }),
+    })
+      .then(async (r) => {
+        const body = (await r.json().catch(() => ({}))) as {
+          name?: string;
+          city?: string;
+          error?: string;
+        };
+        if (!r.ok) throw new Error(body.error ?? "Could not open the branch.");
+        setBranchResult({ ok: true, text: `${body.name} is open in ${body.city}.` });
+        setBranchForm({ name: "", city: "" });
+        reloadRoster();
+      })
+      .catch((e: unknown) =>
+        setBranchResult({
+          ok: false,
+          text: e instanceof Error ? e.message : "Could not open the branch.",
+        }),
+      )
+      .finally(() => setBranchPending(false));
   }
 
   function setClubStatus(status: "ACTIVE" | "SUSPENDED") {
@@ -654,6 +703,100 @@ export function ClientDetail({ id }: { id: string }) {
         {resendResult && !duplicate && (
           <p style={{ margin: 0, fontSize: 13, color: resendResult.ok ? colors.green : colors.red }}>
             {resendResult.text}
+          </p>
+        )}
+      </Card>
+
+      <Card style={{ display: "grid", gap: 12, maxWidth: 640 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
+            Branches
+          </h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: colors.muted }}>
+            The venues this club runs. Its plan sets how many
+            it may have.
+          </p>
+        </div>
+        {clubBranches === null ? (
+          <p style={{ margin: 0, fontSize: 13, color: colors.muted }}>
+            Loading…
+          </p>
+        ) : clubBranches.length === 0 ? (
+          <p style={{ margin: 0, fontSize: 13, color: colors.muted }}>
+            No branches are set up for this club yet.
+          </p>
+        ) : (
+          <ul
+            style={{
+              margin: 0,
+              padding: 0,
+              listStyle: "none",
+              display: "grid",
+              gap: 8,
+            }}
+          >
+            {clubBranches.map((branch) => (
+              <li
+                key={branch.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  border: `1px solid ${colors.line}`,
+                  borderRadius: 10,
+                  padding: "10px 12px",
+                }}
+              >
+                <div>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>
+                    {branch.name}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 12, color: colors.muted }}>
+                    {branch.city} · {branch.status.toLowerCase()}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <form onSubmit={addClubBranch} style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <input
+              value={branchForm.name}
+              onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
+              placeholder="Branch name"
+              style={inputStyle}
+              data-testid="input-client-branch-name"
+            />
+            <input
+              value={branchForm.city}
+              onChange={(e) => setBranchForm({ ...branchForm, city: e.target.value })}
+              placeholder="City"
+              style={inputStyle}
+              data-testid="input-client-branch-city"
+            />
+          </div>
+          <button
+            type="submit"
+            style={{
+              ...primaryButton,
+              opacity:
+                branchPending || !branchForm.name.trim() || !branchForm.city.trim()
+                  ? 0.5
+                  : 1,
+            }}
+            disabled={
+              branchPending || !branchForm.name.trim() || !branchForm.city.trim()
+            }
+            data-testid="button-add-client-branch"
+          >
+            {branchPending ? "Opening…" : "Open branch"}
+          </button>
+        </form>
+        {branchResult && (
+          <p style={{ margin: 0, fontSize: 13, color: branchResult.ok ? colors.green : colors.red }}>
+            {branchResult.text}
           </p>
         )}
       </Card>

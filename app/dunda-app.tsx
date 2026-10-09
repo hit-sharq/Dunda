@@ -973,7 +973,53 @@ function Reservations() {
 
 function Settings() {
   const settingsBranches = useGetBranches();
-  return <div className="rise"><PageIntro eyebrow="Workspace / admin" title="Settings without the maze." detail="A calm place for organization preferences, branch controls, and team access." /><div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]"><section className="surface rounded-2xl p-6"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--app-gold-soft)] text-[var(--app-critical)]"><Store size={21} /></div><h3 className="mt-5 font-display text-2xl font-bold">Organization settings</h3><p className="mt-2 text-sm leading-6 text-[var(--app-muted)]">Your organization is connected to Dunda. Fine-grain permissions, receipts, and integrations will live here.</p><div className="mt-6 rounded-xl bg-[var(--app-bg)] p-4"><div className="flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-[.1em] text-[var(--app-muted)]">Workspace status</span><span className="flex items-center text-xs font-semibold text-[var(--app-success)] status-dot">{settingsBranches.data?.length ? 'Operational' : 'No branches yet'}</span></div>{settingsBranches.data?.length ? <ul className="mt-2 grid gap-1">{settingsBranches.data.map((b) => <li key={b.id} className="flex items-center justify-between text-sm"><span className="font-semibold">{b.name}</span><span className="text-xs text-[var(--app-muted)]">{b.city} · {b.status}</span></li>)}</ul> : <p className="mt-2 text-sm text-[var(--app-muted)]">No branches are configured yet.</p>}</div></section><section className="surface rounded-2xl p-6"><div className="mb-6 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[var(--app-faint)]">Configuration</p><h3 className="font-display text-xl font-bold">Branch controls</h3></div><SlidersHorizontal size={18} className="text-[var(--app-muted)]" /></div>{['Receipt preferences', 'Staff roles & access', 'Payment methods', 'Service charge rules'].map((label, i) => <button key={label} className="flex w-full items-center justify-between border-b border-[var(--app-line-soft)] py-4 text-left last:border-0" data-testid={`button-setting-${i}`}><span><span className="block text-sm font-semibold">{label}</span><span className="mt-1 block text-xs text-[var(--app-muted)]">Available in your next setup pass</span></span><ChevronRight size={16} className="text-[var(--app-ink-soft)]" /></button>)}</section></div></div>; }
+  const me = useGetMe();
+  const [branchForm, setBranchForm] = useState({ name: "", city: "" });
+  const [branchPending, setBranchPending] = useState(false);
+  const [branchResult, setBranchResult] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
+  const mayManageBranches = Boolean(
+    me.data?.isOwner || me.data?.permissions.includes("manage_branches"),
+  );
+  const branchLimit = me.data?.branchLimit ?? 1;
+  const branchCount = settingsBranches.data?.length ?? 0;
+
+  async function addBranch(event: FormEvent) {
+    event.preventDefault();
+    setBranchPending(true);
+    setBranchResult(null);
+    try {
+      const response = await fetch("/api/branches", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: branchForm.name.trim(),
+          city: branchForm.city.trim(),
+        }),
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        name?: string;
+        city?: string;
+        error?: string;
+      };
+      if (!response.ok) throw new Error(body.error ?? "Could not open the branch.");
+      setBranchResult({ ok: true, text: `${body.name} is open in ${body.city}.` });
+      setBranchForm({ name: "", city: "" });
+      settingsBranches.refetch();
+    } catch (cause) {
+      setBranchResult({
+        ok: false,
+        text: cause instanceof Error ? cause.message : "Could not open the branch.",
+      });
+    } finally {
+      setBranchPending(false);
+    }
+  }
+
+  return <div className="rise"><PageIntro eyebrow="Workspace / admin" title="Settings without the maze." detail="A calm place for organization preferences, branch controls, and team access." /><div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]"><section className="surface rounded-2xl p-6"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--app-gold-soft)] text-[var(--app-critical)]"><Store size={21} /></div><h3 className="mt-5 font-display text-2xl font-bold">Organization settings</h3><p className="mt-2 text-sm leading-6 text-[var(--app-muted)]">Your organization is connected to Dunda. Fine-grain permissions, receipts, and integrations will live here.</p><div className="mt-6 rounded-xl bg-[var(--app-bg)] p-4"><div className="flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-[.1em] text-[var(--app-muted)]">Workspace status</span><span className="flex items-center text-xs font-semibold text-[var(--app-success)] status-dot">{settingsBranches.data?.length ? 'Operational' : 'No branches yet'}</span></div>{settingsBranches.data?.length ? <ul className="mt-2 grid gap-1">{settingsBranches.data.map((b) => <li key={b.id} className="flex items-center justify-between text-sm"><span className="font-semibold">{b.name}</span><span className="text-xs text-[var(--app-muted)]">{b.city} · {b.status}</span></li>)}</ul> : <p className="mt-2 text-sm text-[var(--app-muted)]">No branches are configured yet.</p>}</div></section><section className="surface rounded-2xl p-6"><div className="mb-6 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[var(--app-faint)]">Configuration</p><h3 className="font-display text-xl font-bold">Branch controls</h3></div><SlidersHorizontal size={18} className="text-[var(--app-muted)]" /></div><div className="mb-4 flex items-center justify-between text-xs font-semibold text-[var(--app-muted)]"><span>{branchCount} of {branchLimit} branches used</span>{branchLimit > 0 && branchCount >= branchLimit && <span className="text-[var(--app-warn)]">Upgrade to add more</span>}</div>{mayManageBranches && branchLimit > 0 && branchCount < branchLimit ? <form onSubmit={addBranch} className="grid gap-2"><div className="grid grid-cols-2 gap-2"><input value={branchForm.name} onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })} placeholder="Branch name" className="h-10 rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-3 text-sm font-semibold outline-none" data-testid="input-branch-name" /><input value={branchForm.city} onChange={(e) => setBranchForm({ ...branchForm, city: e.target.value })} placeholder="City" className="h-10 rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-3 text-sm font-semibold outline-none" data-testid="input-branch-city" /></div><button type="submit" disabled={branchPending || !branchForm.name.trim() || !branchForm.city.trim()} className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[var(--app-gold)] px-4 text-sm font-bold text-[var(--app-ink)] disabled:opacity-50" data-testid="button-add-branch">{branchPending ? "Opening…" : "Open branch"}</button></form> : mayManageBranches ? <p className="text-xs text-[var(--app-muted)]">This plan is at its branch limit. Upgrade to open another branch.</p> : <p className="text-xs text-[var(--app-muted)]">Ask an owner to manage branches.</p>}{branchResult && <p className={`mt-4 text-xs font-semibold ${branchResult.ok ? "text-[var(--app-success)]" : "text-[var(--app-critical)]"}`} role="status">{branchResult.text}</p>}</section></div></div>; }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) { return <div className="fixed inset-0 z-50 grid place-items-center bg-[var(--app-info)]/45 p-4"><div className="w-full max-w-md rounded-2xl border border-[var(--app-line)] bg-[var(--app-surface)] p-5 shadow-2xl md:p-6" role="dialog" aria-modal="true"><div className="mb-5 flex items-center justify-between"><h3 className="font-display text-2xl font-bold">{title}</h3><button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-[var(--app-muted)] hover:bg-[var(--app-line-soft)]" data-testid="button-close-modal"><X size={18} /></button></div>{children}</div></div>; }
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="grid gap-1.5 text-xs font-semibold text-[var(--app-faint)]">{label}{children}</label>; }

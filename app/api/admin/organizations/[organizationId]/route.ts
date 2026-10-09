@@ -104,6 +104,7 @@ export const GET = route(
             currency: subscription.currency,
             trialEndsAt: subscription.trial_ends_at?.toISOString() ?? null,
             renewsAt: subscription.renews_at?.toISOString() ?? null,
+            branchLimit: subscription.dunda_plans?.branch_limit ?? null,
           }
         : null,
       settings,
