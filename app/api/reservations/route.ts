@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
-import { route, requireSession, requirePermission, orgWhere, assertSameOrg } from "@/lib/server/http";
+import { route, requireSession, requirePermission, requireModule, orgWhere, assertSameOrg } from "@/lib/server/http";
 import { createReservationSchema } from "@/lib/server/schemas";
 import { conflict } from "@/lib/errors.server";
 
@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
+  await requireModule(organizationId, "reservations");
   const url = new URL(request.url);
   const branchId = url.searchParams.get("branchId") ?? session.branchId;
   const date = url.searchParams.get("date");
@@ -51,6 +52,7 @@ export const GET = route(async (request: Request) => {
 export const POST = route(async (request: Request) => {
   const session = await requirePermission("manage_reservations");
   const organizationId = session.organizationId as string;
+  await requireModule(organizationId, "reservations");
 
   const body = await request.json().catch(() => ({}));
   const parsed = createReservationSchema.safeParse(body);

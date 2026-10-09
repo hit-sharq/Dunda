@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
-import { route, requireSession, orgWhere, assertSameOrg } from "@/lib/server/http";
+import { route, requireSession, requireModule, orgWhere, assertSameOrg } from "@/lib/server/http";
 import { createExpenseSchema } from "@/lib/server/schemas";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
+  await requireModule(organizationId, "expenses");
   const url = new URL(request.url);
   const branchId = url.searchParams.get("branchId") ?? session.branchId;
   const from = url.searchParams.get("from");
@@ -70,6 +71,7 @@ export const GET = route(async (request: Request) => {
 export const POST = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
+  await requireModule(organizationId, "expenses");
 
   const body = await request.json().catch(() => ({}));
   const parsed = createExpenseSchema.safeParse(body);

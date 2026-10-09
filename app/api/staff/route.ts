@@ -90,6 +90,29 @@ export const POST = route(async (request: Request) => {
     );
   }
 
+  // The plan's user limit is a commercial boundary, so it is
+  // checked against the live roster rather than a stored
+  // counter, and the refusal says what to do about it.
+  const subscription = await prisma.dunda_subscriptions.findFirst({
+    where: { organization_id: organizationId },
+    orderBy: { created_at: "desc" },
+    select: { user_limit: true },
+  });
+  const userLimit = subscription?.user_limit ?? 5;
+  const userCount = await prisma.dunda_staff.count({
+    where: { organization_id: organizationId, status: "ACTIVE" },
+  });
+  if (userLimit > 0 && userCount >= userLimit) {
+    return NextResponse.json(
+      {
+        error: `This plan allows ${userLimit} staff member${userLimit === 1 ? "" : "s"}. Upgrade to add another.`,
+        code: "USER_LIMIT_REACHED",
+        userLimit,
+      },
+      { status: 422 },
+    );
+  }
+
   const member = await prisma.$transaction(async (tx) => {
     const created = await tx.dunda_staff.create({
       data: {

@@ -119,6 +119,30 @@ export const POST = route(
       }
     }
 
+    // The plan's user limit is a commercial boundary, so it is
+    // checked against the live roster rather than a stored
+    // counter. An operator who needs more seats for a club
+    // changes the plan first.
+    const subscription = await prisma.dunda_subscriptions.findFirst({
+      where: { organization_id: organizationId },
+      orderBy: { created_at: "desc" },
+      select: { user_limit: true },
+    });
+    const userLimit = subscription?.user_limit ?? 5;
+    const userCount = await prisma.dunda_staff.count({
+      where: { organization_id: organizationId, status: "ACTIVE" },
+    });
+    if (userLimit > 0 && userCount >= userLimit) {
+      return NextResponse.json(
+        {
+          error: `This club's plan allows ${userLimit} staff member${userLimit === 1 ? "" : "s"}. Change the plan to add another.`,
+          code: "USER_LIMIT_REACHED",
+          userLimit,
+        },
+        { status: 422 },
+      );
+    }
+
     const member = await prisma.dunda_staff.create({
       data: {
         organization_id: organizationId,

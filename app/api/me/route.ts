@@ -8,6 +8,7 @@ import {
   Unauthenticated,
   OrganizationSuspended,
 } from "@/lib/server/http";
+import { MODULES } from "@/lib/server/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -118,7 +119,10 @@ export const GET = route(async () => {
     prisma.dunda_subscriptions.findFirst({
       where: { organization_id: organizationId },
       orderBy: { created_at: "desc" },
-      select: { branch_limit: true },
+      select: {
+        branch_limit: true,
+        dunda_plans: { select: { modules: true } },
+      },
     }),
   ]);
 
@@ -126,6 +130,11 @@ export const GET = route(async () => {
   const taxRate = settingsRow?.tax_rate ?? organization?.tax_rate ?? 0;
   const serviceChargeRate =
     settingsRow?.service_charge_rate ?? organization?.service_charge_rate ?? 0;
+
+  const raw = subscription?.dunda_plans?.modules;
+  const modules = Array.isArray(raw)
+    ? raw.filter((entry): entry is string => typeof entry === "string")
+    : null;
 
   return NextResponse.json({
     organizationId,
@@ -157,6 +166,7 @@ export const GET = route(async () => {
     canGrantStaff: session.permissions.has("manage_staff"),
     operator: session.isOperator,
     branchLimit: subscription?.branch_limit ?? 1,
+    modules: modules ?? MODULES,
     roles:
       session.permissions.has("manage_staff") || session.isOwner
         ? roles.map((r) => ({

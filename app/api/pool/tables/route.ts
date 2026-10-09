@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
-import { route, requireSession, requirePermission, orgWhere } from "@/lib/server/http";
+import { route, requireSession, requirePermission, requireModule, orgWhere } from "@/lib/server/http";
 import { startSession, currentRate } from "@/lib/server/pool";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
+  await requireModule(organizationId, "pool");
   const url = new URL(request.url);
   const branchId = url.searchParams.get("branchId") ?? session.branchId;
 
@@ -125,6 +126,7 @@ function accrued(
 export const POST = route(async (request: Request) => {
   const session = await requirePermission("manage_floor");
   const organizationId = session.organizationId as string;
+  await requireModule(organizationId, "pool");
 
   const body = (await request.json().catch(() => ({}))) as {
     poolTableId?: string;

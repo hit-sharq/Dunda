@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { route, requireSession, orgWhere } from "@/lib/server/http";
+import { route, requireSession, requireModule, orgWhere } from "@/lib/server/http";
 import { pauseSession, resumeSession, endSession } from "@/lib/server/pool";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +17,7 @@ export const POST = route(
   async (request: Request, context: { params: Promise<{ sessionId: string }> }) => {
     const session = await requireSession();
     const organizationId = session.organizationId as string;
+    await requireModule(organizationId, "pool");
     const { sessionId } = await context.params;
 
     const body = (await request.json().catch(() => ({}))) as { action?: string };

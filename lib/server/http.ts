@@ -3,6 +3,7 @@ import { ZodError, type ZodType, type z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/client";
 import { ApiError } from "@/lib/errors.server";
+import { isModuleEnabled } from "./settings";
 import { clerkClient } from "@clerk/nextjs/server";
 import { scheduleDueJobs } from "@/lib/server/cron";
 
@@ -212,6 +213,22 @@ export class OrganizationSuspended extends Error {
   }
 }
 
+/** The caller's plan does not include this module. */
+export class ModuleNotInPlan extends Error {
+  constructor(readonly module: string) {
+    super(`Your plan does not include the ${module} module.`);
+    this.name = "ModuleNotInPlan";
+  }
+}
+
+/** The platform owner has switched this module off for the club. */
+export class ModuleDisabled extends Error {
+  constructor(readonly module: string) {
+    super(`The ${module} module has been switched off for this club.`);
+    this.name = "ModuleDisabled";
+  }
+}
+
 /** Signed in and attached, but the role does not permit this action. */
 export class Forbidden extends Error {
   constructor(readonly required: string) {
@@ -240,6 +257,38 @@ export async function requirePermission(permission: string): Promise<Session> {
   const session = await requireSession();
   if (!session.permissions.has(permission)) throw new Forbidden(permission);
   return session;
+}
+
+/**
+ * Refuses a module the club's plan does not carry.
+ *
+ * The plan's module list is what the club pays for, and
+ * the platform owner's switch is the override on top of
+ * it. A subscription with no plan linked is one the
+ * owner agreed terms on directly, so nothing is locked
+ * off until a plan says so.
+ */
+export async function requireModule(
+  organizationId: string,
+  module: string,
+): Promise<void> {
+  const subscription = await prisma.dunda_subscriptions.findFirst({
+    where: { organization_id: organizationId },
+    orderBy: { created_at: "desc" },
+    select: { dunda_plans: { select: { modules: true } } },
+  });
+  // The column is JSON, so the list is read as the
+  // strings it holds rather than trusted to be one.
+  const raw = subscription?.dunda_plans?.modules;
+  const modules = Array.isArray(raw)
+    ? raw.filter((entry): entry is string => typeof entry === "string")
+    : null;
+  if (modules !== null && !modules.includes(module)) {
+    throw new ModuleNotInPlan(module);
+  }
+  if (!(await isModuleEnabled(organizationId, module))) {
+    throw new ModuleDisabled(module);
+  }
 }
 
 /**
@@ -347,6 +396,26 @@ function errorResponse(error: unknown): NextResponse {
         error: error.message,
         code: "ORGANIZATION_SUSPENDED",
         reason: error.reason,
+      },
+      { status: 403 },
+    );
+  }
+  if (error instanceof ModuleNotInPlan) {
+    return NextResponse.json(
+      {
+        error: error.message,
+        code: "MODULE_NOT_IN_PLAN",
+        module: error.module,
+      },
+      { status: 403 },
+    );
+  }
+  if (error instanceof ModuleDisabled) {
+    return NextResponse.json(
+      {
+        error: error.message,
+        code: "MODULE_DISABLED",
+        module: error.module,
       },
       { status: 403 },
     );

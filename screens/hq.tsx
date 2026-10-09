@@ -150,13 +150,13 @@ export function Hq() {
           <QueryNotice
             loading={payments.isLoading}
             error={payments.error}
-            empty={!payments.isLoading && !payments.isError && !payments.data?.byMethod.length}
+            empty={!payments.isLoading && !payments.isError && !payments.data?.byMethod?.length}
             onRetry={() => payments.refetch()}
             emptyTitle="No payments recorded"
             emptyHint="Completed sales will build this breakdown."
           />
           <div className="grid gap-2.5">
-            {payments.data?.byMethod.map((m) => (
+            {payments.data?.byMethod?.map((m) => (
               <div key={m.label}>
                 <div className="mb-1 flex justify-between text-xs">
                   <span className="font-semibold">{m.label}</span>
@@ -212,13 +212,13 @@ export function Hq() {
             empty={
               !inventory.isLoading &&
               !inventory.isError &&
-              !inventory.data?.discrepancies.length
+              !inventory.data?.discrepancies?.length
             }
             emptyTitle="No discrepancies"
             emptyHint="Approved stock counts with a variance will be listed here."
           />
           <ul className="grid gap-1.5 text-xs">
-            {inventory.data?.discrepancies.map((d: (typeof inventory.data.discrepancies)[number]) => (
+            {inventory.data?.discrepancies?.map((d: (typeof inventory.data.discrepancies)[number]) => (
               <li
                 key={d.productId}
                 className="flex items-center justify-between border-b border-[hsl(var(--app-raised))] pb-1.5 last:border-0"

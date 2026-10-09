@@ -145,6 +145,8 @@ export interface Tab {
   tax: number;
   discount: number;
   total: number;
+  amountPaid: number;
+  outstanding: number;
   openedAt: string;
 }
 
@@ -1318,6 +1320,7 @@ export interface Me {
   canGrantStaff?: boolean;
   operator?: boolean;
   branchLimit?: number;
+  modules?: string[];
   roles?: MeRolesItem[];
   settings?: MeSettings;
 }

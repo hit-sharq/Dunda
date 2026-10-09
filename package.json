@@ -14,7 +14,9 @@
     "db:status": "prisma migrate status",
     "typecheck": "tsc --noEmit",
     "db:seed": "tsx prisma/seed.ts",
-    "verify:flow": "tsx scripts/verify-flow.ts"
+    "verify:flow": "tsx scripts/verify-flow.ts",
+    "verify:payments": "tsx scripts/verify-payments.ts",
+    "verify:inventory": "tsx scripts/verify-inventory-report.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
