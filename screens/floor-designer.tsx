@@ -303,7 +303,7 @@ export function FloorDesigner() {
               ))}
             </ul>
             <p className="mt-3 text-[10px] text-[hsl(var(--app-muted))]">
-              {floors.data?.floors.length ?? 0} floor(s) configured
+              {floors.data?.floors?.length ?? 0} floor(s) configured
             </p>
           </div>
         </aside>

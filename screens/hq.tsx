@@ -164,7 +164,7 @@ export function Hq() {
                     {money(m.value)} · {m.count}
                   </span>
                 </div>
-                <Bar value={m.value} max={Math.max(...(payments.data?.byMethod.map((x) => x.value) ?? [1]))} />
+                <Bar value={m.value} max={Math.max(...(payments.data?.byMethod?.map((x) => x.value) ?? [1]))} />
               </div>
             ))}
           </div>
