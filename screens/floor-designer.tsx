@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useCreateTable,
@@ -53,12 +53,10 @@ export function FloorDesigner() {
     seats: string;
   }>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  const draggedPosition = useRef<{ id: string; x: number; y: number } | null>(null);
 
   function setNewTabTable() {
-    // A table must be placed in a section the venue actually has; a fabricated
-    // name would be written to the floor and then group the view.
-    if (!sections.length) return;
-    setNewTable({ name: "", section: sections[0], seats: "" });
+    setNewTable({ name: "", section: sections[0] ?? "Main", seats: "" });
   }
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -66,28 +64,34 @@ export function FloorDesigner() {
   const sections = Array.from(new Set(rows.map((t) => t.section)));
   const live = selected ? rows.find((t) => t.id === selected.id) ?? selected : null;
 
-  function refresh() {
-    qc.invalidateQueries({ queryKey: ["getTables"] });
-    qc.invalidateQueries({ queryKey: ["getFloors"] });
-  }
+  const refresh = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: ["getFloorTables", id] });
+    void qc.invalidateQueries({ queryKey: ["getFloors", id] });
+  }, [id, qc]);
 
   useEffect(() => {
     if (!dragging) return;
+    const draggingId = dragging;
     function onMove(e: PointerEvent) {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
       const x = Math.max(0, Math.round(e.clientX - rect.left - 60));
       const y = Math.max(0, Math.round(e.clientY - rect.top - 30));
+      draggedPosition.current = { id: draggingId, x, y };
       setSelected((prev) =>
-        prev && prev.id === dragging ? { ...prev, x, y } : prev,
+        prev && prev.id === draggingId ? { ...prev, x, y } : prev,
       );
     }
     function onUp() {
-      const table = selected;
-      if (table) {
-        update.mutate({ tableId: table.id, data: { x: table.x, y: table.y } });
+      const position = draggedPosition.current;
+      if (position?.id === draggingId) {
+        update.mutate(
+          { tableId: position.id, data: { x: position.x, y: position.y } },
+          { onSuccess: refresh },
+        );
       }
+      draggedPosition.current = null;
       setDragging(null);
     }
     window.addEventListener("pointermove", onMove);
@@ -96,8 +100,7 @@ export function FloorDesigner() {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dragging]);
+  }, [dragging, refresh, update.mutate]);
 
   return (
     <div className="rise">
@@ -166,6 +169,7 @@ export function FloorDesigner() {
               key={t.id}
               onPointerDown={() => {
                 setSelected(t);
+                draggedPosition.current = { id: t.id, x: t.x ?? 0, y: t.y ?? 0 };
                 setDragging(t.id);
               }}
               onClick={() => setSelected(t)}
@@ -214,7 +218,10 @@ export function FloorDesigner() {
                   value={live.name}
                   onChange={(e) => setSelected({ ...live, name: e.target.value })}
                   onBlur={() =>
-                    update.mutate({ tableId: live.id, data: { name: live.name } })
+                    update.mutate(
+                      { tableId: live.id, data: { name: live.name } },
+                      { onSuccess: refresh },
+                    )
                   }
                   className={inputClass}
                   data-testid="input-table-name"
@@ -225,7 +232,10 @@ export function FloorDesigner() {
                   value={live.section}
                   onChange={(e) => setSelected({ ...live, section: e.target.value })}
                   onBlur={() =>
-                    update.mutate({ tableId: live.id, data: { section: live.section } })
+                    update.mutate(
+                      { tableId: live.id, data: { section: live.section } },
+                      { onSuccess: refresh },
+                    )
                   }
                   className={inputClass}
                   data-testid="input-table-section"
@@ -242,9 +252,9 @@ export function FloorDesigner() {
                       }
                       onBlur={() =>
                         update.mutate({
-                          tableId: live.id,
-                          data: { [k]: live[k] },
-                        })
+                            tableId: live.id,
+                            data: { [k]: live[k] },
+                          }, { onSuccess: refresh })
                       }
                       className={inputClass}
                     />
@@ -258,8 +268,10 @@ export function FloorDesigner() {
                       key={s}
                       onClick={() => {
                         setSelected({ ...live, status: s });
-                        update.mutate({ tableId: live.id, data: { status: s } });
-                        refresh();
+                        update.mutate(
+                          { tableId: live.id, data: { status: s } },
+                          { onSuccess: refresh },
+                        );
                       }}
                       className={`rounded-lg border px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide ${
                         live.status === s
@@ -277,9 +289,10 @@ export function FloorDesigner() {
                 variant="danger"
                 onClick={() => {
                   if (live.status === "OCCUPIED") return;
-                  remove.mutate({ tableId: live.id });
-                  setSelected(null);
-                  refresh();
+                  remove.mutate(
+                    { tableId: live.id },
+                    { onSuccess: () => { setSelected(null); refresh(); } },
+                  );
                 }}
                 data-testid="button-delete-table"
               >

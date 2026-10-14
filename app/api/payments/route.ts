@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
-import { route, requireSession, requirePermission, orgWhere, assertSameOrg } from "@/lib/server/http";
-import { ApiError, moneyRule } from "@/lib/errors.server";
+import { route, requireSession, requirePermission, orgWhere } from "@/lib/server/http";
+import { refundClubPayment } from "@/lib/server/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -92,79 +92,20 @@ export const POST = route(async (request: Request) => {
     );
   }
 
-  const payment = await prisma.dunda_payments.findFirst({
-    where: orgWhere(organizationId, { id: body.paymentId }),
-    include: { dunda_refunds: { select: { amount: true, status: true } } },
-  });
-  assertSameOrg(payment, organizationId, "That payment");
+  const staff = session.staffId
+    ? await prisma.dunda_staff.findUnique({
+        where: { id: session.staffId },
+        select: { name: true },
+      })
+    : null;
 
-  if (payment.status === "VOIDED") {
-    throw moneyRule("That payment has already been voided.");
-  }
-
-  const alreadyRefunded = payment.dunda_refunds
-    .filter((r) => r.status !== "REJECTED")
-    .reduce((sum, r) => sum + r.amount, 0);
-  const refundable = payment.amount - alreadyRefunded;
-
-  if (body.amount > refundable) {
-    throw moneyRule(`Only ${refundable} of that payment can still be refunded.`);
-  }
-
-  const refund = await prisma.$transaction(async (tx) => {
-    const created = await tx.dunda_refunds.create({
-      data: {
-        organization_id: organizationId,
-        branch_id: payment.branch_id,
-        payment_id: payment.id,
-        amount: body.amount as number,
-        reason: body.reason as string,
-        status: "APPROVED",
-        approved_by_id: session.staffId,
-      },
-    });
-
-    // A full refund voids the payment; a partial one leaves it standing so the
-    // receipt still shows what was taken.
-    if (body.amount === payment.amount) {
-      await tx.dunda_payments.update({
-        where: { id: payment.id },
-        data: { status: "REFUNDED", voided_at: new Date(), voided_by_id: session.staffId },
-      });
-    }
-
-    // Money goes back onto the tab so it can be re-settled rather than becoming a
-    // credit nobody can see.
-    if (payment.tab_id) {
-      const tab = await tx.dunda_tabs.findUniqueOrThrow({
-        where: { id: payment.tab_id },
-        select: { amount_paid: true, outstanding: true },
-      });
-      await tx.dunda_tabs.update({
-        where: { id: payment.tab_id },
-        data: {
-          amount_paid: Math.max(0, tab.amount_paid - (body.amount as number)),
-          outstanding: Math.max(0, tab.outstanding + (body.amount as number)),
-        },
-      });
-    }
-
-    await tx.dunda_audit_logs.create({
-      data: {
-        organization_id: organizationId,
-        branch_id: payment.branch_id,
-        staff_id: session.staffId,
-        action: "REFUND",
-        entity: "payment",
-        entity_id: payment.id,
-        detail: `${body.amount} refunded`,
-        reason: body.reason as string,
-        previous_value: { status: payment.status },
-        new_value: { refundId: created.id, amount: body.amount },
-      },
-    });
-
-    return created;
+  const refund = await refundClubPayment({
+    organizationId,
+    paymentId: body.paymentId,
+    amount: body.amount,
+    reason: body.reason,
+    staffId: session.staffId,
+    staffName: staff?.name ?? "Dunda console",
   });
 
   return NextResponse.json(

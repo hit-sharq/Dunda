@@ -215,7 +215,7 @@ export class OrganizationSuspended extends Error {
 
 /** The caller's plan does not include this module. */
 export class ModuleNotInPlan extends Error {
-  constructor(readonly module: string) {
+  constructor(readonly module: string, readonly planName: string | null) {
     super(`Your plan does not include the ${module} module.`);
     this.name = "ModuleNotInPlan";
   }
@@ -275,7 +275,7 @@ export async function requireModule(
   const subscription = await prisma.dunda_subscriptions.findFirst({
     where: { organization_id: organizationId },
     orderBy: { created_at: "desc" },
-    select: { dunda_plans: { select: { modules: true } } },
+    select: { dunda_plans: { select: { modules: true, name: true } } },
   });
   // The column is JSON, so the list is read as the
   // strings it holds rather than trusted to be one.
@@ -284,7 +284,7 @@ export async function requireModule(
     ? raw.filter((entry): entry is string => typeof entry === "string")
     : null;
   if (modules !== null && !modules.includes(module)) {
-    throw new ModuleNotInPlan(module);
+    throw new ModuleNotInPlan(module, subscription?.dunda_plans?.name ?? null);
   }
   if (!(await isModuleEnabled(organizationId, module))) {
     throw new ModuleDisabled(module);
@@ -406,6 +406,7 @@ function errorResponse(error: unknown): NextResponse {
         error: error.message,
         code: "MODULE_NOT_IN_PLAN",
         module: error.module,
+        planName: error.planName,
       },
       { status: 403 },
     );

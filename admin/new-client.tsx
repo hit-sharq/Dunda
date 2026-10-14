@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@clerk/react";
 import {
   useAssignOrganizationOwner,
   useCreateAdminOrganization,
@@ -17,7 +18,20 @@ import { colors } from "./theme";
 export function NewClient() {
   const create = useCreateAdminOrganization();
   const assignOwner = useAssignOrganizationOwner();
+  const { getToken } = useAuth();
   const [, setLocation] = useLocation();
+  const [setupOwner, setSetupOwner] = useState({ name: "", email: "" });
+  const [setupPlans, setSetupPlans] = useState<Array<{ id: string; name: string; monthlyPrice: number }>>([]);
+  const [setupPlanId, setSetupPlanId] = useState("");
+  const [setupPending, setSetupPending] = useState(false);
+  const [setupError, setSetupError] = useState("");
+  const [setupCopied, setSetupCopied] = useState(false);
+  const [setupLink, setSetupLink] = useState<{
+    url: string;
+    expiresAt: string;
+    plan: { name: string; monthlyPrice: number };
+    invitation: { sent: boolean; reason?: string };
+  } | null>(null);
   const [form, setForm] = useState({
     name: "",
     branchName: "Main Branch",
@@ -35,14 +49,115 @@ export function NewClient() {
   const [ownerResult, setOwnerResult] = useState<{ ok: boolean; text: string } | null>(null);
   const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
 
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const response = await fetch("/api/admin/plans", { headers: { authorization: `Bearer ${token}` } });
+        if (!response.ok) return;
+        const plans = (await response.json()) as Array<{ id: string; name: string; monthlyPrice: number; isActive: boolean }>;
+        const activePlans = plans.filter((plan) => plan.isActive);
+        if (active) {
+          setSetupPlans(activePlans);
+          setSetupPlanId(activePlans[0]?.id ?? "");
+        }
+      } catch {
+        if (active) setSetupError("Could not load active plans. Refresh the page and try again.");
+      }
+    })();
+    return () => { active = false; };
+  }, [getToken]);
+
+  async function createSetupLink(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSetupPending(true);
+    setSetupError("");
+    setSetupLink(null);
+    setSetupCopied(false);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Your operator session has expired. Sign in again.");
+      const response = await fetch("/api/admin/setup-links", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          email: setupOwner.email.trim().toLowerCase(),
+          name: setupOwner.name.trim() || undefined,
+          planId: setupPlanId || undefined,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Could not create the owner setup link.");
+      setSetupLink({
+        url: body.setupUrl,
+        expiresAt: body.expiresAt,
+        plan: body.plan,
+        invitation: body.invitation,
+      });
+    } catch (cause) {
+      setSetupError(cause instanceof Error ? cause.message : "Could not create the owner setup link.");
+    } finally {
+      setSetupPending(false);
+    }
+  }
+
   return (
     <div style={{ display: "grid", gap: 20, maxWidth: 620 }}>
       <div>
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800 }}>New client</h1>
         <p style={{ margin: "4px 0 0", color: colors.muted, fontSize: 14 }}>
-          Create the venue and its first branch. You can correct anything later.
+          Create a club yourself or invite its owner to set it up.
         </p>
       </div>
+
+      <Card style={{ display: "grid", gap: 14 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Send an owner setup link</h2>
+          <p style={{ margin: "4px 0 0", color: colors.muted, fontSize: 13 }}>
+            The owner creates the club and first branch. Their verified email receives the Owner role.
+          </p>
+        </div>
+        <form onSubmit={createSetupLink} style={{ display: "grid", gap: 12 }}>
+          {field("Owner name (optional)", (
+            <input value={setupOwner.name} onChange={(event) => setSetupOwner({ ...setupOwner, name: event.target.value })} placeholder="Wanjiku Kamau" style={inputStyle} data-testid="input-setup-owner-name" />
+          ))}
+          {field("Owner email", (
+            <input required type="email" value={setupOwner.email} onChange={(event) => setSetupOwner({ ...setupOwner, email: event.target.value })} placeholder="owner@example.com" style={inputStyle} data-testid="input-setup-owner-email" />
+          ))}
+          {field("Plan", (
+            <select required value={setupPlanId} onChange={(event) => setSetupPlanId(event.target.value)} style={inputStyle} data-testid="select-owner-setup-plan">
+              {setupPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · KES {plan.monthlyPrice.toLocaleString()}/mo</option>)}
+            </select>
+          ))}
+          {setupError && <p role="alert" style={{ margin: 0, color: colors.red, fontSize: 13 }}>{setupError}</p>}
+          <button style={{ ...primaryButton, opacity: setupPending || !setupPlanId ? 0.6 : 1 }} disabled={setupPending || !setupPlanId} data-testid="button-create-owner-setup-link">
+            {setupPending ? "Creating link…" : "Create and email setup link"}
+          </button>
+        </form>
+        {setupLink && (
+          <div style={{ display: "grid", gap: 8, borderTop: `1px solid ${colors.line}`, paddingTop: 12 }}>
+            <p style={{ margin: 0, fontSize: 13, color: setupLink.invitation.sent ? colors.green : colors.red }}>
+              {setupLink.invitation.sent
+                ? `Invitation sent to ${setupOwner.email.trim()}.`
+                : `The invitation email could not be sent${setupLink.invitation.reason ? `: ${setupLink.invitation.reason}` : ". Copy and send the link manually."}`}
+            </p>
+            <p style={{ margin: 0, fontSize: 12, color: colors.muted }}>
+              {setupLink.plan.name} · KES {setupLink.plan.monthlyPrice.toLocaleString()}/month · expires {new Date(setupLink.expiresAt).toLocaleString()}
+            </p>
+            <input readOnly value={setupLink.url} onFocus={(event) => event.currentTarget.select()} style={inputStyle} aria-label="Owner setup link" data-testid="input-owner-setup-link" />
+            <button type="button" style={linkButton} onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(setupLink.url);
+                setSetupCopied(true);
+              } catch {
+                setSetupError("Could not copy the link. Select and copy it from the field above.");
+              }
+            }} data-testid="button-copy-owner-setup-link">{setupCopied ? "Link copied" : "Copy setup link"}</button>
+          </div>
+        )}
+      </Card>
 
       {created ? (
         <Card style={{ display: "grid", gap: 12 }}>

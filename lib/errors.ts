@@ -23,7 +23,13 @@ export interface FriendlyError {
 interface ErrorLike {
   status?: number;
   code?: string;
-  data?: { error?: string; code?: string; required?: string } | null;
+  data?: {
+    error?: string;
+    code?: string;
+    required?: string;
+    module?: string;
+    planName?: string | null;
+  } | null;
   message?: string;
 }
 
@@ -60,6 +66,11 @@ export const PERMISSION_LABELS: Record<string, string> = {
   manage_branches: "Manage branches",
 };
 
+const MODULE_LABELS: Record<string, string> = {
+  inventory: "Inventory and low-stock alerts",
+  reservations: "Reservations and upcoming bookings",
+};
+
 function asErrorLike(error: unknown): ErrorLike {
   if (error && typeof error === "object") return error as ErrorLike;
   return { message: String(error ?? "") };
@@ -74,6 +85,10 @@ export function describeError(
   const code = e.data?.code ?? e.code;
   const serverMessage = e.data?.error;
   const what = context?.what;
+  const moduleKey = e.data?.module;
+  const moduleName = moduleKey
+    ? MODULE_LABELS[moduleKey] ?? moduleKey.replaceAll("_", " ")
+    : undefined;
 
   // Someone who is signed in but not set up yet. The message says what to do
   // and nothing about how the product is arranged: no mention of workspaces,
@@ -96,6 +111,29 @@ export function describeError(
     return {
       title: "Session expired",
       detail: "Taking you back to sign in…",
+      tone: "warning",
+      canRetry: false,
+      code,
+    };
+  }
+
+  if (code === "MODULE_NOT_IN_PLAN") {
+    const module = moduleName ?? "this feature";
+    const planName = e.data?.planName;
+    return {
+      title: `${module} isn't available on ${planName ?? "this plan"}`,
+      detail: `The club's ${planName ?? "current"} plan doesn't include ${module}. Ask a club owner to upgrade the subscription. Your role permissions are not the cause.`,
+      tone: "warning",
+      canRetry: false,
+      code,
+    };
+  }
+
+  if (code === "MODULE_DISABLED") {
+    const module = moduleName ?? "this feature";
+    return {
+      title: `${module} is switched off for this club`,
+      detail: `A platform administrator has disabled ${module}. Contact the platform administrator to turn it back on. Your role permissions are not the cause.`,
       tone: "warning",
       canRetry: false,
       code,

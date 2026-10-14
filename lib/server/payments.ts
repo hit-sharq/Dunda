@@ -15,12 +15,14 @@ import {
   isFailedStatus,
   pesapalConfigured,
   PESAPAL_PROVIDER,
+  refundPayment,
 } from "@/lib/server/pesapal";
 import {
   applyTabPayment,
   rebuildResult,
   type CheckoutResult,
 } from "@/lib/server/tabs";
+import { orgWhere, assertSameOrg } from "./http";
 
 /**
  * The payment orchestration layer.
@@ -318,6 +320,156 @@ async function safeRebuild(
   } catch {
     return null;
   }
+}
+
+export interface RefundClubPaymentInput {
+  organizationId: string;
+  paymentId: string;
+  amount: number;
+  reason: string;
+  staffId: string | null;
+  /** Who asked, named for the provider's record. */
+  staffName: string;
+}
+
+/**
+ * Refunds a payment by writing the reversal rather than
+ * deleting the original, so the till's takings for the
+ * night still reconcile.
+ *
+ * A payment that went through a provider is sent back
+ * through the provider too: the request is made before
+ * anything is written here, so a rejection leaves the
+ * books exactly as they were. The provider only lets a
+ * charge be refunded once, and mobile money only in
+ * full, so those rules are checked before the provider
+ * is asked.
+ */
+export async function refundClubPayment(input: RefundClubPaymentInput) {
+  const payment = await prisma.dunda_payments.findFirst({
+    where: orgWhere(input.organizationId, { id: input.paymentId }),
+    include: { dunda_refunds: { select: { amount: true, status: true } } },
+  });
+  assertSameOrg(payment, input.organizationId, "That payment");
+
+  if (payment.status === "VOIDED") {
+    throw moneyRule("That payment has already been voided.");
+  }
+
+  const alreadyRefunded = payment.dunda_refunds
+    .filter((refund) => refund.status !== "REJECTED")
+    .reduce((sum, refund) => sum + refund.amount, 0);
+  const refundable = payment.amount - alreadyRefunded;
+
+  if (input.amount > refundable) {
+    throw moneyRule(`Only ${refundable} of that payment can still be refunded.`);
+  }
+
+  let providerMessage: string | null = null;
+  if (payment.provider === PESAPAL_PROVIDER) {
+    if (alreadyRefunded > 0) {
+      throw moneyRule("The provider allows a payment to be refunded once.");
+    }
+    if (payment.method === "MPESA" && input.amount < payment.amount) {
+      throw moneyRule("Mobile money payments can only be refunded in full.");
+    }
+    if (payment.status !== "SUCCESSFUL") {
+      throw moneyRule("Only a completed payment can be refunded by the provider.");
+    }
+    if (!payment.reference) {
+      throw moneyRule("That payment has no confirmation code to refund.");
+    }
+    // Asked before the books move, so a rejection
+    // leaves everything as it was.
+    providerMessage = await refundPayment({
+      confirmationCode: payment.reference,
+      amount: input.amount,
+      username: input.staffName,
+      remarks: input.reason,
+    });
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const created = await tx.dunda_refunds.create({
+      data: {
+        organization_id: input.organizationId,
+        branch_id: payment.branch_id,
+        payment_id: payment.id,
+        amount: input.amount,
+        reason: input.reason,
+        status: "APPROVED",
+        approved_by_id: input.staffId,
+      },
+    });
+
+    // A full refund voids the payment; a partial one
+    // leaves it standing so the receipt still shows
+    // what was taken.
+    if (input.amount === payment.amount) {
+      await tx.dunda_payments.update({
+        where: { id: payment.id },
+        data: {
+          status: "REFUNDED",
+          voided_at: new Date(),
+          voided_by_id: input.staffId,
+        },
+      });
+    }
+
+    // Money goes back onto the tab so it can be
+    // re-settled rather than becoming a credit nobody
+    // can see.
+    if (payment.tab_id) {
+      const tab = await tx.dunda_tabs.findUniqueOrThrow({
+        where: { id: payment.tab_id },
+        select: { amount_paid: true, outstanding: true },
+      });
+      await tx.dunda_tabs.update({
+        where: { id: payment.tab_id },
+        data: {
+          amount_paid: Math.max(0, tab.amount_paid - input.amount),
+          outstanding: Math.max(0, tab.outstanding + input.amount),
+        },
+      });
+    }
+
+    // The provider's answer is kept with the payment,
+    // so the night's takings show what was asked of
+    // the provider and what it said.
+    if (providerMessage) {
+      await tx.dunda_payment_provider_transactions.create({
+        data: {
+          organization_id: input.organizationId,
+          payment_id: payment.id,
+          kind: "REFUND",
+          provider: PESAPAL_PROVIDER,
+          provider_transaction_id: `${payment.reference}-REFUND`,
+          reference: payment.reference,
+          amount: input.amount,
+          currency: payment.currency,
+          status: "RECEIVED",
+          response_payload: { message: providerMessage },
+        },
+      });
+    }
+
+    await tx.dunda_audit_logs.create({
+      data: {
+        organization_id: input.organizationId,
+        branch_id: payment.branch_id,
+        staff_id: input.staffId,
+        action: "REFUND",
+        entity: "payment",
+        entity_id: payment.id,
+        detail: `${input.amount} refunded${providerMessage ? ` · ${providerMessage}` : ""}`,
+        reason: input.reason,
+        previous_value: { status: payment.status },
+        new_value: { refundId: created.id, amount: input.amount },
+      },
+    });
+
+    return created;
+  });
 }
 
 export interface BillingPaymentInitiation {

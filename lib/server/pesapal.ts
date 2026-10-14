@@ -23,6 +23,7 @@ import { ApiError } from "@/lib/errors.server";
  *   URLSetup/RegisterIPN         POST   bearer
  *   Transactions/SubmitOrderRequest  POST  bearer
  *   Transactions/GetTransactionStatus GET bearer
+ *   Transactions/RefundRequest   POST   bearer
  */
 
 const SANDBOX_BASE_URL = "https://cybqa.pesapal.com/pesapalv3";
@@ -444,6 +445,65 @@ export async function getOrderStatus(
       : null,
     raw: body,
   };
+}
+
+export interface PesapalRefundInput {
+  /** The confirmation code the completed payment returned. */
+  confirmationCode: string;
+  amount: number;
+  /** Who asked for the refund, as the provider records it. */
+  username: string;
+  remarks: string;
+}
+
+/**
+ * Asks the provider to send money back to the payer.
+ *
+ * The provider answers 200 with an error code in the
+ * body: 200 means the request was received and is
+ * being processed, 500 means it was rejected. Neither
+ * means the money has moved yet — the provider's
+ * finance team finalises it — so the caller records
+ * the request rather than a completed reversal.
+ */
+export async function refundPayment(
+  input: PesapalRefundInput,
+): Promise<string> {
+  const token = await requestToken();
+
+  const response = await fetch(`${baseUrl()}/api/Transactions/RefundRequest`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      confirmation_code: input.confirmationCode,
+      amount: Number(input.amount.toFixed(2)),
+      username: input.username,
+      remarks: input.remarks,
+    }),
+  });
+
+  const body = (await providerResponse(response)) as {
+    error?: number | string;
+    message?: string;
+  };
+
+  // The provider reports its own failures in a 200
+  // body, so the answer is checked rather than the
+  // HTTP status.
+  const code = Number(body.error);
+  if (code === 500) {
+    throw new ApiError(
+      502,
+      `Pesapal rejected the refund: ${body.message ?? "no reason given"}`,
+      { code: "PROVIDER_REFUND_REJECTED" },
+    );
+  }
+
+  return body.message ?? "Refund request received";
 }
 
 function statusCodeLabel(code: number | undefined): string | null {

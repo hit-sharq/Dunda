@@ -1023,15 +1023,21 @@ model dunda_setup_token_attempts {
 
 model dunda_setup_tokens {
   id                         String                       @id @default(uuid(7))
-  organization_id            String
+  organization_id            String?
   token_hash                 String
   purpose                    String                       @default("CLAIM_OWNERSHIP")
+  owner_email                String?
+  owner_name                 String?
+  plan_id                    String?
+  created_by_clerk_user_id   String?
   expires_at                 DateTime                     @db.Timestamptz(6)
   consumed_at                DateTime?                    @db.Timestamptz(6)
   consumed_by_clerk_user_id  String?
   created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
   dunda_setup_token_attempts dunda_setup_token_attempts[]
-  dunda_organizations        dunda_organizations          @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_setup_tokens_organization_id_dunda_organizations_id_fk")
+  dunda_organizations        dunda_organizations?         @relation(fields: [organization_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "dunda_setup_tokens_organization_id_dunda_organizations_id_fk")
+
+  @@unique([token_hash], map: "dunda_setup_tokens_token_hash_unique")
 }
 
 model dunda_staff {

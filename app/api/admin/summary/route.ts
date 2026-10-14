@@ -4,14 +4,6 @@ import { route, Forbidden, NotProvisioned, resolveSession } from "@/lib/server/h
 
 export const dynamic = "force-dynamic";
 
-/**
- * The platform owner's overview: who is on the platform, what they pay, and
- * whether anything has gone wrong.
- *
- * These counts cross organization boundaries on purpose — that is the console's
- * whole job. Every other route in the application is scoped to one club; this one
- * is the only place that reads across them, and it requires a platform operator.
- */
 export const GET = route(async () => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();

@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useGetTickets, useUpdateTicket } from "@/lib/api-client-react/src";
 import { Button, PageIntro, timeAgo } from "../components/ui";
 import { QueryNotice } from "../components/query-notice";
+import { Link } from "wouter";
 
 /**
  * One board per preparation station.
@@ -48,9 +49,15 @@ export function ServiceBoard({ station }: { station: "bar" | "kitchen" }) {
             : "Only the food this station is responsible for. Drinks and food on the same table advance separately, so serving one does not close the other."
         }
         action={
-          <Button variant="outline" onClick={() => tickets.refetch()}>
-            Refresh
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-xl border border-[hsl(var(--app-line))] p-1" role="tablist" aria-label="Service station">
+              <Link href="/bar" role="tab" aria-selected={isBar} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${isBar ? "bg-[hsl(var(--app-gold))] text-[hsl(var(--app-ink))]" : "text-[hsl(var(--app-muted))]"}`} data-testid="link-station-bar">Bar</Link>
+              <Link href="/kitchen" role="tab" aria-selected={!isBar} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${!isBar ? "bg-[hsl(var(--app-gold))] text-[hsl(var(--app-ink))]" : "text-[hsl(var(--app-muted))]"}`} data-testid="link-station-kitchen">Kitchen</Link>
+            </div>
+            <Button variant="outline" onClick={() => tickets.refetch()}>
+              Refresh
+            </Button>
+          </div>
         }
       />
 
@@ -64,7 +71,7 @@ export function ServiceBoard({ station }: { station: "bar" | "kitchen" }) {
       />
 
       {rows.length > 0 && (
-        <div className="mobile-scroll grid min-w-[900px] grid-cols-5 gap-3">
+        <div className="mobile-scroll grid min-w-[900px] grid-cols-5 gap-3" role="region" aria-label="Ticket workflow lanes" tabIndex={0}>
           {LANES.map((lane) => {
             const items = rows.filter((t) => t.status === lane.key);
             return (

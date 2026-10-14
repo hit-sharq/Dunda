@@ -32,6 +32,7 @@ import {
 } from '@/hooks/use-subscription-payment';
 import { useApiAuth } from '@/hooks/use-api-auth';
 import { useSessionGuard } from '@/hooks/use-session-guard';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { MoneyProvider, money } from '@/lib/money';
 import { QueryNotice } from '@/components/query-notice';
 import { StaffManager } from '@/screens/staff-manager';
@@ -52,6 +53,7 @@ import { Pos as NewPos } from '@/screens/pos';
 import { Products } from '@/screens/products';
 import { FloorDesigner } from '@/screens/floor-designer';
 import { ServiceBoard } from '@/screens/service-board';
+import { OwnerSetup } from '@/screens/owner-setup';
 import { Hq } from '@/screens/hq';
 import NotFound, { NotAnOperator } from '@/screens/not-found';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
@@ -123,7 +125,6 @@ const nav: Array<{
   icon: typeof LayoutDashboard;
   /** The permission that opens this screen, if it needs one. */
   permission?: string;
-  module?: string;
   /** Never rendered unless /me says the caller may. */
   operatorOnly?: boolean;
   /** Which part of the job this screen serves. Drives the grouped navigation. */
@@ -133,14 +134,14 @@ const nav: Array<{
   { href: '/floor', label: 'Floor', icon: Grid2X2, permission: 'view_pos', group: 'Tonight' },
   { href: '/orders', label: 'Orders', icon: ClipboardList, permission: 'view_orders', group: 'Tonight' },
   { href: '/bar', label: 'Bar / Kitchen', icon: Utensils, permission: 'update_ticket', group: 'Tonight' },
-  { href: '/pool', label: 'Pool', icon: CircleDot, permission: 'manage_pool', module: 'pool', group: 'Tonight' },
+  { href: '/pool', label: 'Pool', icon: CircleDot, permission: 'manage_pool', group: 'Tonight' },
   { href: '/pos', label: 'Point of sale', icon: ShoppingBag, permission: 'view_pos', group: 'Selling' },
   { href: '/products', label: 'Products', icon: Package, permission: 'manage_products', group: 'Selling' },
-  { href: '/inventory', label: 'Inventory', icon: WalletCards, permission: 'view_inventory', module: 'inventory', group: 'Selling' },
+  { href: '/inventory', label: 'Inventory', icon: WalletCards, permission: 'view_inventory', group: 'Selling' },
   { href: '/designer', label: 'Floor designer', icon: SlidersHorizontal, permission: 'manage_floor', group: 'Selling' },
-  { href: '/reservations', label: 'Reservations', icon: Ticket, permission: 'manage_reservations', module: 'reservations', group: 'Running the club' },
+  { href: '/reservations', label: 'Reservations', icon: Ticket, permission: 'manage_reservations', group: 'Running the club' },
   { href: '/customers', label: 'Customers', icon: Users, permission: 'manage_customers', group: 'Running the club' },
-  { href: '/events', label: 'Events', icon: CalendarDays, permission: 'manage_events', module: 'events', group: 'Running the club' },
+  { href: '/events', label: 'Events', icon: CalendarDays, permission: 'manage_events', group: 'Running the club' },
   { href: '/staff', label: 'Staff', icon: UserRound, permission: 'manage_staff', group: 'Running the club' },
   { href: '/reports', label: 'Reports', icon: BarChart3, permission: 'view_reports', group: 'Numbers' },
   { href: '/hq', label: 'HQ', icon: Store, permission: 'view_reports', group: 'Numbers' },
@@ -334,7 +335,7 @@ function Reports() {
   const sales = useGetSalesReport({ dateFrom: thirtyDaysAgo, dateTo: today });
   const audit = useGetAuditLogs({ entity: undefined, action: undefined });
   return <div className="rise">
-    <PageIntro eyebrow="Reports / analytics" title="Business at a glance" detail="Sales performance and recent audit trail." />
+    <PageIntro eyebrow="Reports / analytics" title="Business at a glance" detail="Sales performance and recent audit trail." action={<Button variant="outline" onClick={() => { void sales.refetch(); void audit.refetch(); }} data-testid="button-refresh-reports"><RefreshCw size={15} /> Refresh</Button>} />
     <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
       <section className="surface rounded-2xl p-5">
         <h3 className="font-display text-xl font-bold mb-4">Sales report</h3>
@@ -363,6 +364,7 @@ function AppShell({ children }: { children: ReactNode }) {
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
+  const isMobile = useIsMobile();
   const { signOut, openUserProfile } = useClerk();
   const { user } = useUser();
   const me = useGetMe();
@@ -380,15 +382,11 @@ function AppShell({ children }: { children: ReactNode }) {
   const openOrderCount = (openOrders.data ?? []).filter((o) => !['COMPLETED', 'CANCELLED'].includes(o.status)).length;
   const isOwner = me.data?.isOwner ?? false;
   const granted = me.data?.permissions;
-  const planModules = me.data?.modules;
   const visibleNav = useMemo(
     () =>
       nav.filter((item) => {
         if ('operatorOnly' in item && item.operatorOnly) {
           return me.data?.operator === true;
-        }
-        if ('module' in item && item.module && !planModules?.includes(item.module)) {
-          return false;
         }
         if (!('permission' in item) || !item.permission) return true;
         if (isOwner) return true;
@@ -398,7 +396,7 @@ function AppShell({ children }: { children: ReactNode }) {
         if (!granted) return false;
         return granted.includes(item.permission);
       }),
-    [granted, isOwner, me.data?.operator, planModules],
+    [granted, isOwner, me.data?.operator],
   );
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
@@ -427,16 +425,31 @@ function AppShell({ children }: { children: ReactNode }) {
       : `${d.activeTables} of ${d.totalTables} tables in use · ${clock}`;
     return { summary: { occupancy, label } };
   })();
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [mobileOpen]);
   const signOutAndReturn = () => { void signOut({ redirectUrl: basePath || '/' }); setLocation('/'); };
   return <div className="app-noise relative min-h-[100dvh] bg-[var(--app-bg)] md:flex">
-    <aside className={`fixed inset-y-0 left-0 z-[60] flex w-[252px] max-w-[85vw] flex-col bg-[var(--app-chrome)] px-4 py-5 text-[var(--app-chrome-ink)] shadow-2xl transition-transform duration-200 ease-out md:static md:z-auto md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-hidden={!mobileOpen && typeof window !== 'undefined' ? !mobileOpen : undefined}>
-      <div className="mb-9 flex items-center justify-between px-2"><Logo dark /><button onClick={() => setMobileOpen(false)} className="md:hidden" data-testid="button-close-menu"><X size={18} /></button></div>
+    <aside className={`fixed inset-y-0 left-0 z-[60] flex h-[100dvh] w-[252px] max-w-[85vw] flex-col overflow-y-auto overscroll-contain bg-[hsl(var(--app-chrome))] px-4 py-5 text-[var(--app-chrome-ink)] shadow-2xl transition-transform duration-200 ease-out md:static md:z-auto md:h-auto md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-hidden={isMobile ? !mobileOpen : undefined}>
+      <div className="mb-9 flex shrink-0 items-center justify-between px-2"><Logo dark /><button onClick={() => setMobileOpen(false)} className="md:hidden" data-testid="button-close-menu"><X size={18} /></button></div>
       {/* No club, no branch to switch between. The switcher would read "No branch
           assigned" on every page, which looks like a fault rather than the fact
           that this account runs the platform rather than a venue. */}
-      {hasClub && <div className="relative mb-6">
-        <button onClick={() => setBranchOpen(!branchOpen)} className="flex w-full items-center justify-between rounded-xl bg-[var(--app-chrome-raised)] px-3 py-2.5 text-left" data-testid="button-branch-switcher"><span className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-[.16em] text-[var(--app-muted)]">Live branch</span><span className="mt-0.5 block truncate text-sm font-semibold">{branches.data?.[0]?.name ?? 'No branch assigned'}</span></span><ChevronDown size={15} className={branchOpen ? 'rotate-180 transition-transform' : 'transition-transform'} /></button>
-        {branchOpen && <div className="absolute left-0 right-0 top-14 z-20 max-h-64 overflow-y-auto rounded-xl border border-[var(--app-line)] bg-[var(--app-chrome-raised)] p-1.5 shadow-xl">
+      {hasClub && <div className="relative mb-6 shrink-0">
+        <button onClick={() => setBranchOpen(!branchOpen)} className="flex w-full items-center justify-between rounded-xl bg-[hsl(var(--app-chrome-raised))] px-3 py-2.5 text-left" data-testid="button-branch-switcher"><span className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-[.16em] text-[var(--app-muted)]">Live branch</span><span className="mt-0.5 block truncate text-sm font-semibold">{branches.data?.[0]?.name ?? 'No branch assigned'}</span></span><ChevronDown size={15} className={branchOpen ? 'rotate-180 transition-transform' : 'transition-transform'} /></button>
+        {branchOpen && <div className="absolute left-0 right-0 top-14 z-20 max-h-64 overflow-y-auto rounded-xl border border-[var(--app-line)] bg-[hsl(var(--app-chrome-raised))] p-1.5 shadow-xl">
           {!branches.data?.length && <p className="px-3 py-2 text-xs text-[var(--app-ink-soft)]">No branches yet.</p>}
           {branches.data?.map((branch) => <div key={branch.id} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm" data-testid={`button-branch-${branch.id}`}><span className="truncate">{branch.name}{branch.city ? <span className="ml-1 text-xs text-[var(--app-faint)]">{branch.city}</span> : null}</span><span className={branch.status === 'LIVE' ? 'text-xs text-[var(--app-success)]' : 'text-xs text-[var(--app-faint)]'}>{branch.status}</span></div>)}
         </div>}
@@ -449,7 +462,7 @@ function AppShell({ children }: { children: ReactNode }) {
           know a URL to reach anything past the overview. Its own navigation, shown
           only while inside /admin, so the club sidebar stays a club sidebar. */}
       {location.startsWith('/admin') && (
-        <nav className="mb-6 grid gap-1 rounded-xl border border-[var(--app-line)] p-1.5" aria-label="Console">
+        <nav className="mb-6 grid shrink-0 gap-1 rounded-xl border border-[var(--app-line)] p-1.5" aria-label="Console">
           <p className="px-2 pb-1 pt-0.5 font-mono text-[9px] font-semibold uppercase tracking-[.18em] text-[var(--app-faint)]">
             Console
           </p>
@@ -483,7 +496,7 @@ function AppShell({ children }: { children: ReactNode }) {
         </nav>
       )}
 
-      <nav className="grid gap-4" aria-label="Main navigation">
+      <nav className="grid shrink-0 gap-4" aria-label="Main navigation">
         {(['Tonight', 'Selling', 'Running the club', 'Numbers', 'Platform'] as const).map((group) => {
           const items = visibleNav.filter((item) => item.group === group);
           if (items.length === 0) return null;
@@ -512,11 +525,11 @@ function AppShell({ children }: { children: ReactNode }) {
        <div className="mt-auto grid gap-1 border-t border-[var(--app-line)] pt-4"><button onClick={signOutAndReturn} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-[var(--app-muted)] hover:bg-[var(--app-chrome-raised)] hover:text-[var(--app-chrome-ink)]" data-testid="button-sign-out"><DoorOpen size={17} /> Sign out</button></div>
       <div className="mt-5 rounded-xl border border-[var(--app-info)] bg-[var(--app-info)] p-3"><div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[.16em] text-[var(--app-success)]"><span>Table occupancy</span><span className="text-[var(--app-success)]">Live</span></div><div className="mb-2 flex items-end justify-between"><span className="font-display text-2xl font-bold">{pulseSummary.data ? `${shiftPulse.summary.occupancy}%` : '—'}</span><Activity size={17} className="text-[var(--app-gold)]" /></div><div className="h-1.5 overflow-hidden rounded-full bg-[var(--app-info)]"><div className="h-full rounded-full bg-[var(--app-gold)]" style={{ width: `${shiftPulse.summary.occupancy}%` }} /></div><p className="mt-2 text-[11px] text-[var(--app-success)]">{shiftPulse.summary.label}</p></div>
     </aside>
-    {mobileOpen && <button onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-[var(--app-bg)]/70 backdrop-blur-sm md:hidden" aria-label="Close menu" data-testid="button-overlay-close" />}
+    {mobileOpen && <button onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-[hsl(var(--app-bg))]/70 backdrop-blur-sm md:hidden" aria-label="Close menu" data-testid="button-overlay-close" />}
     <button
       type="button"
       aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-      className="fixed right-4 top-4 z-[70] grid h-12 w-12 place-items-center rounded-full bg-[var(--app-chrome)] text-[var(--app-chrome-ink)] shadow-lg ring-1 ring-white/10 transition hover:opacity-90 md:hidden"
+      className="fixed right-4 top-4 z-[70] grid h-12 w-12 place-items-center rounded-full bg-[hsl(var(--app-chrome))] text-[var(--app-chrome-ink)] shadow-lg ring-1 ring-white/10 transition hover:opacity-90 md:hidden"
       onClick={() => setMobileOpen((current) => !current)}
       data-testid="button-open-menu"
     >
@@ -731,7 +744,7 @@ function Pos() {
   const openTab = detail ?? tabs.data?.find((tab) => tab.id === selectedId);
   const create = (event: FormEvent) => { event.preventDefault(); if (!customer || !table) return; createTab.mutate({ data: { customer, table } }, { onSuccess: (tab) => { setSelectedId(tab.id); setShowNew(false); setCustomer(''); setTable(''); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); } }); };
   const add = (p: Product) => { if (!selectedId) { setNotice('Open a tab first, then add items.'); return; } addItem.mutate({ tabId: selectedId, data: { productId: p.id, quantity: 1 } }, { onSuccess: (tab) => {       qc.setQueryData(getGetTabsQueryKey({ status: 'OPEN' }), tabs.data); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); setNotice(`${p.name} added`); } }); };
-  const pay = () => { if (!openTab || openTab.outstanding <= 0) return; checkout.mutate({ tabId: openTab.id, data: { payments: [{ method: payment, amount: openTab.outstanding }], idempotencyKey: crypto.randomUUID() } }, { onSuccess: (result) => { if ('status' in result) { setPendingPayment({ attemptId: result.attemptId, redirectUrl: result.redirectUrl, amount: result.amount }); return; } setNotice(`Receipt ${result.receipt.number} closed successfully`); setSelectedId(undefined); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); }, onError: (error) => { const data = (error as { data?: { error?: string } }).data; setNotice(data?.error ?? (error instanceof Error ? error.message : 'The payment could not be taken.')); } }); };
+  const pay = () => { if (!openTab) return; checkout.mutate({ tabId: openTab.id, data: { payments: [{ method: payment, amount: openTab.total }], idempotencyKey: crypto.randomUUID() } }, { onSuccess: (result) => { if ('status' in result) { setPendingPayment({ attemptId: result.attemptId, redirectUrl: result.redirectUrl, amount: result.amount }); return; } setNotice(`Receipt ${result.receipt.number} closed successfully`); setSelectedId(undefined); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); } }); };
   // The poll answers what the callback may have missed:
   // a resolved attempt settles the tab, a failed one
   // leaves the bill open.
@@ -750,7 +763,7 @@ function Pos() {
   }, [attempt.data, pendingPayment, qc]);
   return <div className="rise"><PageIntro eyebrow="Fast lane / POS" title="Take the order." detail="Tap a product to send it to the selected tab. Built for a busy counter and a 10-inch tablet." action={<Button onClick={() => setShowNew(true)} data-testid="button-new-tab"><Plus size={16} /> New tab</Button>} />
     {notice && <div className="mb-4 flex items-center justify-between rounded-xl border border-[var(--app-success-soft)] bg-[var(--app-success-soft)] px-4 py-3 text-sm text-[var(--app-success)]" data-testid="status-pos-success"><span>{notice}</span><button onClick={() => setNotice('')} data-testid="button-dismiss-notice"><X size={15} /></button></div>}
-    <div className="grid gap-5 xl:grid-cols-[1fr_370px]"><section className="min-w-0"><div className="mb-4 flex gap-2 overflow-x-auto pb-1 mobile-scroll">{cats.map((cat) => <button key={cat} onClick={() => setCategory(cat)} className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition-colors ${category === cat ? 'bg-[var(--app-chrome-raised)] text-[var(--app-chrome-ink)]' : 'bg-[var(--app-line)] text-[var(--app-faint)] hover:bg-[var(--app-warn-soft)]'}`} data-testid={`button-category-${cat.toLowerCase()}`}>{cat}</button>)}</div><label className="mb-5 flex h-11 items-center gap-2 rounded-xl border border-[var(--app-warn-soft)] bg-[var(--app-surface)] px-3 text-[var(--app-muted)]"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-transparent text-sm text-[var(--app-ink)] outline-none placeholder:text-[var(--app-muted)]" placeholder="Search drinks, dishes, cover..." data-testid="input-search-products" /></label><QueryNotice loading={products.isLoading} error={products.error} what="products" empty={!products.isLoading && !products.isError && !filtered.length} onRetry={() => products.refetch()} /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{filtered.map((p) => <button key={p.id} onClick={() => add(p)} disabled={!p.available || addItem.isPending} className="surface group min-h-[142px] rounded-2xl p-4 text-left transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-45" data-testid={`button-product-${p.id}`}><div className="mb-6 flex items-start justify-between"><span className="grid h-9 w-9 place-items-center rounded-xl text-sm font-bold" style={{ background: `${p.accent}25`, color: p.accent }}>{p.category.slice(0, 1)}</span><span className="font-mono text-xs text-[var(--app-faint)]">{p.unit}</span></div><span className="block text-sm font-semibold leading-tight">{p.name}</span><span className="mt-1 block font-mono text-sm font-medium text-[var(--app-gold)]">{money(p.price)}</span></button>)}</div></section><aside className="surface h-fit rounded-2xl p-4 md:sticky md:top-[88px]"><div className="mb-4 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-[var(--app-faint)]">Checkout rail</p><h3 className="font-display text-xl font-bold">Open tabs</h3></div><span className="rounded-full bg-[var(--app-gold-soft)] px-2 py-1 font-mono text-[10px] font-medium text-[var(--app-critical)]">{tabs.data?.length ?? 0} live</span></div><div className="mb-4 grid gap-2">{tabs.isLoading ? <><Skeleton className="h-16" /><Skeleton className="h-16" /></> : tabs.isError ? <QueryNotice error onRetry={() => tabs.refetch()} /> : tabs.data?.length ? tabs.data.map((tab) => <button key={tab.id} onClick={() => setSelectedId(tab.id)} className={`rounded-xl border p-3 text-left ${selectedId === tab.id ? 'border-[var(--app-gold)] bg-[var(--app-gold-ink)]' : 'border-[var(--app-line-soft)] bg-[var(--app-warn-soft)] hover:border-[var(--app-warn-soft)]'}`} data-testid={`button-tab-${tab.id}`}><div className="flex items-center justify-between"><span className="text-sm font-semibold">{tab.customer}</span><span className="font-mono text-[10px] text-[var(--app-faint)]">#{tab.number}</span></div><div className="mt-1 flex items-center justify-between text-xs text-[var(--app-muted)]"><span>{tab.table} · {tab.items.length} items</span><span className="font-mono font-medium text-[var(--app-ink)]">{money(tab.total)}</span></div></button>) : <QueryNotice empty />}</div>{openTab ? <div className="border-t border-[var(--app-line-soft)] pt-4"><div className="mb-3 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-[var(--app-faint)]">Tab #{openTab.number}</p><h4 className="font-display text-lg font-bold">{openTab.customer}</h4></div><span className="rounded-full bg-[var(--app-success-soft)] px-2 py-1 text-[10px] font-semibold text-[var(--app-success)]">{openTab.table}</span></div><div className="scroll-thin max-h-44 overflow-auto">{openTab.items.map((item) => <div key={item.id} className="flex items-center justify-between border-b border-[var(--app-line-soft)] py-2 text-sm"><span><b className="mr-2 font-mono text-xs text-[var(--app-gold)]">{item.quantity}×</b>{item.name}</span><span className="font-mono text-xs">{money(item.total)}</span></div>)}</div><div className="mt-3 grid gap-1 text-xs text-[var(--app-muted)]"><div className="flex justify-between"><span>Subtotal</span><span className="font-mono">{money(openTab.subtotal)}</span></div><div className="flex justify-between"><span>Service + tax</span><span className="font-mono">{money(openTab.serviceCharge + openTab.tax)}</span></div><div className="mt-2 flex justify-between border-t border-[var(--app-warn-soft)] pt-2 text-base font-bold text-[var(--app-ink)]"><span>Total</span><span className="font-mono">{money(openTab.total)}</span></div>{openTab.amountPaid > 0 && <div className="flex justify-between text-xs font-semibold text-[var(--app-success)]"><span>Paid</span><span className="font-mono">{money(openTab.amountPaid)}</span></div>}</div><div className="mt-4 grid grid-cols-3 gap-1.5">{(['CASH', 'MPESA', 'CARD'] as CheckoutInputMethod[]).map((method) => <button key={method} onClick={() => setPayment(method)} className={`rounded-lg py-2 text-[10px] font-semibold ${payment === method ? 'bg-[var(--app-chrome-raised)] text-[var(--app-warn-soft)]' : 'bg-[var(--app-line-soft)] text-[var(--app-muted)]'}`} data-testid={`button-payment-${method.toLowerCase()}`}>{method === 'MPESA' ? 'M-Pesa' : method[0] + method.slice(1).toLowerCase()}</button>)}</div><Button className="mt-3 w-full" onClick={pay} disabled={checkout.isPending || openTab.outstanding <= 0} data-testid="button-checkout">{checkout.isPending ? 'Closing tab…' : `Charge ${money(openTab.outstanding)}`}</Button></div> : <div className="rounded-xl bg-[var(--app-bg)] p-5 text-center text-sm text-[var(--app-muted)]"><CreditCard className="mx-auto mb-2 text-[var(--app-success)]" size={22} /><p>Select an open tab to see its check.</p></div>}</aside></div>
+    <div className="grid gap-5 xl:grid-cols-[1fr_370px]"><section className="min-w-0"><div className="mb-4 flex gap-2 overflow-x-auto pb-1 mobile-scroll">{cats.map((cat) => <button key={cat} onClick={() => setCategory(cat)} className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition-colors ${category === cat ? 'bg-[var(--app-chrome-raised)] text-[var(--app-chrome-ink)]' : 'bg-[var(--app-line)] text-[var(--app-faint)] hover:bg-[var(--app-warn-soft)]'}`} data-testid={`button-category-${cat.toLowerCase()}`}>{cat}</button>)}</div><label className="mb-5 flex h-11 items-center gap-2 rounded-xl border border-[var(--app-warn-soft)] bg-[var(--app-surface)] px-3 text-[var(--app-muted)]"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-transparent text-sm text-[var(--app-ink)] outline-none placeholder:text-[var(--app-muted)]" placeholder="Search drinks, dishes, cover..." data-testid="input-search-products" /></label><QueryNotice loading={products.isLoading} error={products.error} what="products" empty={!products.isLoading && !products.isError && !filtered.length} onRetry={() => products.refetch()} /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{filtered.map((p) => <button key={p.id} onClick={() => add(p)} disabled={!p.available || addItem.isPending} className="surface group min-h-[142px] rounded-2xl p-4 text-left transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-45" data-testid={`button-product-${p.id}`}><div className="mb-6 flex items-start justify-between"><span className="grid h-9 w-9 place-items-center rounded-xl text-sm font-bold" style={{ background: `${p.accent}25`, color: p.accent }}>{p.category.slice(0, 1)}</span><span className="font-mono text-xs text-[var(--app-faint)]">{p.unit}</span></div><span className="block text-sm font-semibold leading-tight">{p.name}</span><span className="mt-1 block font-mono text-sm font-medium text-[var(--app-gold)]">{money(p.price)}</span></button>)}</div></section><aside className="surface h-fit rounded-2xl p-4 md:sticky md:top-[88px]"><div className="mb-4 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-[var(--app-faint)]">Checkout rail</p><h3 className="font-display text-xl font-bold">Open tabs</h3></div><span className="rounded-full bg-[var(--app-gold-soft)] px-2 py-1 font-mono text-[10px] font-medium text-[var(--app-critical)]">{tabs.data?.length ?? 0} live</span></div><div className="mb-4 grid gap-2">{tabs.isLoading ? <><Skeleton className="h-16" /><Skeleton className="h-16" /></> : tabs.isError ? <QueryNotice error onRetry={() => tabs.refetch()} /> : tabs.data?.length ? tabs.data.map((tab) => <button key={tab.id} onClick={() => setSelectedId(tab.id)} className={`rounded-xl border p-3 text-left ${selectedId === tab.id ? 'border-[var(--app-gold)] bg-[var(--app-gold-ink)]' : 'border-[var(--app-line-soft)] bg-[var(--app-warn-soft)] hover:border-[var(--app-warn-soft)]'}`} data-testid={`button-tab-${tab.id}`}><div className="flex items-center justify-between"><span className="text-sm font-semibold">{tab.customer}</span><span className="font-mono text-[10px] text-[var(--app-faint)]">#{tab.number}</span></div><div className="mt-1 flex items-center justify-between text-xs text-[var(--app-muted)]"><span>{tab.table} · {tab.items.length} items</span><span className="font-mono font-medium text-[var(--app-ink)]">{money(tab.total)}</span></div></button>) : <QueryNotice empty />}</div>{openTab ? <div className="border-t border-[var(--app-line-soft)] pt-4"><div className="mb-3 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-[var(--app-faint)]">Tab #{openTab.number}</p><h4 className="font-display text-lg font-bold">{openTab.customer}</h4></div><span className="rounded-full bg-[var(--app-success-soft)] px-2 py-1 text-[10px] font-semibold text-[var(--app-success)]">{openTab.table}</span></div><div className="scroll-thin max-h-44 overflow-auto">{openTab.items.map((item) => <div key={item.id} className="flex items-center justify-between border-b border-[var(--app-line-soft)] py-2 text-sm"><span><b className="mr-2 font-mono text-xs text-[var(--app-gold)]">{item.quantity}×</b>{item.name}</span><span className="font-mono text-xs">{money(item.total)}</span></div>)}</div><div className="mt-3 grid gap-1 text-xs text-[var(--app-muted)]"><div className="flex justify-between"><span>Subtotal</span><span className="font-mono">{money(openTab.subtotal)}</span></div><div className="flex justify-between"><span>Service + tax</span><span className="font-mono">{money(openTab.serviceCharge + openTab.tax)}</span></div><div className="mt-2 flex justify-between border-t border-[var(--app-warn-soft)] pt-2 text-base font-bold text-[var(--app-ink)]"><span>Total</span><span className="font-mono">{money(openTab.total)}</span></div></div><div className="mt-4 grid grid-cols-3 gap-1.5">{(['CASH', 'MPESA', 'CARD'] as CheckoutInputMethod[]).map((method) => <button key={method} onClick={() => setPayment(method)} className={`rounded-lg py-2 text-[10px] font-semibold ${payment === method ? 'bg-[var(--app-chrome-raised)] text-[var(--app-warn-soft)]' : 'bg-[var(--app-line-soft)] text-[var(--app-muted)]'}`} data-testid={`button-payment-${method.toLowerCase()}`}>{method === 'MPESA' ? 'M-Pesa' : method[0] + method.slice(1).toLowerCase()}</button>)}</div><Button className="mt-3 w-full" onClick={pay} disabled={checkout.isPending} data-testid="button-checkout">{checkout.isPending ? 'Closing tab…' : `Charge ${money(openTab.total)}`}</Button></div> : <div className="rounded-xl bg-[var(--app-bg)] p-5 text-center text-sm text-[var(--app-muted)]"><CreditCard className="mx-auto mb-2 text-[var(--app-success)]" size={22} /><p>Select an open tab to see its check.</p></div>}</aside></div>
     {showNew && <Modal title="Open a new tab" onClose={() => setShowNew(false)}><form onSubmit={create} className="grid gap-4"><Field label="Customer name"><input required value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="e.g. Nia" data-testid="input-tab-customer" /></Field><Field label="Table or seat"><input required value={table} onChange={(e) => setTable(e.target.value)} placeholder="e.g. T-14" data-testid="input-tab-table" /></Field><Button className="mt-2 w-full" disabled={createTab.isPending} data-testid="button-create-tab">{createTab.isPending ? 'Opening…' : 'Open tab'}</Button></form></Modal>}
     {pendingPayment && <Modal title="Waiting for payment" onClose={() => setPendingPayment(null)}><div className="grid gap-4"><p className="text-sm text-[var(--app-ink-soft)]">Send the guest this link to pay <strong>{money(pendingPayment.amount)}</strong>. The tab settles on its own when the payment goes through.</p><a href={pendingPayment.redirectUrl} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center rounded-xl bg-[var(--app-gold)] px-4 text-sm font-semibold text-[var(--app-ink)]" data-testid="link-open-payment">Open payment page</a><p className="text-center font-mono text-[10px] uppercase tracking-wider text-[var(--app-faint)]">Checking every few seconds…</p></div></Modal>}
   </div>;
@@ -1203,7 +1216,12 @@ function ProtectedRouter() {
 <Route path="/overview" component={Overview} /><Route path="/pos" component={wrap("view_pos", <NewPos />)} /><Route path="/floor" component={wrap("view_pos", <Floor />)} /><Route path="/designer" component={wrap("manage_floor", <FloorDesigner />)} /><Route path="/orders" component={wrap("view_orders", <Orders />)} /><Route path="/pool" component={wrap("manage_pool", <Pool />)} /><Route path="/bar" component={wrap("update_ticket", <ServiceBoard station="bar" />)} /><Route path="/kitchen" component={wrap("update_ticket", <ServiceBoard station="kitchen" />)} /><Route path="/products" component={wrap("manage_products", <Products />)} /><Route path="/inventory" component={wrap("view_inventory", <Inventory />)} /><Route path="/staff" component={wrap("manage_staff", <Staff />)} /><Route path="/customers" component={wrap("manage_customers", <Customers />)} /><Route path="/customers/new" component={wrap("manage_customers", <NewCustomer />)} /><Route path="/events" component={wrap("manage_events", <Events />)} /><Route path="/reservations" component={wrap("manage_reservations", <Reservations />)} /><Route path="/reports" component={wrap("view_reports", <Reports />)} /><Route path="/hq" component={wrap("view_reports", <Hq />)} /><Route path="/settings" component={wrap("manage_roles", <Settings />)} /><Route component={NotFound} /></Switch></AppShell> : <Redirect to="/" />;
 }
 
-function Router() { return <Switch><Route path="/" component={Landing} /><Route path="/sign-in/*?" component={() => <Auth mode="sign-in" />} /><Route path="/sign-up/*?" component={() => <Auth mode="sign-up" />} /><Route component={ProtectedRouter} /></Switch>; }
+function OwnerSetupRoute({ signInMode = false }: { signInMode?: boolean }) {
+  const { token } = useParams<{ token: string }>();
+  return <OwnerSetup token={token} signInMode={signInMode} />;
+}
+
+function Router() { return <Switch><Route path="/" component={Landing} /><Route path="/sign-in/*?" component={() => <Auth mode="sign-in" />} /><Route path="/sign-up/*?" component={() => <Auth mode="sign-up" />} /><Route path="/setup/:token/sign-in" component={() => <OwnerSetupRoute signInMode />} /><Route path="/setup/:token" component={() => <OwnerSetupRoute />} /><Route component={ProtectedRouter} /></Switch>; }
 
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();

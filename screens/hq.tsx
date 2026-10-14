@@ -56,7 +56,18 @@ export function Hq() {
         title="The whole group"
         detail="Consolidated performance across every branch. Figures are presented side by side rather than ranked, so each site can be read on its own terms."
         action={
-          <Button variant="outline" onClick={() => { hq.refetch(); sales.refetch(); }}>
+          <Button variant="outline" onClick={() => {
+            void Promise.all([
+              hq.refetch(),
+              branches.refetch(),
+              sales.refetch(),
+              inventory.refetch(),
+              staff.refetch(),
+              tables.refetch(),
+              payments.refetch(),
+              events.refetch(),
+            ]);
+          }} data-testid="button-refresh-hq">
             Refresh
           </Button>
         }
