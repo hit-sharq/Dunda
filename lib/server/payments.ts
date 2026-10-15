@@ -23,20 +23,11 @@ import {
   type CheckoutResult,
 } from "@/lib/server/tabs";
 import { orgWhere, assertSameOrg } from "./http";
+import { getOrganizationPesapalCredentials } from "./pesapal-credentials";
 
-/**
- * The payment orchestration layer.
- *
- * Two kinds of money move through this file, and they are kept
- * apart on purpose. A club payment is a guest's bill at a till;
- * a billing payment is a club paying Dunda for the software.
- * Both go through Pesapal, both are recorded as an attempt
- * before the provider is asked, and both are settled only by a
- * status read back from the provider — never by a callback
- * claiming the money arrived.
- */
 
-/** Methods that move money through a provider rather than a drawer. */
+
+
 export const ELECTRONIC_METHODS = ["MPESA", "CARD", "BANK_TRANSFER"];
 
 export function isElectronicMethod(method: string): boolean {
@@ -52,14 +43,7 @@ export interface ClubPaymentInitiation {
   method: string;
 }
 
-/**
- * Sends a guest to Pesapal to pay part or all of a tab.
- *
- * The amount is checked against what the tab still owes before the
- * provider is asked, so a caller cannot initiate a payment for more
- * than the bill. The attempt is written first, so a provider order
- * that never comes back still leaves a record of what was asked.
- */
+
 export async function initiateClubPayment(input: {
   organizationId: string;
   branchId: string;
@@ -77,8 +61,8 @@ export async function initiateClubPayment(input: {
   });
   if (!tab) throw notFound("That tab");
 
-  // Only live payments count towards what has been settled. A voided
-  // payment puts the money back on the tab.
+  
+  
   const alreadyPaid = tab.dunda_payments
     .filter((p) => p.status !== "VOIDED")
     .reduce((sum, p) => sum + p.amount, 0);
@@ -94,21 +78,8 @@ export async function initiateClubPayment(input: {
   }
 
   const { currency } = await getTenantSettings(input.organizationId);
+  const providerCredentials = await getOrganizationPesapalCredentials(input.organizationId);
 
-  // Asking the provider before anything is written, so a
-  // deployment without credentials fails loudly here rather
-  // than leaving an attempt that can never be paid.
-  if (!pesapalConfigured()) {
-    throw new ApiError(
-      503,
-      "The payment provider is not configured on this deployment.",
-      { code: "PROVIDER_NOT_CONFIGURED" },
-    );
-  }
-
-  // Pesapal needs a way to reach the payer, so a
-  // guest with no contact details on the tab falls
-  // back to the branch's own line.
   let payerEmail = input.payerEmail;
   let payerPhone = input.payerPhone;
   if (!payerEmail && !payerPhone) {
@@ -146,11 +117,12 @@ export async function initiateClubPayment(input: {
     payerEmail,
     payerPhone,
     payerName: input.payerName,
+    credentials: providerCredentials,
   });
 
   await prisma.$transaction(async (tx) => {
-    // The tracking id is the handle the provider knows the order by,
-    // so it is kept on the attempt and on the provider transaction.
+    
+    
     await tx.dunda_payment_attempts.update({
       where: { id: attempt.id },
       data: { reference: order.orderTrackingId },
@@ -187,6 +159,119 @@ export async function initiateClubPayment(input: {
   };
 }
 
+export async function initiateClubResourcePayment(input: {
+  organizationId: string;
+  branchId: string;
+  amount: number;
+  method: string;
+  eventTicketId?: string;
+  reservationId?: string;
+  description: string;
+  payerEmail?: string | null;
+  payerPhone?: string | null;
+  payerName?: string | null;
+}): Promise<ClubPaymentInitiation> {
+  const hasEventTicket = Boolean(input.eventTicketId);
+  const hasReservation = Boolean(input.reservationId);
+  if (hasEventTicket === hasReservation) {
+    throw new ApiError(400, "A payment must be linked to one event ticket or reservation.", {
+      code: "INVALID_PAYMENT_SOURCE",
+    });
+  }
+  if (input.amount <= 0) throw moneyRule("A payment has to be for something.");
+
+  const branch = await prisma.dunda_branches.findFirst({
+    where: orgWhere(input.organizationId, { id: input.branchId }),
+    select: { id: true, email: true, phone: true },
+  });
+  if (!branch) throw notFound("That branch");
+
+  const providerCredentials = await getOrganizationPesapalCredentials(input.organizationId);
+  const { currency } = await getTenantSettings(input.organizationId);
+  const payerEmail = input.payerEmail ?? branch.email;
+  const payerPhone = input.payerPhone ?? branch.phone;
+  if (!payerEmail && !payerPhone) {
+    throw new ApiError(422, "Add a club email or phone number before taking online payments.", {
+      code: "PAYER_CONTACT_REQUIRED",
+    });
+  }
+
+  const attempt = await prisma.dunda_payment_attempts.create({
+    data: {
+      organization_id: input.organizationId,
+      branch_id: branch.id,
+      event_ticket_id: input.eventTicketId ?? null,
+      reservation_id: input.reservationId ?? null,
+      amount: input.amount,
+      currency,
+      method: input.method,
+      provider: PESAPAL_PROVIDER,
+      status: "INITIATED",
+    },
+  });
+
+  let order;
+  try {
+    order = await createOrder({
+      id: attempt.id,
+      amount: input.amount,
+      currency,
+      description: input.description,
+      payerEmail,
+      payerPhone,
+      payerName: input.payerName,
+      credentials: providerCredentials,
+    });
+  } catch (error) {
+    await prisma.dunda_payment_attempts.update({
+      where: { id: attempt.id },
+      data: {
+        status: "FAILED",
+        failure_reason: error instanceof Error ? error.message : "The payment request failed.",
+        resolved_at: new Date(),
+      },
+    });
+    throw error;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.dunda_payment_attempts.update({
+      where: { id: attempt.id },
+      data: { reference: order.orderTrackingId },
+    });
+    await tx.dunda_payment_provider_transactions.create({
+      data: {
+        organization_id: input.organizationId,
+        kind: hasEventTicket ? "EVENT_TICKET_PAYMENT" : "RESERVATION_DEPOSIT",
+        provider: PESAPAL_PROVIDER,
+        provider_transaction_id: order.orderTrackingId,
+        reference: attempt.id,
+        amount: input.amount,
+        currency,
+        status: "INITIATED",
+        request_payload: {
+          attemptId: attempt.id,
+          eventTicketId: input.eventTicketId ?? null,
+          reservationId: input.reservationId ?? null,
+          amount: input.amount,
+          currency,
+          method: input.method,
+        },
+        response_payload: order as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }, TRANSACTION_OPTIONS);
+
+  return {
+    attemptId: attempt.id,
+    orderTrackingId: order.orderTrackingId,
+    redirectUrl: order.redirectUrl,
+    amount: input.amount,
+    currency,
+    method: input.method,
+  };
+}
+
 export interface ClubPaymentConfirmation {
   attemptId: string;
   outcome: "COMPLETED" | "FAILED" | "PENDING" | "ALREADY_SETTLED";
@@ -194,14 +279,7 @@ export interface ClubPaymentConfirmation {
   settlement: CheckoutResult | null;
 }
 
-/**
- * Settles a club payment from the provider's own answer.
- *
- * The callback that nudges this is never trusted: the status is read
- * from Pesapal first, and only a completed order settles the tab.
- * The attempt claim inside the settlement makes a repeated callback
- * a no-op rather than a second payment.
- */
+
 export async function confirmClubPayment(
   attemptId: string,
 ): Promise<ClubPaymentConfirmation> {
@@ -210,8 +288,8 @@ export async function confirmClubPayment(
   });
   if (!attempt) throw notFound("That payment attempt");
 
-  // An attempt that already resolved is answered from the books, not
-  // from the provider again: the settlement it produced is the fact.
+  
+  
   if (attempt.status === "RESOLVED" || attempt.status === "FAILED") {
     const payment = await prisma.dunda_payments.findFirst({
       where: { idempotency_key: { startsWith: `${attemptId}#` } },
@@ -228,36 +306,44 @@ export async function confirmClubPayment(
     };
   }
 
-  // The tracking id was stored when the order was created. Falling
-  // back to the attempt id covers an attempt whose order never
-  // returned a tracking id.
+  
+  
+  
+  const providerCredentials = await getOrganizationPesapalCredentials(
+    attempt.organization_id,
+  );
   const status = await getOrderStatus(
     attempt.reference ?? attempt.id,
+    providerCredentials,
   );
 
-  // A settlement needs the bill it settles. Attempts written
-  // before attempts carried a tab have nowhere to land.
-  if (!attempt.tab_id) {
-    throw new ApiError(
-      409,
-      "That payment attempt is not attached to a tab.",
-      { code: "WRONG_STATE" },
-    );
-  }
-  const tab = await prisma.dunda_tabs.findUniqueOrThrow({
-    where: { id: attempt.tab_id },
-    select: { branch_id: true },
-  });
-
+  
+  
   if (isFailedStatus(status.status)) {
-    await prisma.dunda_payment_attempts.update({
-      where: { id: attemptId },
-      data: {
-        status: "FAILED",
-        failure_reason: `Pesapal: ${status.status}`,
-        resolved_at: new Date(),
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      await tx.dunda_payment_attempts.update({
+        where: { id: attemptId },
+        data: {
+          status: "FAILED",
+          failure_reason: `Pesapal: ${status.status}`,
+          resolved_at: new Date(),
+        },
+      });
+      if (attempt.event_ticket_id) {
+        await tx.dunda_event_tickets.updateMany({
+          where: {
+            id: attempt.event_ticket_id,
+            organization_id: attempt.organization_id,
+            status: "PENDING_PAYMENT",
+          },
+          data: { status: "CANCELLED" },
+        });
+      }
+      await tx.dunda_payment_provider_transactions.updateMany({
+        where: { provider: PESAPAL_PROVIDER, reference: attemptId },
+        data: { status: "FAILED", raw_status: status.status, response_payload: status.raw as Prisma.InputJsonValue },
+      });
+    }, TRANSACTION_OPTIONS);
     return {
       attemptId,
       outcome: "FAILED",
@@ -270,10 +356,21 @@ export async function confirmClubPayment(
     return { attemptId, outcome: "PENDING", paymentId: null, settlement: null };
   }
 
-  // The provider says the money arrived, so it is written against the
-  // bill. The tab is re-read inside the settlement, so a bill that
-  // changed while the guest was paying is settled against what it
-  // actually owes now.
+  if (attempt.event_ticket_id || attempt.reservation_id) {
+    const paymentId = await settleLinkedClubPayment(attempt, status);
+    return { attemptId, outcome: "COMPLETED", paymentId, settlement: null };
+  }
+
+  if (!attempt.tab_id) {
+    throw new ApiError(409, "That payment attempt has no supported payment source.", {
+      code: "WRONG_STATE",
+    });
+  }
+  const tab = await prisma.dunda_tabs.findUniqueOrThrow({
+    where: { id: attempt.tab_id },
+    select: { branch_id: true },
+  });
+  
   const settlement = await applyTabPayment({
     organizationId: attempt.organization_id,
     tabId: attempt.tab_id,
@@ -310,7 +407,106 @@ export async function confirmClubPayment(
   };
 }
 
-/** Rebuilds a settlement without letting a missing tab throw. */
+async function settleLinkedClubPayment(
+  attempt: NonNullable<Awaited<ReturnType<typeof prisma.dunda_payment_attempts.findUnique>>>,
+  status: Awaited<ReturnType<typeof getOrderStatus>>,
+): Promise<string> {
+  return prisma.$transaction(async (tx) => {
+    const idempotencyKey = `${attempt.id}#settlement`;
+    const existing = await tx.dunda_payments.findUnique({
+      where: { idempotency_key: idempotencyKey },
+      select: { id: true },
+    });
+    if (existing) return existing.id;
+
+    let branchId = attempt.branch_id;
+    let eventTicket: { id: string; branch_id: string | null; status: string } | null = null;
+    if (attempt.event_ticket_id) {
+      eventTicket = await tx.dunda_event_tickets.findFirst({
+        where: { id: attempt.event_ticket_id, organization_id: attempt.organization_id },
+        select: { id: true, branch_id: true, status: true },
+      });
+      if (!eventTicket || eventTicket.status !== "PENDING_PAYMENT") {
+        throw conflict("That event ticket is no longer awaiting payment.");
+      }
+      branchId ??= eventTicket.branch_id;
+    }
+
+    let reservation: { id: string; branch_id: string; deposit_amount: number; deposit_paid: number } | null = null;
+    if (attempt.reservation_id) {
+      reservation = await tx.dunda_reservations.findFirst({
+        where: { id: attempt.reservation_id, organization_id: attempt.organization_id },
+        select: { id: true, branch_id: true, deposit_amount: true, deposit_paid: true },
+      });
+      if (!reservation) throw notFound("That reservation");
+      if (attempt.amount > reservation.deposit_amount - reservation.deposit_paid) {
+        throw conflict("That reservation deposit has already been paid.");
+      }
+      branchId ??= reservation.branch_id;
+    }
+    if (!branchId) throw notFound("That payment branch");
+
+    const payment = await tx.dunda_payments.create({
+      data: {
+        organization_id: attempt.organization_id,
+        branch_id: branchId,
+        event_ticket_id: attempt.event_ticket_id,
+        reservation_id: attempt.reservation_id,
+        amount: attempt.amount,
+        currency: attempt.currency,
+        method: attempt.method,
+        provider: PESAPAL_PROVIDER,
+        reference: status.transactionId ?? status.paymentReference ?? null,
+        status: "SUCCESSFUL",
+        cashier_id: null,
+        idempotency_key: idempotencyKey,
+      },
+    });
+
+    if (eventTicket) {
+      await tx.dunda_event_tickets.update({
+        where: { id: eventTicket.id },
+        data: { status: "ISSUED" },
+      });
+    }
+    if (reservation) {
+      const depositPaid = reservation.deposit_paid + attempt.amount;
+      await tx.dunda_reservations.update({
+        where: { id: reservation.id },
+        data: {
+          deposit_paid: depositPaid,
+          ...(depositPaid >= reservation.deposit_amount ? { status: "CONFIRMED" } : {}),
+        },
+      });
+    }
+
+    await tx.dunda_payment_attempts.update({
+      where: { id: attempt.id },
+      data: { status: "RESOLVED", payment_id: payment.id, resolved_at: new Date() },
+    });
+    await tx.dunda_payment_provider_transactions.updateMany({
+      where: { provider: PESAPAL_PROVIDER, reference: attempt.id },
+      data: {
+        payment_id: payment.id,
+        status: "COMPLETED",
+        response_payload: status.raw as Prisma.InputJsonValue,
+        raw_status: status.status,
+      },
+    });
+    await tx.dunda_audit_logs.create({
+      data: {
+        organization_id: attempt.organization_id,
+        branch_id: branchId,
+        action: "CREATE",
+        entity: eventTicket ? "event_ticket_payment" : "reservation_deposit",
+        entity_id: eventTicket?.id ?? reservation?.id ?? null,
+        detail: `${attempt.amount} ${attempt.currency} paid via Pesapal`,
+      },
+    });
+    return payment.id;
+  }, TRANSACTION_OPTIONS);
+}
+
 async function safeRebuild(
   organizationId: string,
   tabId: string,
@@ -328,23 +524,11 @@ export interface RefundClubPaymentInput {
   amount: number;
   reason: string;
   staffId: string | null;
-  /** Who asked, named for the provider's record. */
+  
   staffName: string;
 }
 
-/**
- * Refunds a payment by writing the reversal rather than
- * deleting the original, so the till's takings for the
- * night still reconcile.
- *
- * A payment that went through a provider is sent back
- * through the provider too: the request is made before
- * anything is written here, so a rejection leaves the
- * books exactly as they were. The provider only lets a
- * charge be refunded once, and mobile money only in
- * full, so those rules are checked before the provider
- * is asked.
- */
+
 export async function refundClubPayment(input: RefundClubPaymentInput) {
   const payment = await prisma.dunda_payments.findFirst({
     where: orgWhere(input.organizationId, { id: input.paymentId }),
@@ -379,13 +563,17 @@ export async function refundClubPayment(input: RefundClubPaymentInput) {
     if (!payment.reference) {
       throw moneyRule("That payment has no confirmation code to refund.");
     }
-    // Asked before the books move, so a rejection
-    // leaves everything as it was.
+    
+    
+    const providerCredentials = await getOrganizationPesapalCredentials(
+      input.organizationId,
+    );
     providerMessage = await refundPayment({
       confirmationCode: payment.reference,
       amount: input.amount,
       username: input.staffName,
       remarks: input.reason,
+      credentials: providerCredentials,
     });
   }
 
@@ -402,9 +590,9 @@ export async function refundClubPayment(input: RefundClubPaymentInput) {
       },
     });
 
-    // A full refund voids the payment; a partial one
-    // leaves it standing so the receipt still shows
-    // what was taken.
+    
+    
+    
     if (input.amount === payment.amount) {
       await tx.dunda_payments.update({
         where: { id: payment.id },
@@ -416,9 +604,9 @@ export async function refundClubPayment(input: RefundClubPaymentInput) {
       });
     }
 
-    // Money goes back onto the tab so it can be
-    // re-settled rather than becoming a credit nobody
-    // can see.
+    
+    
+    
     if (payment.tab_id) {
       const tab = await tx.dunda_tabs.findUniqueOrThrow({
         where: { id: payment.tab_id },
@@ -433,9 +621,9 @@ export async function refundClubPayment(input: RefundClubPaymentInput) {
       });
     }
 
-    // The provider's answer is kept with the payment,
-    // so the night's takings show what was asked of
-    // the provider and what it said.
+    
+    
+    
     if (providerMessage) {
       await tx.dunda_payment_provider_transactions.create({
         data: {
@@ -480,20 +668,7 @@ export interface BillingPaymentInitiation {
   currency: string;
 }
 
-/**
- * Sends a club to Pesapal to pay what they owe Dunda.
- *
- * The amount comes from the subscription, never from the request,
- * and the billing payment is written as INITIATED before the
- * provider is asked, so a renewal that is in flight is visible in
- * the console rather than invisible until it lands.
- *
- * With autoRenew, the payment is also offered as an automatic
- * mandate: the club's owner accepts it on the payment page, and
- * from then on Pesapal charges the card each period without
- * anyone pressing anything. The mandate is the provider's, keyed
- * by the organization id, so a plan change does not break it.
- */
+
 export async function initiateBillingPayment(input: {
   organizationId: string;
   subscriptionId: string;
@@ -516,8 +691,8 @@ export async function initiateBillingPayment(input: {
     );
   }
 
-  // One unpaid renewal at a time. A second order for the same
-  // renewal would ask the club for the same money twice.
+  
+  
   const inFlight = await prisma.dunda_billing_payments.findFirst({
     where: {
       subscription_id: subscription.id,
@@ -548,9 +723,9 @@ export async function initiateBillingPayment(input: {
     select: { name: true },
   });
 
-  // The mandate covers one period, starting
-  // today, so the next charge lands when the
-  // next renewal is due.
+  
+  
+  
   const periodDays = subscription.billing_cycle === "ANNUAL" ? 365 : 30;
   const startsAt = new Date();
   const endsAt = new Date(
@@ -562,9 +737,9 @@ export async function initiateBillingPayment(input: {
     amount: subscription.amount,
     currency,
     description: `Dunda ${subscription.plan} subscription for ${organization.name}`,
-    // The account a recurring charge names
-    // us back by: the organization, which
-    // outlives any one subscription row.
+    
+    
+    
     accountNumber: input.organizationId,
     subscriptionDetails: input.autoRenew
       ? {
@@ -581,10 +756,10 @@ export async function initiateBillingPayment(input: {
       where: { id: billingPayment.id },
       data: {
         provider_reference: order.orderTrackingId,
-        // The checkout link is kept on the payment so
-        // the club's own screen can offer it again
-        // without asking the provider for a second
-        // order for the same money.
+        
+        
+        
+        
         provider_payload: { redirectUrl: order.redirectUrl },
       },
     });
@@ -608,15 +783,12 @@ export async function initiateBillingPayment(input: {
         response_payload: order as unknown as Prisma.InputJsonValue,
       },
     });
-    // The club is on automatic renewal from
-    // the moment they are offered it, so the
-    // renewal sweep leaves them to the mandate.
-    if (input.autoRenew) {
-      await tx.dunda_subscriptions.update({
-        where: { id: subscription.id },
-        data: { auto_renew: true },
-      });
-    }
+    await tx.dunda_subscriptions.update({
+      where: { id: subscription.id },
+      data: {
+        auto_renew_pending: Boolean(input.autoRenew) && !subscription.auto_renew,
+      },
+    });
   }, TRANSACTION_OPTIONS);
 
   return {
@@ -637,16 +809,10 @@ export interface OpenBillingPayment {
   createdAt: string;
 }
 
-/** How long a checkout link is worth offering. */
+
 const PAYMENT_LINK_TTL_DAYS = 7;
 
-/**
- * The club's outstanding payment to Dunda, if one is open.
- *
- * A link older than the TTL is not returned: Pesapal
- * checkout links do not last forever, and offering a
- * dead one is worse than offering none.
- */
+
 export async function getOpenBillingPayment(
   organizationId: string,
 ): Promise<OpenBillingPayment | null> {
@@ -685,17 +851,10 @@ export async function getOpenBillingPayment(
   };
 }
 
-/**
- * The club owner's own way to get a payment link.
- *
- * A fresh link is returned as it is, because asking
- * again would ask the club for the same money twice.
- * A stale one is retired first, because the provider
- * would only refuse it, and a new link is created in
- * its place.
- */
+
 export async function requestBillingPayment(
   organizationId: string,
+  autoRenew = false,
 ): Promise<BillingPaymentInitiation> {
   const fresh = await getOpenBillingPayment(organizationId);
   if (fresh) {
@@ -738,7 +897,7 @@ export async function requestBillingPayment(
     organizationId,
     subscriptionId: subscription.id,
     kind: "SUBSCRIPTION_RENEWAL",
-    autoRenew: true,
+    autoRenew,
   });
 }
 
@@ -748,14 +907,7 @@ export interface BillingPaymentConfirmation {
   subscriptionStatus: string | null;
 }
 
-/**
- * Completes a subscription payment from the provider's own answer.
- *
- * A completed renewal marks the billing payment paid, sets the
- * subscription active and pushes its renewal out by a full period.
- * A failed one is recorded as failed and the subscription goes past
- * due, so the console can see who to chase.
- */
+
 export async function confirmBillingPayment(
   billingPaymentId: string,
 ): Promise<BillingPaymentConfirmation> {
@@ -764,6 +916,18 @@ export async function confirmBillingPayment(
     include: { dunda_subscriptions: true },
   });
   if (!billingPayment) throw notFound("That billing payment");
+
+  const providerTransaction = await prisma.dunda_payment_provider_transactions.findFirst({
+    where: {
+      provider: PESAPAL_PROVIDER,
+      kind: "SUBSCRIPTION",
+      reference: billingPaymentId,
+    },
+    select: { request_payload: true },
+  });
+  const autoRenewRequested = (
+    providerTransaction?.request_payload as { autoRenew?: boolean } | null
+  )?.autoRenew === true;
 
   if (billingPayment.status === "COMPLETED") {
     return {
@@ -792,6 +956,7 @@ export async function confirmBillingPayment(
         where: { id: billingPayment.subscription_id },
         data: {
           status: "PAST_DUE",
+          auto_renew_pending: false,
           failed_payment_count: {
             increment: 1,
           },
@@ -816,13 +981,16 @@ export async function confirmBillingPayment(
   const subscription = billingPayment.dunda_subscriptions;
   const periodDays =
     subscription.billing_cycle === "ANNUAL" ? 365 : 30;
-  // A renewal runs from when the last period ended, not from when
-  // the payment landed, so a club that pays a day late does not
-  // lose a day of subscription.
+  
+  
+  
   const renewsFrom = subscription.renews_at ?? new Date();
   const nextRenewal = new Date(
     renewsFrom.getTime() + periodDays * 24 * 60 * 60 * 1000,
   );
+  const mandateConfirmed =
+    autoRenewRequested &&
+    Boolean(status.subscriptionTransactionInfo?.correlationId);
 
   await prisma.$transaction(async (tx) => {
     await tx.dunda_billing_payments.update({
@@ -842,6 +1010,8 @@ export async function confirmBillingPayment(
         failed_payment_count: 0,
         started_at: subscription.started_at ?? new Date(),
         renews_at: nextRenewal,
+        auto_renew: subscription.auto_renew || mandateConfirmed,
+        auto_renew_pending: autoRenewRequested && !mandateConfirmed,
       },
     });
     await tx.dunda_platform_audit_logs.create({
@@ -875,16 +1045,7 @@ export interface RecurringPaymentResult {
   subscriptionStatus: string | null;
 }
 
-/**
- * Records an automatic renewal charged by the provider.
- *
- * A recurring charge names us back by the account
- * number — the organization — not by any payment we
- * created, so the status read is what identifies the
- * club. The charge's confirmation code is its unique
- * mark, so a notification delivered twice records one
- * payment.
- */
+
 export async function recordRecurringPayment(
   orderTrackingId: string,
 ): Promise<RecurringPaymentResult> {
@@ -915,9 +1076,9 @@ export async function recordRecurringPayment(
     };
   }
 
-  // The confirmation code is unique to the charge,
-  // so a repeated notification is recognized here
-  // rather than recorded twice.
+  
+  
+  
   if (status.transactionId) {
     const alreadyRecorded = await prisma.dunda_billing_payments.findFirst({
       where: {
@@ -936,9 +1097,9 @@ export async function recordRecurringPayment(
   }
 
   const periodDays = subscription.billing_cycle === "ANNUAL" ? 365 : 30;
-  // A renewal runs from when the last period
-  // ended, so a charge that lands a day late
-  // does not cost the club a day.
+  
+  
+  
   const nextRenewal = new Date(
     (subscription.renews_at ?? new Date()).getTime() +
       periodDays * 24 * 60 * 60 * 1000,
@@ -947,9 +1108,9 @@ export async function recordRecurringPayment(
   const chargedCurrency = status.paymentCurrency ?? subscription.currency;
 
   if (!isCompletedStatus(status.status)) {
-    // An automatic charge that did not go
-    // through puts the subscription past due,
-    // the same as a failed manual one.
+    
+    
+    
     await prisma.$transaction(async (tx) => {
       await tx.dunda_billing_payments.create({
         data: {
@@ -969,6 +1130,8 @@ export async function recordRecurringPayment(
         where: { id: subscription.id },
         data: {
           status: "PAST_DUE",
+          auto_renew: false,
+          auto_renew_pending: false,
           failed_payment_count: { increment: 1 },
         },
       });
@@ -1001,6 +1164,7 @@ export async function recordRecurringPayment(
         status: "ACTIVE",
         failed_payment_count: 0,
         auto_renew: true,
+        auto_renew_pending: false,
         renews_at: nextRenewal,
       },
     });
@@ -1031,39 +1195,52 @@ export async function recordRecurringPayment(
 }
 
 export interface RenewalSweepResult {
-  /** Subscriptions the sweep looked at. */
+  
   checked: number;
-  /** Renewals a payment link was created for. */
+  
   initiated: {
     organizationId: string;
     organization: string;
     amount: number;
     redirectUrl: string;
   }[];
-  /** Renewals left alone: a link is already open, or the provider could not be asked. */
+  
   skipped: number;
 }
 
-/**
- * Starts a payment for every subscription coming
- * due, for clubs that are not on an automatic
- * mandate.
- *
- * A renewal is chased a week before it is due:
- * early enough for a club to act on the link,
- * late enough not to nag about a payment that is
- * not yet owed. Clubs on automatic renewal are
- * left to the mandate, which charges them without
- * this sweep.
- */
+
 export async function runRenewalSweep(): Promise<RenewalSweepResult> {
   const horizon = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const mandateGraceCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const pendingMandates = await prisma.dunda_subscriptions.findMany({
+    where: {
+      auto_renew: false,
+      auto_renew_pending: true,
+      renews_at: { lte: mandateGraceCutoff },
+      status: { in: ["ACTIVE", "TRIAL", "PAST_DUE"] },
+      cancelled_at: null,
+    },
+    select: { id: true },
+  });
+  for (const subscription of pendingMandates) {
+    await prisma.dunda_subscriptions.updateMany({
+      where: {
+        id: subscription.id,
+        auto_renew: false,
+        auto_renew_pending: true,
+        renews_at: { lte: mandateGraceCutoff },
+      },
+      data: { auto_renew_pending: false },
+    });
+  }
 
   const due = await prisma.dunda_subscriptions.findMany({
     where: {
       renews_at: { lte: horizon },
       status: { in: ["ACTIVE", "TRIAL", "PAST_DUE"] },
       auto_renew: false,
+      auto_renew_pending: false,
       cancelled_at: null,
     },
     include: {
@@ -1076,9 +1253,9 @@ export async function runRenewalSweep(): Promise<RenewalSweepResult> {
   let skipped = 0;
 
   for (const subscription of due) {
-    // One unpaid renewal at a time; a club is
-    // not sent a second link while the first
-    // is still open.
+    
+    
+    
     const inFlight = await prisma.dunda_billing_payments.findFirst({
       where: {
         subscription_id: subscription.id,
@@ -1096,10 +1273,10 @@ export async function runRenewalSweep(): Promise<RenewalSweepResult> {
         organizationId: subscription.organization_id,
         subscriptionId: subscription.id,
         kind: "SUBSCRIPTION_RENEWAL",
-        // A sweep collects the renewal; it
-        // does not sign the club up for a
-        // mandate. That is the operator's
-        // offer to make.
+        
+        
+        
+        
         autoRenew: false,
       });
       initiated.push({
@@ -1109,9 +1286,9 @@ export async function runRenewalSweep(): Promise<RenewalSweepResult> {
         redirectUrl: initiation.redirectUrl,
       });
     } catch {
-      // A club whose payment cannot be
-      // started is counted rather than
-      // stopping the rest of the sweep.
+      
+      
+      
       skipped += 1;
     }
   }
@@ -1119,14 +1296,7 @@ export async function runRenewalSweep(): Promise<RenewalSweepResult> {
   return { checked: due.length, initiated, skipped };
 }
 
-/**
- * Finds what a callback is about.
- *
- * Pesapal knows an order by its tracking id and echoes our
- * reference back as the merchant reference, so the attempt is
- * looked up by either spelling. A club payment and a subscription
- * payment are told apart by which table holds the reference.
- */
+
 export async function resolveCallbackReference(
   orderTrackingId: string | null,
   merchantReference: string | null,
