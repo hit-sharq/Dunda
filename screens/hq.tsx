@@ -16,7 +16,7 @@ import {
 } from "../components/ui";
 import { QueryNotice } from "../components/query-notice";
 
-// Same window as the other report screens, so the two never disagree.
+
 const DEFAULT_REPORT_DAYS = 30;
 const today = new Date();
 const from = new Date(today.getTime() - DEFAULT_REPORT_DAYS * 24 * 60 * 60 * 1000)

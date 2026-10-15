@@ -1,45 +1,32 @@
 import { TRANSACTION_OPTIONS } from "@/lib/db/transaction";
 import { prisma } from "@/lib/db/client";
 
-/** A Prisma transaction client, named once because every service takes one. */
+
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 import { conflict, wrongState } from "@/lib/errors.server";
 
-/**
- * Pool charges are worked out here, from the rate rules stored against the club.
- *
- * There is no default rate anywhere in this file. A table with no rule configured
- * refuses to start a session rather than charging an amount nobody chose, because a
- * session that starts and then cannot be billed is worse than one that never starts.
- */
+
 
 export interface RateRule {
   id: string;
-  /**
-   * The table this rule prices, or null when it prices every table in the branch.
-   * Declared on the base type rather than only the loaded one so the charge
-   * calculator can take a bare rule without also being handed a table.
-   */
+  
   poolTableId?: string | null;
   name: string;
-  /** 0 = Sunday. Null means the rule applies on any day. */
+  
   weekday: number | null;
-  /** Minutes from midnight, inclusive. */
+  
   startMinute: number;
-  /** Minutes from midnight, exclusive. A rule may run past midnight. */
+  
   endMinute: number;
-  /** Whole currency units per hour. */
+  
   hourlyRate: number;
   minimumMinutes: number;
   roundingMinutes: number;
-  /** CEIL rounds up to the next block, FLOOR down, NEAREST to whichever is closer. */
+  
   roundingMode: string;
 }
 
-/**
- * Picks the rule that covers a start time. Table-specific rules win over
- * branch-wide ones, so an expensive table can be priced differently.
- */
+
 export function resolveRateRule(
   rules: RateRule[],
   weekday: number,
@@ -47,8 +34,8 @@ export function resolveRateRule(
 ): RateRule | null {
   const matches = (rule: RateRule) => {
     if (rule.weekday !== null && rule.weekday !== weekday) return false;
-    // A window that ends at 00:00 is stored as 1440, which is how a rule that runs
-    // to the small hours is expressed without a second row.
+    
+    
     if (rule.startMinute === rule.endMinute) return false;
     if (rule.startMinute < rule.endMinute) {
       return minutesFromMidnight >= rule.startMinute && minutesFromMidnight < rule.endMinute;
@@ -59,8 +46,8 @@ export function resolveRateRule(
   const applicable = rules.filter(matches);
   if (applicable.length === 0) return null;
 
-  // Prefer the most specific: a rule for this table over one for the branch, then
-  // the narrowest window, so a happy-hour rule beats the all-day one.
+  
+  
   applicable.sort((a, b) => {
     if (a.poolTableId !== b.poolTableId) return a.poolTableId ? -1 : 1;
     const aWidth = a.endMinute - a.startMinute;
@@ -102,7 +89,7 @@ export async function loadRateRules(
   }));
 }
 
-/** The rule that would apply if a session started now, and whether one exists. */
+
 export async function currentRate(
   organizationId: string,
   branchId: string,
@@ -115,22 +102,15 @@ export async function currentRate(
 }
 
 export interface PoolCharge {
-  /** Wall-clock seconds from start to end, minus time spent paused. */
+  
   actualSeconds: number;
-  /** Minutes the guest is charged for, after minimum and rounding. */
+  
   billableMinutes: number;
   hourlyRate: number;
   charge: number;
 }
 
-/**
- * Works out what a session owes.
- *
- * The duration is the real one, minus pauses: a table paused for twenty minutes
- * while the bar was busy is not billed for them. The result is then lifted to the
- * rule's minimum and to its rounding block, because charging by the second is
- * neither what the club agreed nor what the guest expects at the till.
- */
+
 export function computeCharge(
   startedAt: Date,
   endedAt: Date,
@@ -159,13 +139,13 @@ export function computeCharge(
         billable = Math.ceil(billable / block) * block;
         break;
     }
-    // Rounding down to zero would give the session away, so the block the guest
-    // actually started on is always at least one.
+    
+    
     if (billable === 0) billable = block;
   }
 
-  // The rate is per hour, so a part-block still charges for the part taken. The
-  // product is divided back out to whole units rather than truncating per block.
+  
+  
   const charge = Math.round((billable * rule.hourlyRate) / 60);
 
   return {
@@ -176,10 +156,7 @@ export function computeCharge(
   };
 }
 
-/**
- * How much a running session has accrued so far. Used by the floor screen, so a
- * pool attendant can answer "what do I owe" without ending the session.
- */
+
 export function accruedCharge(
   startedAt: Date,
   pausedSeconds: number,
@@ -212,8 +189,8 @@ export async function startSession(input: StartSessionInput) {
     throw wrongState("That pool table is not part of this club.");
   }
 
-  // A table can only have one live session. Two games on one table would each be
-  // billed at the full rate and the guest would be charged twice for one hour.
+  
+  
   const running = await prisma.dunda_pool_sessions.findFirst({
     where: {
       pool_table_id: table.id,
@@ -324,9 +301,9 @@ export async function resumeSession(
     throw wrongState("Only a paused session can be resumed.");
   }
 
-  // Time spent paused is added here rather than subtracted at the end, so a
-  // session that is paused and resumed several times still bills for the playing
-  // time only.
+  
+  
+  
   const pausedFor =
     session.paused_at ? Math.floor((at.getTime() - session.paused_at.getTime()) / 1000) : 0;
 
@@ -340,13 +317,7 @@ export async function resumeSession(
   });
 }
 
-/**
- * Ends a session and puts the charge on the tab.
- *
- * The amount is worked out from the rule that applied when the session started,
- * not from whatever is configured now, so a rate change during the evening cannot
- * alter a bill that is already running.
- */
+
 export async function endSession(
   organizationId: string,
   sessionId: string,
@@ -364,7 +335,7 @@ export async function endSession(
     throw wrongState("That pool session cannot be ended.");
   }
 
-  // A session ended while paused has not yet banked the pause, so it is added now.
+  
   const pausedSeconds =
     session.status === "PAUSED" && session.paused_at
       ? session.paused_seconds + Math.floor((at.getTime() - session.paused_at.getTime()) / 1000)
@@ -378,8 +349,8 @@ export async function endSession(
   });
 
   return prisma.$transaction(async (tx) => {
-    // Lock the session row for the rest of the transaction. Two attendants
-    // pressing "end" at once must not both charge the guest.
+    
+    
     const locked = await tx.dunda_pool_sessions.findUnique({ where: { id: sessionId } });
     if (!locked || locked.status === "COMPLETED") {
       throw wrongState("That pool session has already been ended.");
@@ -411,11 +382,11 @@ export async function endSession(
       });
       if (!tab) throw wrongState("The tab this session was attached to is gone.");
 
-      // The pool charge goes on the running pool bucket, and the tab is
-      // recalculated so the guest sees one bill rather than a separate pool tab.
+      
+      
       const poolTotal = tab.pool_total + charge.charge;
-      // Awaited: a pending promise spreads as an object with no keys, which would
-      // silently write only pool_total and leave the rest of the bill stale.
+      
+      
       const recalculated = await recalculateTab(tx, {
         organizationId,
         tabId: tab.id,
@@ -423,8 +394,8 @@ export async function endSession(
         discount: tab.discount,
       });
 
-      // recalculateTab already returns pool_total, so it is spread alone rather
-      // than set twice: writing it first would mean the spread silently wins.
+      
+      
       await tx.dunda_tabs.update({
         where: { id: tab.id },
         data: { ...recalculated },
@@ -463,15 +434,7 @@ export async function endSession(
   }, TRANSACTION_OPTIONS);
 }
 
-/**
- * Pool time is written onto a tab as a line item so the receipt itemises it
- * alongside the drinks, but it is not something the bar stocks and must never be
- * drawn from inventory.
- *
- * It is therefore a real product row filed under a POOL category, created the
- * first time a club charges for pool time. Making it real rather than a sentinel
- * keeps the foreign key honest and lets product reports see it.
- */
+
 async function poolTimeProductId(tx: Tx, organizationId: string): Promise<string> {
   const existing = await tx.dunda_products.findFirst({
     where: { organization_id: organizationId, category: POOL_CATEGORY },
@@ -496,8 +459,8 @@ async function poolTimeProductId(tx: Tx, organizationId: string): Promise<string
     });
   }
 
-  // Priced at zero because the charge comes from the rate rule, not from this row.
-  // The till never sells it directly: it is only ever added by ending a session.
+  
+  
   const product = await tx.dunda_products.create({
     data: {
       organization_id: organizationId,
@@ -530,11 +493,7 @@ function formatMinutes(minutes: number): string {
   return `${hours}h ${rest}m`;
 }
 
-/**
- * Recomputes a tab's money columns from its items. Shared by every path that
- * changes what a guest owes, so the stored subtotal, tax, service charge and
- * total always add up to the stored total.
- */
+
 export async function recalculateTab(
   tx: Tx,
   input: {
@@ -552,10 +511,10 @@ export async function recalculateTab(
 
   const poolTotal = input.overridePoolTotal ?? tab.pool_total;
 
-  // Categories are stored as the club writes them ("Food", "Beer", "Pool"), so
-  // they are compared case-insensitively. Case matters here for two reasons: pool
-  // money must be excluded from the item sum or the bill inflates by the charge,
-  // and food has to land in its own bucket for reporting to be right.
+  
+  
+  
+  
   const isPool = (category: string | null) =>
     (category ?? "").trim().toUpperCase() === "POOL";
   const isFood = (category: string | null) =>
@@ -573,9 +532,9 @@ export async function recalculateTab(
       { subtotal: 0, bar: 0, food: 0 },
     );
 
-  // Pool money sits outside the item sum because the session line it produces is
-  // already accounted for by pool_total, and counting it twice would inflate the
-  // bill by exactly the pool charge.
+  
+  
+  
   const subtotal = lines.subtotal + poolTotal;
   const settings = await loadRates(tx, input.organizationId);
   const net = Math.max(0, subtotal - input.discount);

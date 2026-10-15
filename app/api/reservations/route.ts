@@ -6,7 +6,7 @@ import { conflict } from "@/lib/errors.server";
 
 export const dynamic = "force-dynamic";
 
-/** Bookings, soonest first. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -43,12 +43,7 @@ export const GET = route(async (request: Request) => {
   );
 });
 
-/**
- * Books a table or a pool table.
- *
- * Overlaps are refused here rather than caught later: two parties arriving for the
- * same table at eight o'clock is the failure this screen exists to prevent.
- */
+
 export const POST = route(async (request: Request) => {
   const session = await requirePermission("manage_reservations");
   const organizationId = session.organizationId as string;
@@ -78,8 +73,8 @@ export const POST = route(async (request: Request) => {
   const startsAt = new Date(parsed.data.startsAt);
   const endsAt = new Date(parsed.data.endsAt);
 
-  // Two bookings clash when one starts before the other ends. Touching endpoints
-  // are fine: a party leaving at eight can be seated at eight.
+  
+  
   const clashWhere = {
     organization_id: organizationId,
     branch_id: branchId,
@@ -106,8 +101,8 @@ export const POST = route(async (request: Request) => {
       branch_id: branchId,
       customer: parsed.data.customer,
       phone: parsed.data.phone,
-      // The free-text columns are kept for the older screens; the timestamps are
-      // what the overlap check and the floor actually use.
+      
+      
       reservation_date: startsAt.toISOString().slice(0, 10),
       time: startsAt.toTimeString().slice(0, 5),
       starts_at: startsAt,
@@ -121,9 +116,9 @@ export const POST = route(async (request: Request) => {
     },
   });
 
-  // A notification belongs to a person, so it is only raised when the booking
-  // was made by somebody with a staff row. The reservation itself is recorded
-  // either way.
+  
+  
+  
   if (session.staffId) {
     await prisma.dunda_notifications.create({
       data: {

@@ -1,11 +1,4 @@
-/**
- * Inventory report check against the live database.
- *
- * Runs the same function the route serves, so the
- * figures the screen shows are the ones checked here.
- *
- * Run with: npm run verify:inventory
- */
+
 const RUN = `inv-${Date.now()}`;
 import { PrismaClient } from "@prisma/client";
 import { getInventoryReport } from "../lib/server/reports";
@@ -40,9 +33,9 @@ async function main() {
   );
   check("discrepancies is a list", Array.isArray(report.discrepancies));
 
-  // The discrepancy path is only exercised by an approved
-  // count that found a variance, so one is created here
-  // and removed again: the report has to surface it.
+  
+  
+  
   const [branch, product] = await Promise.all([
     prisma.dunda_branches.findFirst({
       where: { organization_id: ORG },

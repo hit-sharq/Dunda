@@ -5,12 +5,7 @@ import { getTenantSettings } from "@/lib/server/settings";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Every table on the floor with its current state and what it is owed.
- *
- * The bill shown here is the tab's stored total, so the number on the floor
- * screen and the number on the receipt cannot disagree.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -36,8 +31,8 @@ export const GET = route(async (request: Request) => {
     },
   });
 
-  // Live sessions carry the running charge, so the attendant can answer "how much
-  // so far" without ending the game.
+  
+  
   const sessions = await prisma.dunda_pool_sessions.findMany({
     where: orgWhere(organizationId, {
       branch_id: branchId ?? undefined,
@@ -89,12 +84,7 @@ export const GET = route(async (request: Request) => {
   });
 });
 
-/**
- * The charge so far, at the same rate the session will settle at.
- *
- * Shown while the game is still running, so it is deliberately unrounded: this is
- * a "roughly this much so far" for the floor, not a figure the guest is charged.
- */
+
 function accruedPreview(session: {
   started_at: Date;
   paused_at: Date | null;

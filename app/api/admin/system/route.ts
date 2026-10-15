@@ -4,14 +4,7 @@ import { route, Forbidden, NotProvisioned, resolveSession } from "@/lib/server/h
 
 export const dynamic = "force-dynamic";
 
-/**
- * Health of the pieces the platform depends on: the database, the payment
- * provider, failed callbacks, and stuck payments.
- *
- * Each check says what it found rather than only whether it passed, because the
- * person reading this at 3am needs to know which part is down, not just that
- * something is.
- */
+
 export const GET = route(async () => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();
@@ -45,8 +38,8 @@ export const GET = route(async () => {
       prisma.dunda_billing_payments.count({
         where: { status: { in: ["INITIATED", "PENDING"] }, created_at: { gte: dayAgo } },
       }),
-      // A payment attempt that never resolved is the signature of a provider
-      // callback that went missing.
+      
+      
       prisma.dunda_payment_attempts.count({
         where: { status: { in: ["INITIATED", "PENDING"] }, requested_at: { gte: dayAgo } },
       }),
@@ -55,8 +48,8 @@ export const GET = route(async () => {
       }),
     ]);
 
-  // A payment stuck in INITIATED for over a day is not a slow provider, it is a
-  // club whose renewal never completed and who believes they are still subscribed.
+  
+  
   const stuck = await prisma.dunda_billing_payments.findMany({
     where: { status: { in: ["INITIATED", "PENDING"] }, created_at: { lt: dayAgo } },
     orderBy: { created_at: "asc" },
@@ -78,8 +71,8 @@ export const GET = route(async () => {
     checks: {
       database,
       paymentProvider: {
-        // The provider is only configured, not contacted: a health screen that
-        // charged something to check would be worse than useless.
+        
+        
         provider: "PESAPAL",
         configured: Boolean(process.env.PESAPAL_CONSUMER_KEY),
         failedCallbacks,
@@ -98,8 +91,8 @@ export const GET = route(async () => {
         })),
       },
       jobs: {
-        // No scheduler runs in this process; the count below is the number of
-        // club payments whose subscription callback has not been processed.
+        
+        
         backgroundFailures: recentErrors,
       },
     },

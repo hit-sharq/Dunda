@@ -3,15 +3,11 @@ import { conflict, notFound, wrongState } from "@/lib/errors.server";
 import { orgWhere } from "./http";
 import { recalculateTab } from "./pool";
 
-/**
- * Inventory moves because something happened on the floor, never because a screen
- * asked for a different number. Every write here produces a movement row, so the
- * current quantity can always be explained by the movements behind it.
- */
+
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
-/** Categories that come off the bar as a drink rather than as food. */
+
 const NON_STOCK_CATEGORIES = new Set(["POOL"]);
 
 export interface SaleLine {
@@ -20,13 +16,7 @@ export interface SaleLine {
   unitId: string | null;
 }
 
-/**
- * Works out how much base-unit stock one sale consumes.
- *
- * A bottle sold as a single unit draws the whole bottle. A bottle sold as a glass
- * draws one glass, converted through the unit's factor rather than by a hardcoded
- * "a bottle is six glasses" rule.
- */
+
 async function resolveDeduction(
   tx: Tx,
   organizationId: string,
@@ -49,8 +39,8 @@ async function resolveDeduction(
   });
   const byId = new Map(products.map((p) => [p.id, p]));
 
-  // Recipes expand a prepared product into the ingredients it consumes, so a
-  // cocktail draws its spirit rather than counting itself as stock.
+  
+  
   const recipes = await tx.dunda_recipes.findMany({
     where: orgWhere(organizationId, { product_id: { in: productIds }, active: true }),
     select: {
@@ -79,8 +69,8 @@ async function resolveDeduction(
 
     const recipe = recipeByProduct.get(line.productId);
     if (recipe) {
-      // Each prepared unit consumes the recipe divided by its output. A recipe
-      // that yields two glasses draws half its ingredients per glass.
+      
+      
       const yields = Number(recipe.output_quantity) || 1;
       const times = line.quantity / yields;
       for (const ingredient of recipe.dunda_recipe_ingredients) {
@@ -109,8 +99,8 @@ async function resolveDeduction(
     });
   }
 
-  // Two lines for the same product are one deduction, or the second would only
-  // see the first one's movement and under-draw.
+  
+  
   const merged = new Map<string, { productId: string; quantity: number; reference: string }>();
   for (const d of deductions) {
     const existing = merged.get(d.productId);
@@ -120,7 +110,7 @@ async function resolveDeduction(
   return [...merged.values()];
 }
 
-/** Records a movement and moves the stock in the same transaction. */
+
 async function applyMovement(
   tx: Tx,
   input: {
@@ -134,9 +124,9 @@ async function applyMovement(
     staffId?: string | null;
   },
 ) {
-  // Signed: a sale is negative, a receipt positive. The sign is what lets the
-  // running quantity be a sum of movements rather than a running counter that
-  // can drift.
+  
+  
+  
   const signed = input.type === "SALE" || input.type === "WASTE" || input.type === "TRANSFER_OUT"
     ? -Math.abs(input.quantity)
     : Math.abs(input.quantity);
@@ -155,9 +145,9 @@ async function applyMovement(
       data: { current_quantity: next },
     });
   } else if (input.type !== "SALE") {
-    // A stock row is created on the first movement so the shelf has a record to
-    // hold the quantity. The name is copied from the product because this screen
-    // reads it without joining.
+    
+    
+    
     const product = await tx.dunda_products.findUnique({
       where: { id: input.productId },
       select: { name: true, category: true, sku: true, minimum_stock: true },
@@ -200,11 +190,7 @@ async function applyMovement(
   return signed;
 }
 
-/**
- * Draws stock for a completed sale. Called inside the order transaction so the
- * order and the movements commit together: an order that sold without moving
- * stock would leave the reports and the shelf disagreeing.
- */
+
 export async function deductForSale(
   tx: Tx,
   input: {
@@ -231,10 +217,7 @@ export async function deductForSale(
   await refreshLowStockAlerts(tx, input.organizationId, input.branchId);
 }
 
-/**
- * Puts stock back when a sale is voided. The movements are reversed rather than
- * the quantity being edited, so the audit trail shows both the sale and its undo.
- */
+
 export async function reverseForVoid(
   tx: Tx,
   input: {
@@ -262,7 +245,7 @@ export async function reverseForVoid(
   await refreshLowStockAlerts(tx, input.organizationId, input.branchId);
 }
 
-/** A manager's stock count adjustment, always with a reason. */
+
 export async function adjustStock(
   tx: Tx,
   input: {
@@ -297,12 +280,7 @@ export async function adjustStock(
   return delta;
 }
 
-/**
- * Rebuilds the low-stock list from the current quantities.
- *
- * This runs after every movement rather than on a timer, so a bar that sells its
- * last crate sees the warning on the same request that emptied the shelf.
- */
+
 export async function refreshLowStockAlerts(
   tx: Tx,
   organizationId: string,
@@ -325,13 +303,13 @@ export async function refreshLowStockAlerts(
 
   const alerts = items.flatMap((item) => {
     const current = Number(item.current_quantity);
-    // A product may carry its own minimum instead of an inventory-level reorder
-    // point; whichever is higher is the one the club asked to be warned at.
+    
+    
     const threshold = Math.max(
       Number(item.reorder_level),
       Number(item.dunda_products?.minimum_stock ?? 0),
     );
-    // Without a product there is nothing to name or to key the warning to.
+    
     if (!item.product_id || !item.dunda_products) return [];
     if (current > threshold) return [];
     return [

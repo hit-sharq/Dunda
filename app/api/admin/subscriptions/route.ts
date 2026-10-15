@@ -4,7 +4,7 @@ import { route, Forbidden, NotProvisioned, resolveSession } from "@/lib/server/h
 
 export const dynamic = "force-dynamic";
 
-/** Every subscription on the platform and what state it is in. */
+
 export const GET = route(async (request: Request) => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();
@@ -29,8 +29,8 @@ export const GET = route(async (request: Request) => {
   const orgById = new Map(organizations.map((o) => [o.id, o.name]));
   const planById = new Map(plans.map((p) => [p.id, p]));
   const now = Date.now();
-  // A renewal inside this window is worth chasing before it lapses. Thirty days is
-  // long enough to act on and short enough that "due soon" means something.
+  
+  
   const renewalHorizon = now + 30 * 86400000;
 
   const rows = subscriptions.map((sub) => {
@@ -67,9 +67,9 @@ export const GET = route(async (request: Request) => {
     };
   });
 
-  // Counts and lists rather than one flat array: the console shows "how many are
-  // past due" beside "which ones", and computing the first from the second here
-  // keeps them from disagreeing.
+  
+  
+  
   const count = (value: string) => rows.filter((r) => r.status === value).length;
 
   return NextResponse.json({
@@ -87,14 +87,7 @@ export const GET = route(async (request: Request) => {
   });
 });
 
-/**
- * Changes what a club pays.
- *
- * A plan change that lowers the price cannot shorten a period the club has already
- * paid for, so it takes effect at the current period's end rather than immediately.
- * Recording that as the new renewal date is what stops an upgrade silently costing
- * the club a refund.
- */
+
 export const PATCH = route(async (request: Request) => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();
@@ -142,7 +135,7 @@ export const PATCH = route(async (request: Request) => {
     data.branch_limit = plan.branch_limit;
     data.user_limit = plan.user_limit;
     if (isDowngrade && existing.renews_at) {
-      // Take effect at the end of the period already paid for.
+      
       data.renews_at = existing.renews_at;
     }
     detail = `Moved to ${plan.name}`;

@@ -4,7 +4,7 @@ import { getEventReport } from "@/lib/server/reports";
 
 export const dynamic = "force-dynamic";
 
-/** Events and how full they ran, from the reservations they drew. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

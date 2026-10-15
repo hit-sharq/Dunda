@@ -12,18 +12,7 @@ import { wrongState } from "@/lib/errors.server";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Changes what somebody can do.
- *
- * The sidebar is not configured per person: /me reads the role off the staff row
- * and returns that role's permissions, and the nav filters on them. So moving
- * somebody between roles is what moves their tabs, and this is where a manager
- * does that. Nothing is stored twice and nothing can drift.
- *
- * Changing the role therefore takes effect on that person's next /me — the
- * sidebar updates without a sign-out, because the session is unchanged and only
- * what it is allowed to do has moved.
- */
+
 const updateStaffSchema = z.object({
   name: z.string().min(1).optional(),
   email: z.string().nullable().optional(),
@@ -59,8 +48,8 @@ export const PATCH = route(
         );
       }
 
-      // Ownership is transferred through the console, not handed out from a staff
-      // list: there is one owner per club and it is somebody who accepted it.
+      
+      
       if (role.is_owner) {
         return NextResponse.json(
           { error: "The owner role is transferred, not assigned.", code: "FORBIDDEN" },
@@ -68,9 +57,9 @@ export const PATCH = route(
         );
       }
 
-      // A manager cannot promote somebody to a role that outranks them. Without
-      // this, a manager could hand a colleague the general manager's permissions
-      // and there would be no record of who did it beyond the audit line.
+      
+      
+      
       const actorRole = await prisma.dunda_roles.findUnique({
         where: { id: session.roleId ?? "" },
         select: { is_owner: true },
@@ -111,8 +100,8 @@ export const PATCH = route(
           input.roleId && input.roleId !== existing.role_id
             ? `${updated.name} moved from ${existing.dunda_roles.name} to ${updated.dunda_roles.name}`
             : `${updated.name} updated`,
-        // The before and after are recorded because "who could do what" is exactly
-        // the question asked when an access change is questioned later.
+        
+        
         previous_value: { role: existing.dunda_roles.name, status: existing.status },
         new_value: { role: updated.dunda_roles.name, status: updated.status },
       },
@@ -131,12 +120,7 @@ export const PATCH = route(
   },
 );
 
-/**
- * Removes somebody from the roster.
- *
- * Their history stays — orders, payments and shifts they worked are financial
- * records, not something to take with the person. What is removed is their access.
- */
+
 export const DELETE = route(
   async (_request: Request, context: { params: Promise<{ staffId: string }> }) => {
     const session = await requirePermission("manage_staff");
@@ -163,8 +147,8 @@ export const DELETE = route(
       );
     }
 
-    // Suspended rather than deleted: the person must stop being able to sign in,
-    // and their shifts, orders and stock movements have to stay attributable.
+    
+    
     const suspended = await prisma.dunda_staff.update({
       where: { id: staffId },
       data: { status: "SUSPENDED" },

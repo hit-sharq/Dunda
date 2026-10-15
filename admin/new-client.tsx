@@ -8,13 +8,7 @@ import {
 import { Card, field, inputStyle, linkButton, primaryButton } from "./ui";
 import { colors } from "./theme";
 
-/**
- * Provision a client.
- *
- * A club exists before anybody signs up for it: you create the venue and its
- * first branch, then invite the owner. Nothing in the application can do this,
- * which is why there was exactly one venue in the database.
- */
+
 export function NewClient() {
   const create = useCreateAdminOrganization();
   const assignOwner = useAssignOrganizationOwner();
@@ -41,8 +35,8 @@ export function NewClient() {
     serviceChargeRate: "10",
   });
   const [created, setCreated] = useState<{ id: string; slug: string; name: string } | null>(null);
-  // The first payment's checkout link, so
-  // the operator can send it to the owner.
+  
+  
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [paymentFailed, setPaymentFailed] = useState(false);
   const [owner, setOwner] = useState({ name: "", email: "" });
@@ -363,8 +357,8 @@ export function NewClient() {
                     setCreated({
                       id: created.id,
                       slug: created.slug,
-                      // The endpoint answers with the name; the form has it too, so a
-                      // club is never referred to as blank in the next step.
+                      
+                      
                       name: created.name ?? form.name,
                     });
                     setPaymentUrl(created.payment?.redirectUrl ?? null);

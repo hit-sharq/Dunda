@@ -162,7 +162,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 export const inputClass =
   "min-h-10 w-full rounded-xl border border-[hsl(var(--app-line))] bg-[hsl(var(--app-surface))] px-3 text-sm text-[hsl(var(--app-ink))] outline-none focus:border-[hsl(var(--app-gold))]";
 
-// Money formatting is the organization's own currency, configured by MoneyProvider.
+
 export { money } from "../lib/money";
 
 export const timeAgo = (stamp: string | Date) => {

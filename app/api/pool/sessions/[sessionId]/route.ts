@@ -6,13 +6,7 @@ export const dynamic = "force-dynamic";
 
 const ACTIONS = ["PAUSE", "RESUME", "END"] as const;
 
-/**
- * Pauses, resumes or ends a game.
- *
- * Ending is what puts the charge on the tab, so it is the only action here that
- * moves money. It is refused while the session is still paused, because a paused
- * table has not finished accumulating.
- */
+
 export const POST = route(
   async (request: Request, context: { params: Promise<{ sessionId: string }> }) => {
     const session = await requireSession();

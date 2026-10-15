@@ -10,6 +10,7 @@ export interface SubscriptionPaymentState {
     amount: number;
     currency: string;
     autoRenew: boolean;
+    autoRenewPending: boolean;
     startedAt: string | null;
     trialEndsAt: string | null;
     renewsAt: string | null;
@@ -25,14 +26,7 @@ export interface SubscriptionPaymentState {
   } | null;
 }
 
-/**
- * The club's own subscription and the payment link it owes.
- *
- * Polled because the payment is completed on Pesapal's
- * pages rather than here: the link only disappears once
- * the provider's answer reaches the webhook, which can
- * be a few seconds after the owner returns from paying.
- */
+
 export function useSubscriptionPayment(enabled: boolean) {
   return useQuery<SubscriptionPaymentState>({
     queryKey: ['subscriptionPayment'],
@@ -47,12 +41,16 @@ export function useSubscriptionPayment(enabled: boolean) {
   });
 }
 
-/** Asks for a payment link when none is open. */
+
 export function useRequestSubscriptionPayment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const response = await fetch('/api/billing', { method: 'POST' });
+    mutationFn: async (autoRenew: boolean) => {
+      const response = await fetch('/api/billing', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ autoRenew }),
+      });
       if (!response.ok) throw new Error('The payment link could not be created.');
       return (await response.json()) as { redirectUrl: string };
     },

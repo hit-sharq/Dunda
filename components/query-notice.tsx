@@ -20,13 +20,7 @@ const toneStyles = {
   },
 } as const;
 
-/**
- * The single place a screen reports loading, failure or emptiness.
- *
- * The two states that used to be conflated are now separated: a request that
- * succeeded and returned nothing is an empty state, while a request that failed
- * explains what went wrong and, when retrying could help, offers a retry.
- */
+
 export function QueryNotice({
   loading,
   error,
@@ -39,12 +33,12 @@ export function QueryNotice({
   loadingRows = 3,
 }: {
   loading?: boolean;
-  /** The query's error object, not a boolean. */
+  
   error?: unknown;
-  /** Whether a successful response had no records. */
+  
   empty?: boolean;
   onRetry?: () => void;
-  /** Noun for the record type, used in messages. */
+  
   what?: string;
   emptyTitle?: string;
   emptyHint?: string;

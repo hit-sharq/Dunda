@@ -1,22 +1,14 @@
-/**
- * Turns a failed request into something a person can act on.
- *
- * Every screen previously showed the same "Couldn't load this station data."
- * regardless of the cause, and the message the API had already written was
- * discarded. The rules below are ordered most-specific first: a status that we
- * know how to explain beats the generic server text, and the server text beats
- * anything invented here.
- */
+
 
 export interface FriendlyError {
-  /** Short headline for the notice. */
+  
   title: string;
-  /** What the person should actually do next. */
+  
   detail: string;
   tone: "error" | "warning" | "info";
-  /** Whether retrying could plausibly succeed. */
+  
   canRetry: boolean;
-  /** The code the API sent, when there was one. */
+  
   code?: string;
 }
 
@@ -33,12 +25,7 @@ interface ErrorLike {
   message?: string;
 }
 
-/**
- * What each permission is called on screen.
- *
- * The API works in keys such as create_order. A waiter being refused needs to
- * hear what is being asked for, not the key it is stored under.
- */
+
 export const PERMISSION_LABELS: Record<string, string> = {
   view_pos: "Access the point of sale",
   create_order: "Take orders",
@@ -90,10 +77,10 @@ export function describeError(
     ? MODULE_LABELS[moduleKey] ?? moduleKey.replaceAll("_", " ")
     : undefined;
 
-  // Someone who is signed in but not set up yet. The message says what to do
-  // and nothing about how the product is arranged: no mention of workspaces,
-  // claiming, organizations, invitations or roles, because a stranger reading it
-  // should not learn that any of those exist.
+  
+  
+  
+  
   if (code === "ACCOUNT_NOT_PROVISIONED") {
     return {
       title: "Your account isn't set up yet",
@@ -106,8 +93,8 @@ export function describeError(
   }
 
   if (status === 401) {
-    // The app signs the person out rather than leaving a dead panel on screen,
-    // so this is a fallback for the brief window before the redirect lands.
+    
+    
     return {
       title: "Session expired",
       detail: "Taking you back to sign in…",
@@ -141,8 +128,8 @@ export function describeError(
   }
 
   if (status === 403) {
-    // The server names the permission it wanted; render that as something a
-    // person can act on rather than a developer key.
+    
+    
     const required = e.data?.required as string | undefined;
     const label = required ? PERMISSION_LABELS[required] : undefined;
     return {
@@ -199,7 +186,7 @@ export function describeError(
     };
   }
 
-  // A fetch that never reached the server at all.
+  
   if (!status && e.message && /network|fetch|failed to fetch|load failed/i.test(e.message)) {
     return {
       title: "No connection",
@@ -231,12 +218,7 @@ export function describeError(
   };
 }
 
-/**
- * A failed query is not the same as an empty one.
- *
- * A screen should only show "nothing here yet" when the request actually
- * succeeded and returned nothing. Anything else is a failure and must say so.
- */
+
 export function isGenuinelyEmpty(
   query: { isError: boolean; data: unknown },
   isEmpty: (data: unknown) => boolean,
@@ -246,15 +228,7 @@ export function isGenuinelyEmpty(
   return isEmpty(query.data);
 }
 
-/**
- * A one-line message for a failed action.
- *
- * Failures from queries render through QueryNotice, but a mutation reports
- * through its own error handler and used to surface ApiError's message
- * directly, which reads "HTTP 403 Forbidden: ... Required: create_order".
- * That leaked HTTP status text and a permission key at somebody standing in
- * front of a customer.
- */
+
 export function describeActionError(error: unknown, context?: { what?: string }): string {
   const info = describeError(error, context);
   if (info.canRetry) {

@@ -6,11 +6,7 @@ import { splitByCategory } from "@/lib/server/money";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Reporting. Every figure is derived from the transaction tables — payments,
- * orders, sessions, movements — so a report cannot disagree with the dashboard,
- * because both read the same rows rather than a cached summary.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -144,13 +140,7 @@ export const GET = route(async (request: Request) => {
   });
 });
 
-/**
- * Resolves the report window.
- *
- * Days and months are worked out from the club's own timezone, so "today" means
- * the trading day the staff are actually in rather than a UTC slice that cuts the
- * evening in half.
- */
+
 function resolveRange(value: string | null): { start: Date; end: Date; label: string } {
   const now = new Date();
   if (value === "custom") {

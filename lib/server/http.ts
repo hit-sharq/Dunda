@@ -7,15 +7,7 @@ import { isModuleEnabled } from "./settings";
 import { clerkClient } from "@clerk/nextjs/server";
 import { scheduleDueJobs } from "@/lib/server/cron";
 
-/**
- * Everything a request handler needs in order to act as somebody: who they are,
- * which club they belong to, what role they hold and what that role permits.
- *
- * Resolution order matters. A staff row is the record that ties a Clerk account to
- * an organization, so it is looked up first. A person with no staff row is not a
- * stranger — they may be the platform operator, whose access is by environment
- * allow-list rather than by club membership.
- */
+
 export interface Session {
   clerkUserId: string;
   organizationId: string | null;
@@ -29,13 +21,7 @@ export interface Session {
   suspended: { reason: string | null } | null;
 }
 
-/**
- * Platform operators are named by Clerk user id, never by role or by email.
- *
- * Both spellings of the variable are read because the deployment has used each of
- * them; an operator list that silently resolves to nobody would lock the platform
- * owner out of their own console.
- */
+
 function operatorIds(): Set<string> {
   return new Set(
     `${process.env.PLATFORM_ADMIN_IDS ?? ""},${process.env.ADMIN_IDS ?? ""}`
@@ -61,14 +47,14 @@ export async function resolveSession(): Promise<Session | null> {
     },
   });
 
-  // A club adds its crew by name and email before anybody signs up, so a staff row
-  // usually exists with no login attached. When that person does sign up, their
-  // account claims the row on first sight rather than being asked to be added
-  // again by somebody who has already added them.
-  //
-  // Matched on email and only where clerk_user_id is still null: a row that
-  // already belongs to another login is never taken over, and the unique
-  // constraint on clerk_user_id is what stops two accounts claiming one row.
+  
+  
+  
+  
+  
+  
+  
+  
   if (!staff) {
     const email = await accountEmail(userId, sessionClaims);
     if (email) {
@@ -110,9 +96,9 @@ export async function resolveSession(): Promise<Session | null> {
             },
           });
         } catch {
-          // Another request claimed the same row first. That is a race with a
-          // correct outcome, not a failure: the row is now linked and the next
-          // request resolves this person normally.
+          
+          
+          
           staff = null;
         }
       }
@@ -158,17 +144,7 @@ export async function resolveSession(): Promise<Session | null> {
   };
 }
 
-/**
- * The email an account signs in with.
- *
- * A session token does not carry the email address, so
- * the account's own record on the provider is the only
- * place to read it from. That record is asked for only
- * when the first roster lookup found nobody — a linked
- * account never asks the provider again — and the
- * answer is kept briefly, because a console polls its
- * session on every screen.
- */
+
 const emailCache = new Map<string, { email: string | null; until: number }>();
 const EMAIL_CACHE_MS = 60_000;
 
@@ -188,18 +164,18 @@ async function accountEmail(
     const user = await clerk.users.getUser(userId);
     email = user.primaryEmailAddress?.emailAddress.toLowerCase() ?? null;
   } catch {
-    // The provider is unreachable; the claim waits for
-    // the next request rather than taking the sign-in
-    // down with it.
+    
+    
+    
   }
   emailCache.set(userId, { email, until: Date.now() + EMAIL_CACHE_MS });
   return email;
 }
 
-/** Sign-in failed, or the session is gone. */
+
 export class Unauthenticated extends Error {}
 
-/** Signed in, but not attached to any club. */
+
 export class NotProvisioned extends Error {}
 
 export class OrganizationSuspended extends Error {
@@ -213,7 +189,7 @@ export class OrganizationSuspended extends Error {
   }
 }
 
-/** The caller's plan does not include this module. */
+
 export class ModuleNotInPlan extends Error {
   constructor(readonly module: string, readonly planName: string | null) {
     super(`Your plan does not include the ${module} module.`);
@@ -221,7 +197,7 @@ export class ModuleNotInPlan extends Error {
   }
 }
 
-/** The platform owner has switched this module off for the club. */
+
 export class ModuleDisabled extends Error {
   constructor(readonly module: string) {
     super(`The ${module} module has been switched off for this club.`);
@@ -229,7 +205,7 @@ export class ModuleDisabled extends Error {
   }
 }
 
-/** Signed in and attached, but the role does not permit this action. */
+
 export class Forbidden extends Error {
   constructor(readonly required: string) {
     super(`Your role does not include "${required}".`);
@@ -237,11 +213,7 @@ export class Forbidden extends Error {
   }
 }
 
-/**
- * Resolves the caller and asserts they belong to a club. Every club route starts
- * with this, so a route that forgets the assertion cannot accidentally serve the
- * platform console's data to a club, or one club's data to another.
- */
+
 export async function requireSession(): Promise<Session> {
   const session = await resolveSession();
   if (!session) throw new Unauthenticated();
@@ -252,22 +224,14 @@ export async function requireSession(): Promise<Session> {
   return session;
 }
 
-/** As above, but also asserts the named permission. */
+
 export async function requirePermission(permission: string): Promise<Session> {
   const session = await requireSession();
   if (!session.permissions.has(permission)) throw new Forbidden(permission);
   return session;
 }
 
-/**
- * Refuses a module the club's plan does not carry.
- *
- * The plan's module list is what the club pays for, and
- * the platform owner's switch is the override on top of
- * it. A subscription with no plan linked is one the
- * owner agreed terms on directly, so nothing is locked
- * off until a plan says so.
- */
+
 export async function requireModule(
   organizationId: string,
   module: string,
@@ -277,8 +241,8 @@ export async function requireModule(
     orderBy: { created_at: "desc" },
     select: { dunda_plans: { select: { modules: true, name: true } } },
   });
-  // The column is JSON, so the list is read as the
-  // strings it holds rather than trusted to be one.
+  
+  
   const raw = subscription?.dunda_plans?.modules;
   const modules = Array.isArray(raw)
     ? raw.filter((entry): entry is string => typeof entry === "string")
@@ -291,12 +255,7 @@ export async function requireModule(
   }
 }
 
-/**
- * Asserts a fetched record belongs to the caller's club before it is used.
- *
- * Declared as an assertion so that after the call TypeScript knows the row is
- * present: a lookup that found nothing must not be carried on as if it had.
- */
+
 export function assertSameOrg<T extends { organization_id: string }>(
   row: T | null | undefined,
   organizationId: string,
@@ -313,14 +272,7 @@ export function json<T>(data: T, init?: ResponseInit): NextResponse {
   return NextResponse.json(data, init);
 }
 
-/**
- * Parses a JSON body against a schema. Nothing reaches a service unvalidated,
- * which is what keeps a caller from choosing its own totals or payment status.
- *
- * The return is the schema's *output* type rather than its input: a field with a
- * `.default()` is optional coming in and required coming out, and a handler must
- * see the value the schema promises rather than the one that might be missing.
- */
+
 export async function parseBody<S extends ZodType>(
   schema: S,
   request: Request,
@@ -345,20 +297,17 @@ function firstIssue(error: ZodError): string {
   return field ? `${field}: ${issue.message}` : issue.message;
 }
 
-/**
- * Wraps a handler so every failure leaves as the shape the client understands:
- * `{ error, code, required? }` with a status that matches the cause.
- */
+
 export function route<Args extends unknown[]>(
   handler: (...args: Args) => Promise<Response>,
 ): (...args: Args) => Promise<Response> {
   return async (...args: Args) => {
-    // The in-app clock ticks on traffic: a job
-    // that is due runs after the answer is sent.
-    // It is asked before the handler, so the
-    // claim is made while the request is still
-    // open, and a clock that cannot read the
-    // database never takes the request down.
+    
+    
+    
+    
+    
+    
     const request = args[0] as Request | undefined;
     if (request?.url) {
       await scheduleDueJobs(request.url).catch(() => undefined);
@@ -432,8 +381,8 @@ function errorResponse(error: unknown): NextResponse {
     );
   }
 
-  // A unique violation is a duplicate request, not a fault. The caller can retry
-  // safely and will get the record that the first request created.
+  
+  
   if (isUniqueViolation(error)) {
     return NextResponse.json(
       { error: "That record already exists.", code: "DUPLICATE" },
@@ -457,10 +406,7 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-/**
- * Appends the tenant scope to a where clause. Written as a function rather than
- * repeated inline so a new query has to be given an organizationId to compile.
- */
+
 export function orgWhere<T extends Record<string, unknown>>(
   organizationId: string,
   where?: T,

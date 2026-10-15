@@ -1,13 +1,6 @@
 import { useEffect, useState } from "react";
 
-/**
- * The state of a payment the provider is taking, polled
- * while a till waits for a guest to finish on their phone.
- *
- * The endpoint heals a missed callback itself, so polling
- * it is enough: whatever settles the payment — webhook or
- * poll — the answer here is the same.
- */
+
 export interface PaymentAttemptStatus {
   id: string;
   status: string;

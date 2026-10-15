@@ -5,15 +5,7 @@ import { orgWhere } from "./http";
 import { deductForSale, reverseForVoid } from "./inventory";
 import { recalculateTab } from "./pool";
 
-/**
- * The operational flow: open a tab, send items to the bar, settle one combined
- * bill, and let everything downstream fall out of that.
- *
- * Two rules shape this file. Money is only ever computed here, never accepted
- * from a caller. And a tab is one bill: bar, food and pool all sit on the same
- * record so the guest sees one total, while the totals stay split internally for
- * reporting.
- */
+
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -31,7 +23,7 @@ export const ORDER_STATUSES = [
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-/** Which transitions a status may go to. Anything not listed is refused. */
+
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   DRAFT: ["PENDING", "CANCELLED"],
   PENDING: ["ACCEPTED", "CANCELLED"],
@@ -50,13 +42,7 @@ export function canTransition(from: string, to: string): boolean {
   return allowed.includes(to as OrderStatus);
 }
 
-/**
- * Next number in a club's sequence for a document kind.
- *
- * The counter is a row that is read and incremented inside the caller's
- * transaction, so two terminals taking an order at the same moment cannot both be
- * handed #1042.
- */
+
 export async function nextDocumentNumber(
   tx: Tx,
   organizationId: string,
@@ -107,8 +93,8 @@ export async function openTab(input: OpenTabInput) {
     });
     if (!table) throw notFound("That table");
 
-    // A table that already holds an open tab is occupied. Refusing here is what
-    // stops two parties being served on one table's bill by accident.
+    
+    
     if (table.status === "OCCUPIED" || table.status === "PAYMENT_PENDING") {
       throw conflict(`${table.name} already has an open tab.`);
     }
@@ -169,12 +155,7 @@ export interface AddTabItemInput {
   staffId: string | null;
 }
 
-/**
- * Adds a line to a tab at the club's price.
- *
- * The price comes from the product, never from the request: a caller that asks
- * for a beer at a shilling would otherwise be believed.
- */
+
 export async function addTabItem(input: AddTabItemInput) {
   return prisma.$transaction(async (tx) => {
     const tab = await tx.dunda_tabs.findFirst({
@@ -201,8 +182,8 @@ export async function addTabItem(input: AddTabItemInput) {
     if (!product.active) throw wrongState(`${product.name} is no longer sold.`);
     if (product.available !== "true") throw wrongState(`${product.name} is marked unavailable.`);
 
-    // Prefer the unit that was chosen; otherwise the base unit, otherwise the
-    // product's own price.
+    
+    
     const unit =
       product.dunda_product_units[0] ??
       product.dunda_product_units.find((u) => u.is_base_unit);
@@ -255,7 +236,7 @@ export async function addTabItem(input: AddTabItemInput) {
   }, TRANSACTION_OPTIONS);
 }
 
-/** Applies a discount. A big one needs the manager permission, checked by the route. */
+
 export async function applyDiscount(
   organizationId: string,
   tabId: string,
@@ -299,13 +280,7 @@ export async function applyDiscount(
   }, TRANSACTION_OPTIONS);
 }
 
-/**
- * Closes a tab.
- *
- * The bill has to be settled, or somebody with the authority to leave it on
- * account has to say so. A tab is never simply abandoned: that is how a night's
- * revenue goes missing.
- */
+
 export async function closeTab(
   organizationId: string,
   tabId: string,
@@ -314,9 +289,9 @@ export async function closeTab(
   return prisma.$transaction(async (tx) => {
     const tab = await tx.dunda_tabs.findFirst({
       where: orgWhere(organizationId, { id: tabId }),
-      // pool_total and discount are needed to rebuild the bill: the session's
-      // charge lands on top of whatever pool time the tab already carries, and the
-      // discount has to be preserved across the recalculation.
+      
+      
+      
       select: {
         id: true,
         status: true,
@@ -332,8 +307,8 @@ export async function closeTab(
     if (!tab) throw notFound("That tab");
     if (tab.status !== "OPEN") throw wrongState(`Tab ${tab.number} is already closed.`);
 
-    // A running pool session still owes money, so closing the tab now would lose
-    // the pool charge. Ending the session settles it onto the tab first.
+    
+    
     const liveSession = await tx.dunda_pool_sessions.findFirst({
       where: { tab_id: tab.id, status: { in: ["ACTIVE", "PAUSED"] } },
       select: { id: true },
@@ -394,7 +369,7 @@ export interface CheckoutPayment {
   amount: number;
   reference?: string | null;
   paidBy?: string | null;
-  /** Set when the money arrived through a provider such as Pesapal. */
+  
   provider?: string | null;
 }
 
@@ -405,10 +380,7 @@ export interface CheckoutInput {
   payments: CheckoutPayment[];
   staffId: string | null;
   idempotencyKey?: string | null;
-  /**
-   * The provider attempt this settlement resolves. Claimed inside the
-   * transaction, so a callback that arrives twice settles the tab once.
-   */
+  
   attemptId?: string | null;
 }
 
@@ -419,32 +391,12 @@ export interface CheckoutResult {
   tabClosed: boolean;
 }
 
-/**
- * The stored form of a request's idempotency key.
- *
- * A split bill is one request that writes several payment rows, so each row needs
- * its own key to stay unique while still being recognisable as belonging to that
- * one request. The trailing marker keeps the derived keys from colliding with a
- * different request whose key happens to be a prefix of this one.
- */
+
 function idempotencyPrefix(key: string): string {
   return `${key}#`;
 }
 
-/**
- * Takes payment against a tab.
- *
- * The amount each payment covers is checked against what is actually owed, so a
- * split bill across three phones cannot quietly pay twice. Every payment is its own
- * row, because "who paid the M-Pesa half" has to remain answerable after the
- * table has moved on.
- *
- * The idempotency key makes a retried request safe: a till that times out and is
- * pressed again must not take a second payment for the same bill. Each payment in
- * a split is stored under a derived key so two identical-looking payments in one
- * request stay distinct rows, which means the lookup has to match the prefix
- * rather than one exact value.
- */
+
 export async function checkoutTab(input: CheckoutInput): Promise<CheckoutResult> {
   if (input.payments.length === 0) {
     throw wrongState("A payment needs an amount and a method.");
@@ -466,20 +418,14 @@ export async function checkoutTab(input: CheckoutInput): Promise<CheckoutResult>
   return applyTabPayment(input);
 }
 
-/**
- * The settlement itself, inside one transaction.
- *
- * Exported because a provider callback settles a tab the same way a
- * till does: the money has already been confirmed with the provider,
- * and the only thing left is to write it against the bill.
- */
+
 export async function applyTabPayment(
   input: CheckoutInput,
 ): Promise<CheckoutResult> {
   return prisma.$transaction(async (tx) => {
-    // A callback that arrives twice is a provider retry, not a second
-    // payment. The attempt is claimed here, inside the transaction, so
-    // the claim and the settlement commit together or not at all.
+    
+    
+    
     if (input.attemptId) {
       const claimed = await tx.dunda_payment_attempts.updateMany({
         where: { id: input.attemptId, status: "INITIATED" },
@@ -496,8 +442,8 @@ export async function applyTabPayment(
     });
     if (!tab) throw notFound("That tab");
 
-    // Only live payments count towards what has been settled. A voided payment
-    // puts the money back on the tab.
+    
+    
     const alreadyPaid = tab.dunda_payments
       .filter((p) => p.status !== "VOIDED")
       .reduce((sum, p) => sum + p.amount, 0);
@@ -505,9 +451,9 @@ export async function applyTabPayment(
 
     const tendered = input.payments.reduce((sum, p) => sum + p.amount, 0);
 
-    // Overpaying is refused rather than silently absorbed. A club that wants to
-    // take an overpayment has to say so, because the difference is money the
-    // guest is owed back.
+    
+    
+    
     if (tendered > outstanding) {
       throw wrongState(
         `That is more than the ${outstanding} still owed on this tab.`,
@@ -518,9 +464,9 @@ export async function applyTabPayment(
     }
 
     const createdPayments = [];
-    // A settlement that arrives through a provider callback has no
-    // request-side key, so the attempt stands in for one: the payment
-    // row stays traceable to the order the provider confirmed.
+    
+    
+    
     const idempotencyKey = input.idempotencyKey ?? input.attemptId ?? null;
     for (const [paymentIndex, payment] of input.payments.entries()) {
       createdPayments.push(
@@ -544,8 +490,8 @@ export async function applyTabPayment(
       );
     }
 
-    // The attempt is the record of the provider order, so it points
-    // at the payment row that resolved it.
+    
+    
     if (input.attemptId && createdPayments[0]) {
       await tx.dunda_payment_attempts.update({
         where: { id: input.attemptId },
@@ -617,7 +563,7 @@ export async function applyTabPayment(
   }, TRANSACTION_OPTIONS);
 }
 
-/** Closes the tab once the bill is square, inside the payment's transaction. */
+
 async function closeTabWithin(
   tx: Tx,
   input: CheckoutInput,
@@ -634,8 +580,8 @@ async function closeTabWithin(
   });
 
   if (tab.table_id) {
-    // The table goes back on the floor as soon as the bill is settled, which is
-    // what lets the next party sit down without anyone tidying the floor by hand.
+    
+    
     await tx.dunda_tables.update({
       where: { id: tab.table_id },
       data: { status: "AVAILABLE", tab_id: null, customer: null, total: 0 },
@@ -707,7 +653,7 @@ async function issueReceipt(
   };
 }
 
-/** Rebuilds the checkout response from what is already recorded. */
+
 export async function rebuildResult(
   organizationId: string,
   tabId: string,
@@ -761,13 +707,7 @@ export interface CreateOrderInput {
   station: string;
 }
 
-/**
- * Takes an order and sends it to a preparation station.
- *
- * Stock is drawn when the order is completed, not when it is entered: a guest who
- * changes their mind should not have emptied the shelf, and an order that is
- * never served should not have cost the club anything.
- */
+
 export async function createOrder(input: CreateOrderInput) {
   return prisma.$transaction(async (tx) => {
     const products = await tx.dunda_products.findMany({
@@ -793,8 +733,8 @@ export async function createOrder(input: CreateOrderInput) {
 
     const number = await nextDocumentNumber(tx, input.organizationId, input.branchId, "ORD");
 
-    // The order is written first because its items carry a foreign key to it. The
-    // subtotal is filled in once the lines are known.
+    
+    
     const order = await tx.dunda_orders.create({
       data: {
         organization_id: input.organizationId,
@@ -872,7 +812,7 @@ export async function createOrder(input: CreateOrderInput) {
   }, TRANSACTION_OPTIONS);
 }
 
-/** Moves an order along its lifecycle, drawing stock when it completes. */
+
 export async function updateOrderStatus(
   organizationId: string,
   orderId: string,
@@ -897,8 +837,8 @@ export async function updateOrderStatus(
     }
 
     if (nextStatus === "CANCELLED") {
-      // Cancelling after the food was served gives the stock back. Before that,
-      // nothing left the shelf, so there is nothing to reverse.
+      
+      
       if (order.status === "SERVED" || order.status === "COMPLETED" || order.status === "PAYMENT_PENDING") {
         await reverseForVoid(tx, {
           organizationId,

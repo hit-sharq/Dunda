@@ -5,13 +5,7 @@ import { route, requireSession } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Notifications for this person on this shift.
- *
- * Scoped to the staff row rather than the whole club: a bartender does not need to
- * see the owner's stock warnings. A notification with no staff row is a club-wide
- * notice — low stock, a failed payment — and everybody on shift sees it.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -21,8 +15,8 @@ export const GET = route(async (request: Request) => {
   const where: Prisma.dunda_notificationsWhereInput = {
     organization_id: organizationId,
     ...(branchId ? { branch_id: branchId } : {}),
-    // Null has to be written as a filter equality rather than as a bare null,
-    // which would mean "any value" rather than "no value".
+    
+    
     OR: [{ staff_id: { equals: null } }, { staff_id: session.staffId }],
   };
 
@@ -46,7 +40,7 @@ export const GET = route(async (request: Request) => {
   );
 });
 
-/** Marks everything read, so the bell can be cleared in one press. */
+
 export const DELETE = route(async () => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

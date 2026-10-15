@@ -4,14 +4,7 @@ import { useGetAdminOrganizations, useGetAdminSummary } from "@/lib/api-client-r
 import { Card, Metric, State, linkButton } from "./ui";
 import { colors, money, timeAgo } from "./theme";
 
-/**
- * The book of clients.
- *
- * The question this screen answers is not "how much money came in" — it is
- * "is anything wrong with a client". A club that has not rung up an order in a
- * fortnight is a churn signal and a support opportunity at the same time, so
- * that column is the one worth scanning.
- */
+
 export function Clients() {
   const summary = useGetAdminSummary();
   const orgs = useGetAdminOrganizations();

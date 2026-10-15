@@ -1,15 +1,6 @@
 import Link from 'next/link';
 
-/**
- * A page that does not exist.
- *
- * This used to say "Did you forget to add the page to the router?" — a note to
- * whoever was building the app, printed to a club owner who followed a dead link.
- * It also doubled as the answer for a signed-in person who is not an operator,
- * which told them the page was missing when what actually happened was that the
- * page exists and they may not see it. Those are different answers and they are
- * now separate screens.
- */
+
 export default function NotFound() {
   return (
     <div className="grid min-h-[60vh] place-items-center px-4">
@@ -44,14 +35,7 @@ export default function NotFound() {
   );
 }
 
-/**
- * Shown to somebody who is signed in but may not see the console.
- *
- * Deliberately not the same screen as a missing page: the page is there, and
- * saying otherwise would leave a club owner hunting for a link problem they cannot
- * fix. It also gives the operator console as a next step for the person who
- * genuinely should have it, which is usually how somebody reaches this at all.
- */
+
 export function NotAnOperator() {
   return (
     <div className="grid min-h-[60vh] place-items-center px-4">

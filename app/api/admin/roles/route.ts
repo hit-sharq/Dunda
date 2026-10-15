@@ -4,18 +4,7 @@ import { route, Forbidden, NotProvisioned, resolveSession } from "@/lib/server/h
 
 export const dynamic = "force-dynamic";
 
-/**
- * The role catalogue.
- *
- * Its own endpoint because it is its own question: who can grant access needs to
- * know what roles exist before granting one. The plans endpoint is not the place
- * for it — wrapping that response in an object to carry this broke four screens
- * that expect an array, which is how this ended up separate.
- *
- * Owner is excluded. Ownership is transferred through a deliberate flow, not
- * picked from a dropdown, so offering it here would invite somebody to hand out
- * a role that then cannot be given back.
- */
+
 export const GET = route(async () => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();

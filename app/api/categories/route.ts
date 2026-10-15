@@ -4,13 +4,7 @@ import { route, requireSession, orgWhere } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Product categories, with how many sellable items each holds.
- *
- * The station decides which screen an order lands on: a drink on the bar, food on
- * the kitchen. It is stored per category so a new product inherits the routing
- * without being configured separately.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -39,8 +33,8 @@ export const GET = route(async (request: Request) => {
         select: { id: true, price: true, stock: true, track_inventory: true, available: true },
       });
 
-      // Sellable means it can actually be rung up right now: active, marked
-      // available, and not out of stock when it is tracked.
+      
+      
       const sellable = products.filter(
         (p) =>
           p.available === "true" &&

@@ -11,12 +11,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/**
- * The club's branches with live floor counts.
- *
- * Occupied and total are derived from the tables and pool tables rather than held
- * on the branch row, because a counter that is only updated on some paths drifts.
- */
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -92,13 +86,7 @@ const addBranchSchema = z.object({
   timezone: z.string().min(1).optional(),
 });
 
-/**
- * Opens another branch for the caller's club.
- *
- * The plan's branch limit is a commercial boundary, so it is
- * checked against the live count of branches rather than a
- * stored counter, and the refusal says what to do about it.
- */
+
 export const POST = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

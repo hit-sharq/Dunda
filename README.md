@@ -1864,5 +1864,19 @@ npm run dev
 Dependencies already installed include Next.js 16, React 19, Tailwind 4, Clerk, Zod, Recharts,
 Framer Motion, shadcn/ui, Lucide, and now Prisma 6.
 
+### Payment configuration
+
+Set `PESAPAL_ENV` to `sandbox` for testing or `live` for production, and configure
+`NEXT_PUBLIC_APP_URL` to the public deployment URL. `PESAPAL_CONSUMER_KEY` and
+`PESAPAL_CONSUMER_SECRET` are reserved for Dunda's own subscription billing. Each club
+connects its own Pesapal merchant credentials from Workspace Settings; those credentials
+are encrypted in the database and are used only for that club's guest payments and refunds.
+
+Before a club can save credentials, configure `PESAPAL_CREDENTIALS_ENCRYPTION_KEY` as
+base64-encoded 32-byte key material. Generate a value with `openssl rand -base64 32` and
+store it as a deployment secret. Do not commit the value. Losing or rotating this key makes
+existing encrypted club credentials unreadable, so affected clubs must reconnect their
+Pesapal accounts.
+
 Note: `.npmrc` sets `legacy-peer-deps=true` because `@base-ui/react` declares an optional peer
 on `date-fns@^4` while the project pins `^3`. pnpm ignored this; npm does not.

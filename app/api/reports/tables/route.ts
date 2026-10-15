@@ -4,7 +4,7 @@ import { getTableReport } from "@/lib/server/reports";
 
 export const dynamic = "force-dynamic";
 
-/** Tables and the trade they saw. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

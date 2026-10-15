@@ -1,14 +1,6 @@
 import { z } from "zod";
 
-/**
- * Request shapes.
- *
- * Every route parses its input through one of these before a service sees it.
- * Notably absent anywhere: prices, totals, taxes and payment statuses. Those are
- * worked out server-side from the club's own settings, so a client cannot name
- * them. Amounts are whole currency units, validated as positive integers rather
- * than as loose numbers so a fractional shilling cannot enter the books.
- */
+
 
 const positiveInt = z.number().int().positive();
 const nonNegativeInt = z.number().int().min(0);
@@ -38,14 +30,7 @@ export const closeTabSchema = z.object({
   reason: z.string().nullable().optional(),
 });
 
-/**
- * A checkout request.
- *
- * The till sends one payment; a split bill sends several. Both
- * spellings are accepted and normalized to the list, so a
- * terminal that has not been updated still settles its bills
- * while a split can be paid across three phones.
- */
+
 export const checkoutSchema = z.preprocess(
   (body) => {
     if (body && typeof body === "object" && !("payments" in body)) {

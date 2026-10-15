@@ -86,24 +86,24 @@ export const GET = route(async () => {
     }),
   ]);
 
-  // MRR counts only what is actually being paid for now: active subscriptions at
-  // their monthly figure. Trials and cancelled plans are not revenue.
+  
+  
   const plans = await prisma.dunda_plans.findMany({
     select: { id: true, name: true, monthly_price: true, annual_price: true },
   });
   const planById = new Map(plans.map((p) => [p.id, p]));
 
-  // Only payments that settled and carry a date count as revenue. An initiated
-  // payment that never completed has a paid_at of null and is not money in.
+  
+  
   const settled = billingPayments.filter(
     (p) => p.status === "COMPLETED" && p.paid_at !== null,
   );
   const last30 = settled.filter((p) => new Date(p.paid_at as Date) >= thirtyDaysAgo);
 
-  // Counts what clubs are committed to per month, and separately what has
-  // actually been collected. The two are not the same number: a club on an
-  // annual plan is one commitment but twelve instalments, and a club whose
-  // payment failed is still committed until somebody chases it.
+  
+  
+  
+  
   const activeSubs = subscriptions.filter((s) => s.status === "ACTIVE");
   const mrr = activeSubs.reduce(
     (sum, s) => sum + (s.billing_cycle === "ANNUAL" ? (s.amount || 0) / 12 : s.amount || 0),
@@ -111,7 +111,7 @@ export const GET = route(async () => {
   );
   const collected = settled.reduce((sum, p) => sum + p.amount, 0);
 
-  // "Live" means serving tonight: not suspended, and not cancelled.
+  
   const live = organizations.filter(
     (o) => o.status !== "SUSPENDED" && o.status !== "CANCELLED",
   ).length;
@@ -138,7 +138,7 @@ export const GET = route(async () => {
     }),
   ]);
 
-  // The clubs' own trading, which is their revenue and emphatically not Dunda's.
+  
   const clubRevenue = await prisma.dunda_payments.aggregate({
     where: {
       organization_id: { in: organizations.map((o) => o.id) },
@@ -158,8 +158,8 @@ export const GET = route(async () => {
     cancelledClubs: subscriptions.filter((s) => s.status === "CANCELLED").length,
     expiredClubs: subscriptions.filter((s) => s.status === "EXPIRED").length,
     pastDueClubs: subscriptions.filter((s) => s.status === "PAST_DUE").length,
-    // A club that stopped paying within the window, rather than one that was
-    // never on the platform.
+    
+    
     churnedLast30Days: subscriptions.filter(
       (s) =>
         s.status === "CANCELLED" &&

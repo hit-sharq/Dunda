@@ -12,25 +12,17 @@ import { MODULES } from "@/lib/server/settings";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Who the caller is, what they may do, and — for a platform operator — whether
- * they run any club at all.
- *
- * This answers for an operator who owns no club. That is the normal state for
- * somebody whose job is provisioning clubs, so refusing them here would hide the
- * console behind an error the moment they signed in. The club fields are simply
- * null for them and the client routes them straight to /admin.
- */
+
 export const GET = route(async () => {
   const session = await resolveSession();
-  // Nobody signed in at all is a 401, not a 403. The client tells these apart:
-  // 401 means sign in, 403 means you are signed in and your account is not set up.
+  
+  
   if (!session) throw new Unauthenticated();
 
-  // A platform operator is recorded on first sight so the console can show who
-  // they are and attribute their actions in the audit trail. Failing to write this
-  // row is not a reason to refuse the read: the allow-list in the environment is
-  // what grants access, and the row is only a record of it.
+  
+  
+  
+  
   if (session.isOperator) {
     await prisma.dunda_platform_users
       .upsert({
@@ -47,11 +39,11 @@ export const GET = route(async () => {
     throw new OrganizationSuspended(session.suspended.reason);
   }
 
-  // A platform operator legitimately runs no club. Anybody else with no staff
-  // row has signed up but has not been given access yet, and saying so is the
-  // whole answer — returning an empty-but-successful response left them on a blank
-  // Overview with no idea why, and a 403 is what the client already renders as
-  // "ask for access".
+  
+  
+  
+  
+  
   if (!session.organizationId) {
     if (!session.isOperator) {
       throw new NotProvisioned();
@@ -68,8 +60,8 @@ export const GET = route(async () => {
       isOwner: false,
       canGrantStaff: false,
       operator: session.isOperator,
-      // An operator needs the plan catalogue to provision a club, so it is sent to
-      // them even though they hold no club role.
+      
+      
       roles: undefined,
       settings: { currency: "KES", locale: "en-KE", taxRate: 0, serviceChargeRate: 0 },
     });
@@ -161,8 +153,8 @@ export const GET = route(async () => {
     roleId: session.roleId,
     permissions: [...session.permissions],
     isOwner: session.isOwner,
-    // Only somebody who can hand out access needs the role list; sending it to
-    // everyone would invite staff to try roles they cannot grant.
+    
+    
     canGrantStaff: session.permissions.has("manage_staff"),
     operator: session.isOperator,
     branchLimit: subscription?.branch_limit ?? 1,

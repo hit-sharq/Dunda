@@ -14,20 +14,7 @@ import { invitationFailureReason, invitationRedirectUrl } from "@/lib/server/cle
 
 export const dynamic = "force-dynamic";
 
-/**
- * A platform operator grants somebody access to a club.
- *
- * This exists because the alternative does not start. Only an owner or general
- * manager can add staff, so a club with nobody signed up yet — which is every new
- * club, and every club whose owner has not opened the app — has nobody who can let
- * the first manager in. The operator is the only party who can, so it is the only
- * one who does.
- *
- * The row written is exactly the row an owner would write: the same table, the
- * same role reference, left unclaimed until the person signs up. Access is still
- * derived from the role, so an operator grants a role and not a hand-picked set of
- * permissions — otherwise this path would become a way around the permission model.
- */
+
 const grantAccessSchema = z.object({
   email: z.string().min(1, "An email address is required."),
   name: z.string().min(1).optional(),
@@ -67,8 +54,8 @@ export const POST = route(
       );
     }
 
-    // Ownership is transferred, not handed out. Two owners would each believe they
-    // hold the club, and the console has a deliberate flow for changing hands.
+    
+    
     if (role.is_owner) {
       return NextResponse.json(
         {
@@ -79,8 +66,8 @@ export const POST = route(
       );
     }
 
-    // One person, one place. A staff row already carrying this address would make
-    // the claim ambiguous, so the operator is told rather than left to find out.
+    
+    
     const existing = await prisma.dunda_staff.findFirst({
       where: { email: { equals: email, mode: "insensitive" } },
       select: {
@@ -119,10 +106,10 @@ export const POST = route(
       }
     }
 
-    // The plan's user limit is a commercial boundary, so it is
-    // checked against the live roster rather than a stored
-    // counter. An operator who needs more seats for a club
-    // changes the plan first.
+    
+    
+    
+    
     const subscription = await prisma.dunda_subscriptions.findFirst({
       where: { organization_id: organizationId },
       orderBy: { created_at: "desc" },
@@ -147,8 +134,8 @@ export const POST = route(
       data: {
         organization_id: organizationId,
         branch_id: branchId,
-        // Deliberately null. The claim in resolveSession links the account the
-        // moment they accept the invitation and sign up with this address.
+        
+        
         clerk_user_id: null,
         name: input.name ?? email,
         email,
@@ -158,9 +145,9 @@ export const POST = route(
       select: { id: true, name: true, email: true, role_id: true, status: true },
     });
 
-    // Clerk sends it, so no mail is ours and the accept link is handled by the
-    // provider that will authenticate them next. A failure is reported without
-    // undoing the row: the person is on the roster either way and can sign up.
+    
+    
+    
     let invitation: { sent: boolean; reason?: string; url?: string } = { sent: false };
     try {
       const clerk = await clerkClient();
@@ -204,13 +191,7 @@ export const POST = route(
   },
 );
 
-/**
- * Removes somebody's access to a club.
- *
- * Suspended rather than deleted: their shifts, orders and stock movements are
- * financial records that have to stay attributable to whoever actually did them.
- * What is taken away is the access.
- */
+
 export const DELETE = route(
   async (request: Request, context: { params: Promise<{ organizationId: string }> }) => {
     const session = await resolveSession();

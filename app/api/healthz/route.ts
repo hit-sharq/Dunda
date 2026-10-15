@@ -4,7 +4,7 @@ import { route, requireSession, orgWhere } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
-/** Liveness for the platform console's system monitoring screen. */
+
 export const GET = route(async () => {
   const started = Date.now();
   try {
@@ -16,8 +16,8 @@ export const GET = route(async () => {
       checkedAt: new Date().toISOString(),
     });
   } catch (error) {
-    // A health check that reports itself as unhealthy has to say so in its own
-    // body, not just its status code, or a monitor polling it learns nothing.
+    
+    
     return NextResponse.json(
       {
         status: "degraded",
@@ -30,10 +30,7 @@ export const GET = route(async () => {
   }
 });
 
-/**
- * The club's feature switches, so a screen can hide what the platform owner has
- * turned off rather than offering a button that will be refused.
- */
+
 export const PUT = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

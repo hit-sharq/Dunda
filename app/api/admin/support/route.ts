@@ -4,7 +4,7 @@ import { route, Forbidden, NotProvisioned, resolveSession } from "@/lib/server/h
 
 export const dynamic = "force-dynamic";
 
-/** Support tickets raised by clubs. */
+
 export const GET = route(async (request: Request) => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();

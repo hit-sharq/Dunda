@@ -1,12 +1,4 @@
-/**
- * Report check against the live database.
- *
- * Runs every report function the routes serve, so the
- * figures the Reports and HQ screens show are the ones
- * checked here.
- *
- * Run with: npm run verify:reports
- */
+
 const RUN = `rep-${Date.now()}`;
 import { PrismaClient } from "@prisma/client";
 import {
@@ -89,9 +81,9 @@ async function main() {
     events.slice(0, 3),
   );
 
-  // The event path is only exercised by an event with
-  // reservations, so one is created here and removed
-  // again: the report has to count it.
+  
+  
+  
   const [branch, customer] = await Promise.all([
     prisma.dunda_branches.findFirst({
       where: { organization_id: ORG },

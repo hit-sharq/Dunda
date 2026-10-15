@@ -1,16 +1,4 @@
-/**
- * The platform console's colours.
- *
- * These used to be cream and near-black literals. The console renders inside the
- * club app's shell, which is dark, so it was painting its own light card with
- * near-black text and landing on a dark page — white on white, and the numbers
- * vanished. Rather than restyle the console by hand against a palette it shares
- * with the rest of the product, it reads the same tokens, so one change moves
- * both and neither can drift.
- *
- * `hsl(var(--app-ink))` rather than a flat colour because the tokens resolve per
- * theme: dark here, and light if the machine asks for it.
- */
+
 export const colors = {
   ink: "hsl(var(--app-ink))",
   inkSoft: "hsl(var(--app-ink-soft))",

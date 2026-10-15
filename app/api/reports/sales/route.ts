@@ -4,11 +4,7 @@ import { getSalesReport } from "@/lib/server/reports";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Sales over a window. The computation lives in
- * lib/server/reports so the route and any other
- * reader of the same figures answer from one place.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

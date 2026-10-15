@@ -7,17 +7,7 @@ import { invitationFailureReason, invitationRedirectUrl } from "@/lib/server/cle
 
 export const dynamic = "force-dynamic";
 
-/**
- * Transfers ownership of a club to somebody.
- *
- * Ownership is transferred, never granted from a list of names. A club's owner is
- * always someone who accepted the role, so this needs a Clerk user id: there is
- * no way to make somebody an owner of a club they do not have an account for.
- *
- * A club has one owner, so making somebody else one demotes the previous owner to
- * the general manager rather than leaving two owners who each believe they hold
- * the club.
- */
+
 const assignOwnerSchema = z
   .object({
     email: z.string().trim().min(1, "An email address is required."),
@@ -60,8 +50,8 @@ export const POST = route(
       );
     }
 
-    // The previous owner steps down to general manager rather than losing access
-    // entirely. They may be the person doing the running of the club.
+    
+    
     const generalManager = await prisma.dunda_roles.findFirst({
       where: { name: { equals: "General Manager" } },
     });
@@ -81,11 +71,11 @@ export const POST = route(
         demoted = { id: previousOwner.id, name: previousOwner.name };
       }
 
-      // The staff row is what grants permissions, so it is written from the
-      // invitation details and left unclaimed. When the owner accepts the
-      // invitation and signs up with this address, resolveSession matches on it
-      // and links their account — which is the same path every other staff member
-      // takes.
+      
+      
+      
+      
+      
       const owner = await tx.dunda_staff.create({
         data: {
           organization_id: organizationId,
@@ -98,8 +88,8 @@ export const POST = route(
         select: { id: true, name: true, email: true, clerk_user_id: true },
       });
 
-      // A membership row only exists once there is an account to attach, so it is
-      // left for the claim to write rather than created against a null id.
+      
+      
       return { owner, demoted };
     });
 
@@ -118,8 +108,8 @@ export const POST = route(
       },
     });
 
-    // Clerk sends the invitation, so no mail is ours to deliver and the accept
-    // link is handled by the same provider that authenticates them afterwards.
+    
+    
     let invitation: { sent: boolean; reason?: string } = { sent: false };
     try {
       const clerk = await clerkClient();

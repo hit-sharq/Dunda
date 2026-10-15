@@ -4,13 +4,7 @@ import { route, requireSession, orgWhere } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
-/**
- * What has happened on the floor, most recent first.
- *
- * Reads the transaction tables rather than the activity log, so what the dashboard
- * shows and what the club actually took are the same rows. Each event carries the
- * type the client groups by.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

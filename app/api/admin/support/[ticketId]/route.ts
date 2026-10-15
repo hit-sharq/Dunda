@@ -17,13 +17,7 @@ const updateTicketSchema = z.object({
   assignedToId: z.string().nullable().optional(),
 });
 
-/**
- * Moves a support ticket along.
- *
- * Closing one records a resolution and the moment it was resolved, because a
- * support log that says something was closed without saying how is not worth
- * keeping.
- */
+
 export const PATCH = route(
   async (request: Request, context: { params: Promise<{ ticketId: string }> }) => {
     const session = await resolveSession();
@@ -53,8 +47,8 @@ export const PATCH = route(
         ...(input.assignedToId !== undefined
           ? { assigned_to_id: input.assignedToId }
           : {}),
-        // Stamped when closed and cleared if reopened, so an open ticket never
-        // carries a resolution date implying it was dealt with.
+        
+        
         resolved_at: closing ? new Date() : null,
       },
       select: {

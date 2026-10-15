@@ -7,13 +7,7 @@ import {
 import { Card, State, field, inputStyle, linkButton, primaryButton } from "./ui";
 import { colors, money } from "./theme";
 
-/**
- * The plan catalogue.
- *
- * Prices live here, not on each club, so changing what a tier costs is one edit
- * rather than touching every club already on it. That is deliberate: a club is
- * agreed a price, and the catalogue is what new clubs are sold.
- */
+
 export function Plans() {
   const plans = useGetPlans();
   const [editing, setEditing] = useState<string | null>(null);

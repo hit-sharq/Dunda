@@ -16,14 +16,7 @@ interface Ticket {
   resolvedAt: string | null;
 }
 
-/**
- * Support tickets raised by clubs.
- *
- * No generated client hook exists for this endpoint, so it is read directly rather
- * than widening the client to cover one screen. The shape is declared here, which
- * means a change to the endpoint is a type error here rather than a blank list at
- * runtime.
- */
+
 export function Support() {
   const [, setLocation] = useLocation();
   const [tickets, setTickets] = useState<Ticket[] | null>(null);

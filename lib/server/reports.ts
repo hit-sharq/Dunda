@@ -17,16 +17,7 @@ export interface InventoryReport {
   discrepancies: InventoryDiscrepancy[];
 }
 
-/**
- * Inventory position, movements and discrepancies.
- *
- * The position is a snapshot of what the shelves hold
- * right now, and the discrepancies are what the latest
- * approved stock count found at each branch. Both are
- * derived from the same rows the till and the storeroom
- * write, so the report cannot disagree with the stock
- * on hand.
- */
+
 export async function getInventoryReport(
   organizationId: string,
   branchId?: string | null,
@@ -70,9 +61,9 @@ export async function getInventoryReport(
     value: Number(movement._sum.quantity_in_base_unit ?? 0),
   }));
 
-  // The newest approved count per branch is the current
-  // truth; older counts described stock that has since
-  // moved, so their variances are history, not findings.
+  
+  
+  
   const latestCountPerBranch = new Map<string, string>();
   for (const count of approvedCounts) {
     if (!latestCountPerBranch.has(count.branch_id)) {
@@ -171,7 +162,7 @@ export interface EventReportItem {
   utilisation: number;
 }
 
-/** The window the client asks about, as UTC bounds. */
+
 function windowBounds(dateFrom: string, dateTo: string): { start: Date; end: Date } {
   return {
     start: new Date(`${dateFrom}T00:00:00Z`),
@@ -179,7 +170,7 @@ function windowBounds(dateFrom: string, dateTo: string): { start: Date; end: Dat
   };
 }
 
-/** An hour of the day as a till operator reads it. */
+
 function hourLabel(hour: number): string {
   if (hour === 0) return "12am";
   if (hour < 12) return `${hour}am`;
@@ -187,11 +178,7 @@ function hourLabel(hour: number): string {
   return `${hour - 12}pm`;
 }
 
-/**
- * Sales over a window. Revenue is money that arrived — payments
- * that were not voided — while orders counts the completed ones,
- * so the average order value reads as the till does.
- */
+
 export async function getSalesReport(
   organizationId: string,
   branchId: string | null,
@@ -236,7 +223,7 @@ export async function getSalesReport(
   };
 }
 
-/** What sold over a window, by product, best earners first. */
+
 export async function getProductReport(
   organizationId: string,
   branchId: string | null,
@@ -268,7 +255,7 @@ export async function getProductReport(
   }));
 }
 
-/** Completed orders attributed to the staff member who served them. */
+
 export async function getStaffReport(
   organizationId: string,
   branchId: string | null,
@@ -306,11 +293,7 @@ export async function getStaffReport(
   }));
 }
 
-/**
- * Tables and the trade they saw. A settled tab is one party, so
- * covers counts parties rather than guessing at headcounts, and
- * the stay is measured from when the tab opened to when it closed.
- */
+
 export async function getTableReport(
   organizationId: string,
   branchId: string | null,
@@ -356,7 +339,7 @@ export async function getTableReport(
   });
 }
 
-/** Money taken, money returned, and the mix of ways it arrived. */
+
 export async function getPaymentReport(
   organizationId: string,
   branchId: string | null,
@@ -396,7 +379,7 @@ export async function getPaymentReport(
   };
 }
 
-/** Events and how full they ran, from the reservations they drew. */
+
 export async function getEventReport(
   organizationId: string,
   branchId: string | null,

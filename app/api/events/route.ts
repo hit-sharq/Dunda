@@ -5,7 +5,7 @@ import { createEventSchema } from "@/lib/server/schemas";
 
 export const dynamic = "force-dynamic";
 
-/** What is on, with tickets sold and guests checked in. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -20,14 +20,14 @@ export const GET = route(async (request: Request) => {
     include: {
       _count: { select: { dunda_event_tickets: true, dunda_event_guest_list: true } },
       dunda_event_tickets: {
-        select: { id: true, status: true, amount: true, checked_in_at: true },
+        select: { id: true, status: true, amount: true, quantity: true, checked_in_at: true },
       },
     },
   });
 
   return NextResponse.json(
     events.map((event) => {
-      const sold = event.dunda_event_tickets.filter((t) => t.status !== "CANCELLED");
+      const sold = event.dunda_event_tickets.filter((t) => t.status === "ISSUED");
       const checkedIn = sold.filter((t) => t.checked_in_at !== null);
       return {
         id: event.id,
@@ -39,8 +39,12 @@ export const GET = route(async (request: Request) => {
         startsAt: `${event.date}T${event.start_time}`,
         endsAt: `${event.date}T${event.end_time}`,
         capacity: event.capacity,
+        ticketPrice: event.ticket_price,
         status: event.status,
-        ticketsSold: sold.length,
+        ticketsSold: sold.reduce((sum, ticket) => sum + ticket.quantity, 0),
+        ticketsPending: event.dunda_event_tickets
+          .filter((ticket) => ticket.status === "PENDING_PAYMENT")
+          .reduce((sum, ticket) => sum + ticket.quantity, 0),
         ticketsCheckedIn: checkedIn.length,
         guestList: event._count.dunda_event_guest_list,
         revenue: sold.reduce((sum, t) => sum + t.amount, 0),
@@ -97,6 +101,7 @@ export const POST = route(async (request: Request) => {
       start_time: startsAt.toTimeString().slice(0, 5),
       end_time: endsAt.toTimeString().slice(0, 5),
       capacity: parsed.data.capacity,
+      ticket_price: parsed.data.ticketPrice,
       status: "UPCOMING",
     },
   });

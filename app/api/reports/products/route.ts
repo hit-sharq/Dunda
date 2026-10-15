@@ -4,7 +4,7 @@ import { getProductReport } from "@/lib/server/reports";
 
 export const dynamic = "force-dynamic";
 
-/** What sold over a window, by product. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

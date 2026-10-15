@@ -4,13 +4,7 @@ import { route, requireSession, orgWhere } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Marks one notification read.
- *
- * A notification addressed to somebody else is refused rather than quietly marked:
- * reading someone else's message and then dismissing it is how a club misses the
- * one that mattered.
- */
+
 export const PATCH = route(
   async (_request: Request, context: { params: Promise<{ notificationId: string }> }) => {
     const session = await requireSession();

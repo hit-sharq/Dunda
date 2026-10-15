@@ -5,34 +5,29 @@ import { useGetAdminBilling, useGetAdminSubscriptions } from "@/lib/api-client-r
 import { Card, State, inputStyle, linkButton } from "./ui";
 import { colors, money } from "./theme";
 
-/**
- * Subscriptions and the money behind them.
- *
- * Two questions, kept on one screen because they are asked together: who is
- * paying, and who is not.
- */
+
 export function Billing() {
   const subs = useGetAdminSubscriptions();
   const billing = useGetAdminBilling();
   const [filter, setFilter] = useState<string>("ALL");
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
-  // Collecting a renewal: the club is
-  // sent to Pesapal, and the callback
-  // completes the payment here.
+  
+  
+  
   const [collecting, setCollecting] = useState<string | null>(null);
   const [collectError, setCollectError] = useState<string | null>(null);
-  // The link from the last collect. It lands on
-  // the club's own home screen, so it is kept
-  // only to send by hand when the owner is on
-  // the phone rather than watching their app.
+  
+  
+  
+  
   const [collectLink, setCollectLink] = useState<{
     organization: string;
     url: string;
   } | null>(null);
-  // The sweep: one button that starts
-  // a payment for every renewal coming
-  // due, rather than one club at a time.
+  
+  
+  
   const [sweeping, setSweeping] = useState(false);
   const [sweepResult, setSweepResult] = useState<{
     checked: number;
@@ -57,9 +52,9 @@ export function Billing() {
         setCollectError(data.error ?? "The payment could not be started.");
         return;
       }
-      // The club's owner pays on their own device, and
-      // their home screen offers the link itself, so
-      // nothing is opened on this screen.
+      
+      
+      
       setCollectLink({ organization, url: data.redirectUrl });
       qc.invalidateQueries();
     } catch {

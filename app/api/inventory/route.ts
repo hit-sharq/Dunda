@@ -6,7 +6,7 @@ import { adjustInventorySchema } from "@/lib/server/schemas";
 
 export const dynamic = "force-dynamic";
 
-/** Stock on hand, with what it is worth and what has run low. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -79,13 +79,7 @@ export const GET = route(async (request: Request) => {
   });
 });
 
-/**
- * A manager's adjustment: stock count correction, breakage, a theft write-off.
- *
- * Always writes a movement and always requires a reason. Editing the quantity
- * directly would leave the shelf and the movement history disagreeing with no
- * record of which happened.
- */
+
 export const POST = route(async (request: Request) => {
   const session = await requirePermission("adjust_inventory");
   const organizationId = session.organizationId as string;
@@ -104,8 +98,8 @@ export const POST = route(async (request: Request) => {
     );
   }
 
-  // A product is a catalog entry; stock lives on the branch's inventory rows, so
-  // the adjustment is written against the caller's branch rather than the product.
+  
+  
   const product = await prisma.dunda_products.findFirst({
     where: orgWhere(organizationId, { id: parsed.data.productId }),
     select: { id: true, name: true },

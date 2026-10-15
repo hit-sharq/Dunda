@@ -11,15 +11,7 @@ import {
 import { Card, State, field, inputStyle, linkButton, primaryButton } from "./ui";
 import { colors, dateOnly, money } from "./theme";
 
-/**
- * One client, and the settings you can correct.
- *
- * Tax, service charge and currency are per client and were previously not
- * writable by anyone, which left every venue stuck on whatever the seed set.
- * Changing a rate only affects orders rung in afterwards: the rate is copied onto
- * the order when it is created, so a receipt already issued keeps the figures it
- * was issued with.
- */
+
 export function ClientDetail({ id }: { id: string }) {
   const orgs = useGetAdminOrganizations();
   const update = useUpdateAdminOrganization();
@@ -50,15 +42,15 @@ export function ClientDetail({ id }: { id: string }) {
   const [cycle, setCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
   const [subStatus, setSubStatus] = useState<NonNullable<SetSubscriptionInput["status"]>>("ACTIVE");
   const [usage, setUsage] = useState<SubscriptionResultUsage | null>(null);
-  // Operator-granted access. The owner of a club cannot add somebody when nobody
-  // on it has ever signed in, so this is the only path that works on day one.
+  
+  
   const [grant, setGrant] = useState({ name: "", email: "", roleId: "" });
   const [grantResult, setGrantResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [grantPending, setGrantPending] = useState(false);
   const [roles, setRoles] = useState<{ id: string; name: string; isOwner: boolean }[]>([]);
   const [planNote, setPlanNote] = useState<string | null>(null);
-  // The first payment's checkout link, so the
-  // operator can send it to the club's owner.
+  
+  
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [roster, setRoster] = useState<
     {
@@ -263,9 +255,9 @@ export function ClientDetail({ id }: { id: string }) {
     );
   }
 
-  // The roster is fetched before the id can be matched, so an undefined club is
-  // "still loading" as often as it is "does not exist". Saying so while the
-  // request is in flight told operators a real club had been deleted.
+  
+  
+  
   if (!orgs.data) {
     return <Card><p style={{ margin: 0, fontSize: 13, color: colors.muted }}>Loading…</p></Card>;
   }

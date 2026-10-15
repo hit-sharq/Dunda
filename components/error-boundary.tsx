@@ -13,7 +13,7 @@ export interface ErrorFallbackProps {
 interface ErrorBoundaryProps {
   children: ReactNode;
   FallbackComponent?: ComponentType<ErrorFallbackProps>;
-  /** Changing this clears a caught error. Pass the route to recover on navigation. */
+  
   resetKey?: unknown;
 }
 
@@ -46,7 +46,7 @@ function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
           This part of the app hit an error. The rest of the app is still
           running.
         </p>
-        {/* Dev only: messages can carry API responses and other internals. */}
+        {}
         {process.env.NODE_ENV !== 'production' ? (
           <pre className="mt-4 overflow-x-auto rounded bg-gray-100 p-3 text-left text-xs text-gray-800">
             {error.message || String(error)}

@@ -4,12 +4,7 @@ import { route, Forbidden, NotProvisioned, resolveSession } from "@/lib/server/h
 
 export const dynamic = "force-dynamic";
 
-/**
- * What the platform owner does that changes money: suspensions, plan changes,
- * billing actions. Separate from a club's own audit log because those two records
- * answer different questions — one is "what did this club do", the other is "what
- * did Dunda do to this club".
- */
+
 export const GET = route(async (request: Request) => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();
@@ -19,8 +14,8 @@ export const GET = route(async (request: Request) => {
   const organizationId = url.searchParams.get("organizationId");
   const action = url.searchParams.get("action");
 
-  // The screen asks for up to 200 entries. The cap is applied here rather than
-  // trusted from the caller, because this reads across every organization.
+  
+  
   const requested = Number(url.searchParams.get("limit"));
   const limit = Number.isFinite(requested) ? Math.min(Math.max(1, requested), 200) : 200;
 

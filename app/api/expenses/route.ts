@@ -5,7 +5,7 @@ import { createExpenseSchema } from "@/lib/server/schemas";
 
 export const dynamic = "force-dynamic";
 
-/** What the club spent, and what is left. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -30,8 +30,8 @@ export const GET = route(async (request: Request) => {
     include: { recorded_by: { select: { name: true } } },
   });
 
-  // Revenue over the same window, so the two sides of the P&L can be read
-  // together rather than from two screens with two different date pickers.
+  
+  
   const payments = await prisma.dunda_payments.findMany({
     where: orgWhere(organizationId, {
       branch_id: branchId ?? undefined,

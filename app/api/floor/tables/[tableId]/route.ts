@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 const STATUSES = ["AVAILABLE", "OCCUPIED", "RESERVED", "PAYMENT_PENDING", "CLEANING"];
 
-/** Frees a table once its bill is settled, or parks it while it is tidied. */
+
 export const PATCH = route(
   async (request: Request, context: { params: Promise<{ tableId: string }> }) => {
     const session = await requireSession();
@@ -32,8 +32,8 @@ export const PATCH = route(
         where: { id: tableId },
         data: {
           status: body.status as string,
-          // Freeing a table clears who was sitting there. Leaving the old party
-          // attached would put the next guest's tab on their name.
+          
+          
           ...(body.status === "AVAILABLE" ? { tab_id: null, customer: null, total: 0 } : {}),
         },
       });

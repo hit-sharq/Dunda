@@ -5,13 +5,7 @@ import { route, requireSession } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
-/**
- * How many notifications this person has not read.
- *
- * A count rather than the list: the badge is on screen all night and must not
- * drag every message with it on each poll. Scoped the same way the list is, so
- * the badge and the bell can never disagree about what is unread.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

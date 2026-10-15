@@ -1,14 +1,4 @@
-/**
- * Payment-path check against the live database.
- *
- * The flow check settles a bill from the till. This one walks the
- * paths only a provider payment takes: an attempt recorded before
- * the provider is asked, a settlement that arrives the way a webhook
- * delivers it, the retry that must not take money twice, and the
- * guards that refuse to ask a provider that is not configured.
- *
- * Run with: npx tsx scripts/verify-payments.ts
- */
+
 const RUN = `pay-${Date.now()}`;
 import { PrismaClient } from "@prisma/client";
 import { openTab, addTabItem, applyTabPayment } from "../lib/server/tabs";
@@ -31,9 +21,7 @@ function check(label: string, passed: boolean, detail?: unknown) {
   console.log(`  [${mark}] ${label}${detail !== undefined ? ` — ${JSON.stringify(detail)}` : ""}`);
 }
 
-/** The first table free right now, re-read every time: a table
- *  stays occupied until its tab is settled, so a table chosen
- *  once cannot be chosen again for the next tab. */
+
 async function freeTable() {
   const table = await prisma.dunda_tables.findFirst({
     where: { organization_id: ORG, status: "AVAILABLE" },
@@ -73,8 +61,8 @@ async function main() {
   });
   const bill = await prisma.dunda_tabs.findUniqueOrThrow({ where: { id: tab.id } });
 
-  // The attempt row, exactly as initiateClubPayment writes it before
-  // the provider is asked. The tracking id is the provider's handle.
+  
+  
   const trackingId = `${RUN}-tracking`;
   const attempt = await prisma.dunda_payment_attempts.create({
     data: {
@@ -90,8 +78,8 @@ async function main() {
     },
   });
 
-  // The settlement: what confirmClubPayment writes once Pesapal's own
-  // status endpoint has said the money arrived.
+  
+  
   const settlement = await applyTabPayment({
     organizationId: ORG,
     tabId: tab.id,
@@ -160,8 +148,8 @@ async function main() {
 
   console.log("\nGuards refuse what they should");
 
-  // A tab that still owes something, so the guard under test is
-  // the provider one rather than the amount checks in front of it.
+  
+  
   const table3 = await freeTable();
   const tab3 = await openTab({
     organizationId: ORG,
@@ -177,9 +165,9 @@ async function main() {
     unitId: null, notes: null, staffId: staff.id,
   });
 
-  // The guard is about a deployment with no credentials, so the
-  // credentials are hidden for these checks and restored after,
-  // which keeps the answer the same on every deployment.
+  
+  
+  
   const savedKey = process.env.PESAPAL_CONSUMER_KEY;
   const savedSecret = process.env.PESAPAL_CONSUMER_SECRET;
   delete process.env.PESAPAL_CONSUMER_KEY;
@@ -237,10 +225,10 @@ async function main() {
   });
   check("a cash settlement closes the tab", cash.tabClosed === true && cash.tab.outstanding === 0);
 
-  // ------------------------------------------------------------------- tidy up
-  // Children first, or the foreign keys refuse. The audit log is
-  // left alone, the same way the flow check leaves it: it records
-  // what this run actually did.
+  
+  
+  
+  
   await prisma.$transaction([
     prisma.dunda_receipts.deleteMany({ where: { tab_id: { in: [tab.id, tab2.id, tab3.id] } } }),
     prisma.dunda_payments.deleteMany({ where: { tab_id: { in: [tab.id, tab2.id, tab3.id] } } }),

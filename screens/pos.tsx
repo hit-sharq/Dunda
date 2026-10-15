@@ -31,8 +31,8 @@ export function Pos() {
       queryKey: ["getBranchFloor", activeBranchId],
     },
   });
-  // Only genuinely free tables can be picked, so a double-booking is refused
-  // at the point of choice rather than after the fact.
+  
+  
   const freeTables = (floor.data?.sections ?? []).flatMap((section) =>
     section.tables.filter((t) => t.status === "AVAILABLE"),
   );
@@ -47,8 +47,8 @@ export function Pos() {
   const [notice, setNotice] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [barcode, setBarcode] = useState("");
   const [scanned, setScanned] = useState<string | null>(null);
-  // A payment the provider is taking. The till cannot
-  // close the tab itself — the provider's answer does.
+  
+  
   const [pendingPayment, setPendingPayment] = useState<{
     attemptId: string;
     redirectUrl: string;
@@ -92,7 +92,7 @@ export function Pos() {
     setNote("");
   }, [unitPicker?.id]);
 
-  // Barcode scanners behave like a keyboard: digits arrive fast and end in Enter.
+  
   const bufferRef = useRef("");
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -114,10 +114,10 @@ export function Pos() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [selectedTabId]);
 
-  // A completed barcode lookup adds the product straight to the open tab.
+  
   useEffect(() => {
     const found = barcodeLookup.data;
     if (!found || !scanned || !selectedTabId) return;
@@ -216,10 +216,10 @@ export function Pos() {
       },
       {
         onSuccess: (result) => {
-          // Money that moves through a provider is
-          // initiated, not taken: the guest pays on
-          // their own device, and the tab settles
-          // when the provider says so.
+          
+          
+          
+          
           if ("status" in result) {
             setPendingPayment({
               attemptId: result.attemptId,
@@ -240,9 +240,9 @@ export function Pos() {
     );
   }
 
-  // The poll answers what the callback may have missed:
-  // a resolved attempt settles the tab, a failed one
-  // puts the money back on the bill.
+  
+  
+  
   useEffect(() => {
     if (!pendingPayment || !attempt.data) return;
     if (attempt.data.status === "RESOLVED") {
@@ -654,12 +654,7 @@ export function Pos() {
   );
 }
 
-/**
- * What the stations still owe this table.
- *
- * A waiter who rings in a round sees immediately that the drinks are ready but
- * the food is still preparing, rather than having to ask.
- */
+
 function OutstandingTickets({ tabId }: { tabId: string }) {
   const tickets = useGetTicketsByTab(tabId, {
     query: { queryKey: ["getTicketsByTab", tabId] },

@@ -9,19 +9,14 @@ export class TenantViolation extends Error {
   }
 }
 
-/**
- * Every tenant-owned table carries organization_id. This narrows a query to the caller's
- * organization so a missing where clause cannot read another club's data.
- */
+
 export function scopeOrg<T extends object>(organizationId: string, where?: T) {
   return { organization_id: organizationId, ...where } as T & {
     organization_id: string;
   };
 }
 
-/**
- * Verifies a fetched row belongs to the organization before it is used or returned.
- */
+
 export function assertOwned(
   row: { organization_id: string } | null | undefined,
   organizationId: string,

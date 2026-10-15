@@ -5,13 +5,7 @@ import { route, requireSession } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Clears the whole bell in one press.
- *
- * Scoped exactly as the unread count is, so clearing the bell always brings the
- * badge to zero rather than leaving one behind when a club-wide notice is
- * involved.
- */
+
 export const POST = route(async () => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

@@ -4,13 +4,7 @@ import { route, Forbidden, NotProvisioned, resolveSession } from "@/lib/server/h
 
 export const dynamic = "force-dynamic";
 
-/**
- * Platform administrators, and every person using the platform underneath them.
- *
- * A platform administrator is named by their Clerk user id, never by an email
- * address or a claim inside a token, so revoking access means deleting a row
- * rather than trusting something the caller says about itself.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();
@@ -35,7 +29,7 @@ export const GET = route(async (request: Request) => {
       },
     }),
     prisma.dunda_staff.findMany({
-      // Asking for platform users alone would otherwise return every club user.
+      
       where: scope === "platform" ? { id: "__none__" } : {},
       orderBy: { name: "asc" },
       take: 500,
@@ -88,12 +82,7 @@ export const GET = route(async (request: Request) => {
   });
 });
 
-/**
- * Grants or revokes platform administrator access.
- *
- * The change is recorded in the platform audit log, because the person who loses
- * access is exactly the one who cannot later be asked about it.
- */
+
 export const POST = route(async (request: Request) => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();

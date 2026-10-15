@@ -5,12 +5,7 @@ import { startSession, currentRate } from "@/lib/server/pool";
 
 export const dynamic = "force-dynamic";
 
-/**
- * The pool area: every table, its state, and what the running game owes.
- *
- * The rate shown comes from the rule that applies now, read from the database. A
- * screen that hardcoded a price would quietly disagree with the receipt.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -65,8 +60,8 @@ export const GET = route(async (request: Request) => {
 
   const byTable = new Map(sessions.map((s) => [s.pool_table_id, s]));
 
-  // The rule in force right now is resolved per table, so a pool area with
-  // peak and off-peak pricing shows the right number on each row.
+  
+  
   const now = new Date();
   const resolved = await Promise.all(
     tables.map(async (table) => {
@@ -122,7 +117,7 @@ function accrued(
   return Math.round((Math.max(0, Math.floor(seconds / 60)) * session.hourly_rate) / 60);
 }
 
-/** Starts a game. Refused when the table is busy, reserved or has no rate. */
+
 export const POST = route(async (request: Request) => {
   const session = await requirePermission("manage_floor");
   const organizationId = session.organizationId as string;

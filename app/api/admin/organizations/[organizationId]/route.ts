@@ -5,13 +5,7 @@ import { getTenantSettings, featureFlags, MODULES } from "@/lib/server/settings"
 
 export const dynamic = "force-dynamic";
 
-/**
- * One club, as the platform owner sees it: its people, its branches, what it
- * pays, and which modules it has switched on.
- *
- * This is the support screen. It reads across the tenant boundary deliberately,
- * which is why it requires an operator rather than club membership.
- */
+
 export const GET = route(
   async (_request: Request, context: { params: Promise<{ organizationId: string }> }) => {
     const session = await resolveSession();
@@ -108,8 +102,8 @@ export const GET = route(
           }
         : null,
       settings,
-      // The full module list is returned, not just the ones with rows, so a
-      // module nobody has touched reads as ON rather than as missing.
+      
+      
       features: MODULES.map((module) => ({ module, enabled: flags[module] ?? true })),
       activity: activity.map((a) => ({
         id: a.id,

@@ -6,23 +6,8 @@ import { initiateBillingPayment } from "@/lib/server/payments";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Every club on the platform, with what it pays and how much it uses.
- *
- * Organization names, owners and branches are listed together so the platform
- * owner can see at a glance which clubs are active and which have gone quiet.
- */
-/**
- * Provisions a club.
- *
- * A club exists before anybody signs up for it: the venue and its first branch
- * are created here, and an owner is attached afterwards by transferring ownership.
- * Nothing inside a club can do this, which is why the venue count is the
- * platform owner's to decide rather than something a signup form creates.
- *
- * The trial starts at creation because a club that has just been set up has paid
- * nothing yet, and the console shows that as a trial until money arrives.
- */
+
+
 const createOrganizationSchema = z.object({
   name: z.string().min(1, "A club needs a name."),
   branchName: z.string().min(1).default("Main Branch"),
@@ -40,9 +25,9 @@ export const POST = route(async (request: Request) => {
 
   const input = await parseBody(createOrganizationSchema, request);
 
-  // The slug is the club's public handle and must be unique. Deriving it from the
-  // name and appending a counter keeps two clubs called "Singapore Club" apart
-  // rather than refusing the second.
+  
+  
+  
   const base =
     input.name
       .toLowerCase()
@@ -87,18 +72,18 @@ export const POST = route(async (request: Request) => {
       data: {
         organization_id: org.id,
         name: input.branchName,
-        // The column is not nullable, so a club provisioned without a city gets
-        // an empty string rather than a null the rest of the code would trip over.
+        
+        
         city: input.city || "",
         status: "ACTIVE",
-        // The branch carries the club's zone so "today's takings" means the local
-        // trading day rather than a UTC slice that cuts the evening in half.
+        
+        
         timezone: "Africa/Nairobi",
       },
     });
 
-    // Rates are stored on the club as well as the organization row, so a venue
-    // created without this step still trades at the right tax rate.
+    
+    
     await tx.dunda_organization_settings.create({
       data: {
         organization_id: org.id,
@@ -109,8 +94,8 @@ export const POST = route(async (request: Request) => {
       },
     });
 
-    // Modules are switched on explicitly rather than left absent, so the console
-    // shows the same list for a new club as for a long-standing one.
+    
+    
     for (const module of [
       "pos", "floor", "pool", "orders", "inventory", "products", "customers",
       "reservations", "events", "staff", "payments", "expenses", "reports",
@@ -151,12 +136,12 @@ export const POST = route(async (request: Request) => {
     },
   });
 
-  // A club's first bill goes out with the club
-  // itself: the owner pays from their own home
-  // screen rather than being chased afterwards.
-  // Without a provider configured the club is
-  // still provisioned — the operator collects
-  // by hand from the console.
+  
+  
+  
+  
+  
+  
   let payment: {
     billingPaymentId: string;
     orderTrackingId: string;
@@ -170,7 +155,6 @@ export const POST = route(async (request: Request) => {
       organizationId: organization.org.id,
       subscriptionId: organization.subscription.id,
       kind: "SUBSCRIPTION_FIRST",
-      autoRenew: true,
     })
       .then((initiation) => ({
         billingPaymentId: initiation.billingPaymentId,
@@ -258,9 +242,9 @@ export const GET = route(async () => {
 
   const planById = new Map(plans.map((p) => [p.id, p]));
 
-  // Per-club trading over the window, counted from the clubs' own payments. This
-  // is their revenue — it is what tells an operator whether a club is actually
-  // using what it pays for.
+  
+  
+  
   const windowStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const orgIds = organizations.map((o) => o.id);
   const [revenueByOrg, ordersByOrg, tableCounts, lastPaid] = await Promise.all([
@@ -300,8 +284,8 @@ export const GET = route(async () => {
   const memberCount = new Map(members.map((m) => [m.organization_id, m._count._all]));
   const subByOrg = new Map<string, (typeof subscriptions)[number]>();
   for (const sub of subscriptions) {
-    // One live subscription per club. If a club somehow has several, the most
-    // recent is the one that describes its current plan.
+    
+    
     const existing = subByOrg.get(sub.organization_id);
     if (!existing || new Date(sub.created_at) > new Date(existing.created_at)) {
       subByOrg.set(sub.organization_id, sub);

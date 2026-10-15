@@ -5,13 +5,7 @@ import { updateOrderStatusSchema } from "@/lib/server/schemas";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Moves an order along. Completing it draws stock; cancelling one after it was
- * served puts it back.
- *
- * The two money-touching transitions are gated: a waiter may serve and complete
- * their own order, but voiding is a manager's action because it hands money back.
- */
+
 export const PATCH = route(
   async (request: Request, context: { params: Promise<{ orderId: string }> }) => {
     const { orderId } = await context.params;

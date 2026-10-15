@@ -6,13 +6,7 @@ import { moneyRule, wrongState } from "@/lib/errors.server";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Shifts, with the cash variance each one ended on.
- *
- * Expected cash is the float plus the cash taken during the shift. The variance is
- * reported rather than corrected: a till that does not balance is a fact the
- * manager needs to see, not something to quietly write off.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -82,7 +76,7 @@ export const GET = route(async (request: Request) => {
   return NextResponse.json(results);
 });
 
-/** Clock in, with the float the person is starting the till with. */
+
 export const POST = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -107,8 +101,8 @@ export const POST = route(async (request: Request) => {
     );
   }
 
-  // Two open shifts for one person means the till is counted twice. Refused rather
-  // than closed silently, because only the person holding it knows which is real.
+  
+  
   const already = await prisma.dunda_staff_shifts.findFirst({
     where: { staff_id: member.id, clock_out_at: null, status: "OPEN" },
   });

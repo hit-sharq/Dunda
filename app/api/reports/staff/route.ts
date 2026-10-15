@@ -4,7 +4,7 @@ import { getStaffReport } from "@/lib/server/reports";
 
 export const dynamic = "force-dynamic";
 
-/** Completed orders attributed to the staff member who served them. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

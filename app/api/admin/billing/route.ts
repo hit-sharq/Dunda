@@ -9,13 +9,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/**
- * Dunda's own billing: what clubs pay for the software.
- *
- * This is a different obligation from a club's customer payments, which live in
- * dunda_payments. A club paying Dunda and a guest paying for drinks never appear
- * in the same total, and neither figure is derived from the other.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();
@@ -93,8 +87,8 @@ export const GET = route(async (request: Request) => {
   }
 
   return NextResponse.json({
-    // Money actually received. Not MRR, and not the clubs' own takings — this is
-    // what Dunda has been paid.
+    
+    
     collected: [...totals.values()].reduce((sum, value) => sum + value, 0),
     payments: payments.map((p) => ({
       id: p.id,
@@ -107,8 +101,8 @@ export const GET = route(async (request: Request) => {
       paidAt: p.paid_at?.toISOString() ?? null,
       createdAt: p.created_at.toISOString(),
     })),
-    // Only the payments that did not go through, kept separate so the console can
-    // chase them without the operator having to pick them out of the full list.
+    
+    
     failed: payments
       .filter((p) => p.status === "FAILED")
       .map((p) => ({
@@ -135,16 +129,7 @@ export const GET = route(async (request: Request) => {
   });
 });
 
-/**
- * Collects what a club owes, through Pesapal.
- *
- * The operator sends the club the link that comes back;
- * the club's owner pays it, and the callback completes
- * the billing payment and renews the subscription. The
- * amount is the subscription's own, so the console
- * cannot ask a club for a different figure than the
- * one it agreed to.
- */
+
 export const POST = route(async (request: Request) => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();
@@ -154,16 +139,16 @@ export const POST = route(async (request: Request) => {
     organizationId?: string;
     subscriptionId?: string;
     kind?: string;
-    /** Offer the club an automatic renewal mandate. */
+    
     autoRenew?: boolean;
-    /** Start a payment for every renewal coming due. */
+    
     sweep?: boolean;
   };
 
-  // The sweep is the same work the schedule
-  // does, offered to the console so a
-  // renewal can be chased without waiting
-  // for the next run.
+  
+  
+  
+  
   if (body.sweep) {
     const result = await runRenewalSweep();
     return NextResponse.json(result);
@@ -176,9 +161,9 @@ export const POST = route(async (request: Request) => {
     );
   }
 
-  // The club's newest subscription is the one that
-  // renews; an explicit id collects against a specific
-  // one instead.
+  
+  
+  
   const subscription = body.subscriptionId
     ? await prisma.dunda_subscriptions.findFirst({
         where: {
@@ -204,16 +189,12 @@ export const POST = route(async (request: Request) => {
       organizationId: body.organizationId,
       subscriptionId: subscription.id,
       kind: body.kind,
-      // Collecting is offered as an automatic
-      // renewal by default: that is the point
-      // of a subscription.
-      autoRenew: body.autoRenew ?? true,
     });
   } catch (error) {
-    // A payment already open is the answer to
-    // "collect", not an error: the club's own
-    // screen shows it, and a second order would
-    // ask for the same money twice.
+    
+    
+    
+    
     const open = await getOpenBillingPayment(body.organizationId);
     if (open) {
       return NextResponse.json({

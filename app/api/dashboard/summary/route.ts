@@ -6,13 +6,7 @@ import { splitByCategory } from "@/lib/server/money";
 
 export const dynamic = "force-dynamic";
 
-/**
- * The club's live command centre.
- *
- * Every figure is derived from transactions rather than carried on a counter, so
- * the dashboard cannot drift away from the orders it claims to summarise. Revenue
- * is split into bar, food and pool, but the guest only ever sees one bill.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -20,8 +14,8 @@ export const GET = route(async (request: Request) => {
   const url = new URL(request.url);
   const branchId = url.searchParams.get("branchId") ?? session.branchId;
 
-  // "Today" is the club's day, not UTC's. A venue in Nairobi closing at 4am would
-  // otherwise see its morning trade filed under the previous evening.
+  
+  
   const timezone = await branchTimezone(organizationId, branchId);
   const { start, end } = dayBounds(timezone);
 
@@ -104,8 +98,8 @@ export const GET = route(async (request: Request) => {
   const poolRevenue = poolSessions.reduce((sum, s) => sum + s.charge, 0);
   const tabRevenue = await tabRevenueFor(scope, start, end);
 
-  // Split what came in by where it came from. Pool is separated out because it is
-  // billed on time, not on items; the rest follows the item categories.
+  
+  
   const split = splitByCategory(
     (await tabLinesFor(scope, start, end)).map((line) => ({
       category: line.category,
@@ -173,7 +167,7 @@ async function tabRevenueFor(
     where: { ...scope, opened_at: { gte: start, lt: end } },
     select: { total: true, status: true },
   });
-  // Only settled tabs count as revenue. An open tab is money owed, not money in.
+  
   return tabs
     .filter((t) => t.status === "CLOSED" || t.status === "SETTLED")
     .reduce((sum, t) => sum + t.total, 0);
@@ -252,12 +246,7 @@ async function branchName(branchId: string) {
   return branch?.name ?? null;
 }
 
-/**
- * The club's day, in the club's own timezone.
- *
- * Computed by formatting now in that zone and reading the date back, because
- * building a UTC timestamp from "00:00 local" is wrong by the zone's offset.
- */
+
 function dayBounds(timezone: string): { start: Date; end: Date } {
   const now = new Date();
   const ymd = new Intl.DateTimeFormat("en-CA", {

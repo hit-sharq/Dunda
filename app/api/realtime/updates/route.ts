@@ -4,15 +4,7 @@ import { route, requireSession, requirePermission } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Feeds the operational screens that must update without a refresh: the floor,
- * the pool area, the bar display and the dashboard.
- *
- * A long poll rather than a socket. The till and the kitchen are on tablets that
- * sleep, and a poll that reconnects on its own survives that where a dropped
- * websocket quietly stops delivering. `updatedAfter` lets a screen ask for only
- * what it has not seen.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requirePermission("view_pos");
   const organizationId = session.organizationId as string;
@@ -22,8 +14,8 @@ export const GET = route(async (request: Request) => {
   const branchId = url.searchParams.get("branchId") ?? session.branchId;
   const since = sinceParam ? new Date(sinceParam) : null;
 
-  // A client that passes a timestamp from the future — a clock drift, or a
-  // corrupted value — would sit waiting for changes that have already happened.
+  
+  
   const after = since && !Number.isNaN(since.getTime()) && since.getTime() <= Date.now()
     ? since
     : new Date(Date.now() - 5000);
@@ -36,9 +28,9 @@ export const GET = route(async (request: Request) => {
       select: { id: true, number: true, status: true, updated_at: true },
       take: 50,
     }),
-    // Tabs carry no updated_at, so a change is detected by re-reading the ones
-    // that are open or unsettled. That is also exactly the set a floor screen
-    // cares about, so nothing is missed by not tracking the rest.
+    
+    
+    
     prisma.dunda_tabs.findMany({
       where: {
         organization_id: organizationId,
@@ -53,8 +45,8 @@ export const GET = route(async (request: Request) => {
       select: { id: true, amount: true, method: true, paid_at: true },
       take: 50,
     }),
-    // Live sessions always come back because their charge is still accruing;
-    // finished ones only when they finished since the client last looked.
+    
+    
     prisma.dunda_pool_sessions.findMany({
       where: {
         ...scope,
@@ -86,9 +78,9 @@ export const GET = route(async (request: Request) => {
     }),
   ]);
 
-  // The newest change is when the client should poll from next. Sent as a value
-  // rather than "now", because a change that lands during this request would
-  // otherwise be skipped.
+  
+  
+  
   const stamps = [
     ...orders.map((o) => o.updated_at.getTime()),
     ...payments.map((p) => p.paid_at.getTime()),
@@ -98,8 +90,8 @@ export const GET = route(async (request: Request) => {
 
   return NextResponse.json({
     watermark: watermark.toISOString(),
-    // The pool charge runs continuously, so the elapsed time is computed here
-    // rather than left for each screen to work out for itself.
+    
+    
     serverTime: new Date().toISOString(),
     orders: orders.map((o) => ({
       id: o.id,

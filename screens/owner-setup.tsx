@@ -33,6 +33,7 @@ export function OwnerSetup({ token, signInMode = false }: { token: string; signI
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [details, setDetails] = useState<SetupDetails | null>(null);
   const [form, setForm] = useState(initialForm);
+  const [autoRenew, setAutoRenew] = useState(false);
   const [result, setResult] = useState<SetupResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -76,6 +77,7 @@ export function OwnerSetup({ token, signInMode = false }: { token: string; signI
           currency: form.currency,
           taxRate: Number(form.taxRate),
           serviceChargeRate: Number(form.serviceChargeRate),
+          autoRenew,
         }),
       });
       const body = await response.json();
@@ -175,6 +177,10 @@ export function OwnerSetup({ token, signInMode = false }: { token: string; signI
         <p className="text-sm font-semibold">{details?.plan.name} plan</p>
         <p className="mt-1 text-sm text-[var(--app-muted)]">{details?.plan.currency} {details?.plan.monthlyPrice.toLocaleString()} per month after the 14-day trial.</p>
       </div>
+      <label className="flex items-start gap-3 rounded-xl border border-[var(--app-line)] p-4 text-sm">
+        <input type="checkbox" checked={autoRenew} onChange={(event) => setAutoRenew(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[hsl(var(--app-gold))]" data-testid="checkbox-owner-auto-renew" />
+        <span><span className="block font-semibold">Offer automatic renewal</span><span className="mt-1 block text-xs font-normal text-[var(--app-muted)]">Pesapal will ask you to accept the recurring card mandate during checkout. Dunda only marks it active after Pesapal confirms it.</span></span>
+      </label>
       {error && <p role="alert" className="rounded-xl border border-[hsl(var(--app-critical-soft))] bg-[hsl(var(--app-critical-soft))] p-3 text-sm text-[hsl(var(--app-critical))]">{error}</p>}
       <Button type="submit" disabled={submitting} data-testid="button-create-owner-club">{submitting ? "Setting up your club…" : "Create club and continue"}</Button>
     </form>

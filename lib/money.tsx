@@ -1,15 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useGetMe } from "@/lib/api-client-react/src";
 
-/**
- * Money formatting follows the organization's configured currency.
- *
- * These used to be pinned to en-KE / KES in three separate formatters, so every
- * tenant saw Kenyan shillings regardless of how their organization was set up.
- * The provider resolves the real values from /me and publishes them to a
- * module-level formatter, so every existing call site keeps working without
- * threading a hook through every page.
- */
+
 let activeLocale = "en-KE";
 let activeCurrency = "KES";
 
@@ -22,7 +14,7 @@ export function activeCurrencyCode(): string {
   return activeCurrency;
 }
 
-/** Formats an amount in the organization's currency. */
+
 export function money(value = 0): string {
   try {
     return new Intl.NumberFormat(activeLocale, {

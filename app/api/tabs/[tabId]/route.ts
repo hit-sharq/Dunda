@@ -18,7 +18,7 @@ import { notFound, wrongState, ApiError } from "@/lib/errors.server";
 
 export const dynamic = "force-dynamic";
 
-/** One tab in full: its items, its running totals and everything paid on it. */
+
 export const GET = route(
   async (_request: Request, context: { params: Promise<{ tabId: string }> }) => {
     const session = await requireSession();
@@ -85,7 +85,7 @@ export const GET = route(
   },
 );
 
-/** Adds a line, applies a discount, or closes the tab. */
+
 export const POST = route(
   async (request: Request, context: { params: Promise<{ tabId: string }> }) => {
     const session = await requireSession();
@@ -126,9 +126,9 @@ export const POST = route(
         );
       }
 
-      // A discount beyond the threshold is a manager's call. Checking it here
-      // rather than in the service means the rule sits with the permission that
-      // grants it, and the refusal names what is missing.
+      
+      
+      
       const current = await prisma.dunda_tabs.findFirst({
         where: orgWhere(organizationId, { id: tabId }),
         select: { subtotal: true },
@@ -154,7 +154,7 @@ export const POST = route(
       const parsed = closeTabSchema.safeParse(body);
       const allowOutstanding = parsed.success ? parsed.data.allowOutstanding : false;
 
-      // Leaving a bill unsettled is the one thing a cashier cannot do alone.
+      
       if (allowOutstanding && !session.permissions.has("manage_payments")) {
         throw new ApiError(
           403,

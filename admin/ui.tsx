@@ -137,14 +137,7 @@ export const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-/**
- * Shared text and table styles.
- *
- * These existed as inline literals in each screen, which meant a label in one
- * table was a slightly different grey from the label in the next and nobody could
- * tell whether that was deliberate. Named once here so the console reads as one
- * thing.
- */
+
 export const labelStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,

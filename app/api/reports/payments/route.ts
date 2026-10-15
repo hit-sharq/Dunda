@@ -4,7 +4,7 @@ import { getPaymentReport } from "@/lib/server/reports";
 
 export const dynamic = "force-dynamic";
 
-/** Money taken, money returned, and the mix of ways it arrived. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

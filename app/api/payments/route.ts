@@ -5,13 +5,7 @@ import { refundClubPayment } from "@/lib/server/payments";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Club customer payments: every payment taken at the till.
- *
- * Kept entirely separate from Dunda's own subscription billing, which lives in
- * dunda_billing_payments. A club paying for software and a guest paying for
- * drinks are different obligations and must never be summed together.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -62,13 +56,7 @@ export const GET = route(async (request: Request) => {
   });
 });
 
-/**
- * Refunds a payment, by writing the reversal rather than deleting the original.
- *
- * The original payment stays exactly as it was taken, so the till's takings for
- * the night still reconcile. The refund needs a manager, and it cannot exceed the
- * payment it is reversing.
- */
+
 export const POST = route(async (request: Request) => {
   const session = await requirePermission("refund_payment");
   const organizationId = session.organizationId as string;

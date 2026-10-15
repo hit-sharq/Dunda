@@ -5,7 +5,7 @@ import { route, requireSession } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
-/** The catalog, searchable and filterable by category, for the till and the back office. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -15,8 +15,8 @@ export const GET = route(async (request: Request) => {
   const categoryId = url.searchParams.get("categoryId");
   const activeOnly = url.searchParams.get("active") !== "false";
 
-  // Assembled rather than spread so the search clause keeps Prisma's own type
-  // instead of widening into an unassignable object.
+  
+  
   const where: Prisma.dunda_productsWhereInput = {
     organization_id: organizationId,
     ...(categoryId ? { category_id: categoryId } : {}),

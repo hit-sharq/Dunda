@@ -1,20 +1,7 @@
-/**
- * End-to-end check of the operational flow against the live database.
- *
- * Walks the path the product is built around — customer arrives, table opens,
- * drinks and food ordered, pool started and ended, one bill settled — using the
- * same services the API routes call. Then it asserts the money moved, the stock
- * moved, and that the rules refused the things they are meant to refuse.
- *
- * Run with: npm run verify:flow
- */
+
 import { PrismaClient } from "@prisma/client";
 
-/**
- * Idempotency keys are unique per run: the key identifies one request, and reusing
- * a key from an earlier run would be a genuine replay that the server correctly
- * short-circuits, which is not what this check is testing.
- */
+
 const RUN = `flow-${Date.now()}`;
 import { openTab, addTabItem, checkoutTab, closeTab, createOrder, updateOrderStatus } from "../lib/server/tabs";
 import { startSession, endSession, pauseSession, resumeSession } from "../lib/server/pool";
@@ -52,7 +39,7 @@ async function main() {
   const food = products.find((p) => p.name === "Chips")!;
   const cocktail = products.find((p) => p.name === "Old Fashioned")!;
 
-  // ---------------------------------------------------------------- the flow
+  
   console.log("Customer arrives, table opens, drinks and food ordered");
 
   const tab = await openTab({
@@ -97,12 +84,12 @@ async function main() {
     current.subtotal - current.discount + current.service_charge + current.tax === current.total,
   );
 
-  // -------------------------------------------------------------- pool joins
+  
   console.log("\nPool session starts, pauses, resumes, and joins the same bill");
 
-  // A table is chosen by what the database says about it, not by the status
-  // column alone: a session left running makes a table unavailable whatever the
-  // column says.
+  
+  
+  
   const busy = await prisma.dunda_pool_sessions.findFirst({
     where: { organization_id: ORG, status: { in: ["ACTIVE", "PAUSED"] } },
     include: { dunda_pool_tables: { select: { name: true } } },
@@ -136,7 +123,7 @@ async function main() {
     tabId: tab.id,
     customerId: customer.id,
     staffId: staff.id,
-    // Two hours ago, so the bill has a duration worth checking.
+    
     at: new Date(Date.now() - 2 * 60 * 60 * 1000),
   });
   check("session started", session.status === "ACTIVE", { rate: session.hourly_rate });
@@ -173,7 +160,7 @@ async function main() {
   });
   check("pool table freed when the game ended", poolTableAfter.status === "AVAILABLE");
 
-  // ------------------------------------------------------------- one bill paid
+  
   console.log("\nOne bill settled across two payment methods");
 
   const half = Math.floor(current.total / 2);
@@ -211,8 +198,8 @@ async function main() {
   check("tab closed once square", second.tabClosed === true);
   check("a receipt was issued", Boolean(second.receipt.number), second.receipt.number);
 
-  // The same request sent twice, as a till that timed out and was pressed again
-  // would do. The key has to bring back the same answer, not take money again.
+  
+  
   const replay = await checkoutTab({
     organizationId: ORG,
     tabId: tab.id,
@@ -238,7 +225,7 @@ async function main() {
     { paid: paidTotal._sum.amount, bill: current.total },
   );
 
-  // ------------------------------------------------- inventory follows the sale
+  
   console.log("\nCompleting an order draws stock; voiding gives it back");
 
   const stockBefore = Number(beer.stock);
@@ -261,8 +248,8 @@ async function main() {
     now: Number(untouched.stock),
   });
 
-  // The order walks the same lifecycle the bar and kitchen do: accepted,
-  // prepared, plated, served. Completing it is what draws the stock.
+  
+  
   for (const stage of ["ACCEPTED", "PREPARING", "READY", "SERVED"] as const) {
     await updateOrderStatus(ORG, order.order.id, stage, staff.id);
   }
@@ -278,7 +265,7 @@ async function main() {
   });
   check("the sale left a stock movement behind", saleMovements === 1);
 
-  // A second completion must be refused: the lifecycle does not allow it.
+  
   const replaySale = await updateOrderStatus(ORG, order.order.id, "COMPLETED", staff.id)
     .then(() => "accepted")
     .catch((error: Error) => error.message);
@@ -286,9 +273,9 @@ async function main() {
     message: replaySale === "accepted" ? undefined : replaySale.slice(0, 90),
   });
 
-  // A completed order is settled; reversing it is a manager void, exercised
-  // through the inventory service directly rather than by pretending the order
-  // lifecycle allows it.
+  
+  
+  
   const voidOrder = await updateOrderStatus(ORG, order.order.id, "CANCELLED", staff.id)
     .then(() => "accepted")
     .catch((error: Error) => error.message);
@@ -319,11 +306,11 @@ async function main() {
   });
   check("the reversal left its own movement rather than editing a quantity", voidMovement === 1);
 
-  // ------------------------------------------------------------- refusals hold
+  
   console.log("\nRules refuse what they should");
 
-  // A table created with no rate rules at all: the situation a club gets when it
-  // has not finished pricing its floor. It must refuse rather than charge nothing.
+  
+  
   const unratedTable = await prisma.dunda_pool_tables.create({
     data: {
       organization_id: ORG,
@@ -357,7 +344,7 @@ async function main() {
   }).then(() => "accepted").catch(() => "refused");
   check("another club cannot add to this club's tab", foreignProduct === "refused");
 
-  // ------------------------------------------------------------------ the log
+  
   console.log("\nEverything sensitive was written to the audit log");
 
   const audit = await prisma.dunda_audit_logs.findMany({
@@ -378,9 +365,9 @@ async function main() {
     { new: poolAudit?.new_value, previous: poolAudit?.previous_value },
   );
 
-  // ------------------------------------------------------------------- tidy up
-  // Children first, or the foreign keys refuse. The audit log is left alone: it
-  // records what this run actually did, and deleting it would defeat the point.
+  
+  
+  
   await prisma.$transaction([
     prisma.dunda_receipts.deleteMany({ where: { tab_id: tab.id } }),
     prisma.dunda_payments.deleteMany({ where: { tab_id: tab.id } }),

@@ -4,7 +4,7 @@ import { route, requireSession, orgWhere, assertSameOrg } from "@/lib/server/htt
 
 export const dynamic = "force-dynamic";
 
-/** Guest history: who they are, what they have on tabs, when they are due back. */
+
 export const GET = route(
   async (_request: Request, context: { params: Promise<{ customerId: string }> }) => {
     const session = await requireSession();

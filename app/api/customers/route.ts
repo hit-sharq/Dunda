@@ -6,20 +6,15 @@ import { createCustomerSchema } from "@/lib/server/schemas";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Guests Dunda knows by name, with how often they come and what they spend.
- *
- * The totals are maintained from payments rather than edited, so a guest's history
- * cannot be lost by somebody updating a profile.
- */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
   const url = new URL(request.url);
   const search = url.searchParams.get("search")?.trim();
 
-  // Assembled with Prisma's own type rather than spread, so the search clause
-  // keeps its string-filter shape instead of widening to something unusable.
+  
+  
   const where: Prisma.dunda_customersWhereInput = { organization_id: organizationId };
   if (search) {
     where.OR = [

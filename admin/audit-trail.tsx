@@ -3,14 +3,7 @@ import { useGetAdminAuditLogs, useGetAdminOrganizations } from "@/lib/api-client
 import { Card, State } from "./ui";
 import { colors, dateOnly } from "./theme";
 
-/**
- * The trail, across every client.
- *
- * Reading a client's activity is the main reason an operator needs this: when a
- * club says a refund went missing, the answer is here rather than in a
- * conversation. Support is read-only, so this shows what happened and never
- * changes anything.
- */
+
 export function AuditTrail() {
   const orgs = useGetAdminOrganizations();
   const [organizationId, setOrganizationId] = useState("");

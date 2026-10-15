@@ -4,14 +4,7 @@ import { Button, PageIntro, timeAgo } from "../components/ui";
 import { QueryNotice } from "../components/query-notice";
 import { Link } from "wouter";
 
-/**
- * One board per preparation station.
- *
- * A table ordering both drinks and food gets a bar ticket and a kitchen ticket
- * under the same order. They share the bill but move independently, so this
- * board only ever shows the lines the bar is responsible for, and serving a
- * round does not clear the food from the pass.
- */
+
 const LANES = [
   { key: "PENDING", label: "New", color: "bg-[hsl(var(--app-success))]" },
   { key: "ACCEPTED", label: "Accepted", color: "bg-[hsl(var(--app-info))]" },

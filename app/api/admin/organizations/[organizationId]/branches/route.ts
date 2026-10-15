@@ -21,13 +21,7 @@ const addBranchSchema = z.object({
   timezone: z.string().min(1).optional(),
 });
 
-/**
- * Opens a branch on a club, on the platform owner's behalf.
- *
- * The club's plan limit still applies: an operator who needs
- * more branches for a club changes the plan first, because
- * the limit is what the club pays for.
- */
+
 export const POST = route(
   async (
     request: Request,

@@ -6,7 +6,7 @@ import { createStaffSchema, createShiftSchema, clockOutSchema } from "@/lib/serv
 
 export const dynamic = "force-dynamic";
 
-/** The staff roster with each person's role and branch. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -49,13 +49,7 @@ export const GET = route(async (request: Request) => {
   );
 });
 
-/**
- * Adds somebody to the roster.
- *
- * A staff row with no role grants nothing, so the role is required rather than
- * defaulted: an account created without one would appear on the roster and be
- * unable to do anything, which is worse than not being created.
- */
+
 export const POST = route(async (request: Request) => {
   const session = await requirePermission("manage_staff");
   const organizationId = session.organizationId as string;
@@ -81,8 +75,8 @@ export const POST = route(async (request: Request) => {
     );
   }
 
-  // An owner role cannot be handed out by a club: ownership is transferred, not
-  // granted, so that the owner of a club is always someone who accepted it.
+  
+  
   if (role.is_owner) {
     return NextResponse.json(
       { error: "The owner role is transferred, not assigned.", code: "VALIDATION_FAILED" },
@@ -90,9 +84,9 @@ export const POST = route(async (request: Request) => {
     );
   }
 
-  // The plan's user limit is a commercial boundary, so it is
-  // checked against the live roster rather than a stored
-  // counter, and the refusal says what to do about it.
+  
+  
+  
   const subscription = await prisma.dunda_subscriptions.findFirst({
     where: { organization_id: organizationId },
     orderBy: { created_at: "desc" },
@@ -152,14 +146,14 @@ export const POST = route(async (request: Request) => {
     return created;
   });
 
-  // Clerk sends the invitation, so the club is not running its own mail and does
-  // not need its own bounce handling, token store or resend logic. The staff row
-  // is already written, so when the person accepts and signs up, their claim
-  // matches this address and their role's tabs appear immediately.
-  //
-  // A failure here is reported but does not undo the row: the person is on the
-  // roster either way, and a manager can resend. Losing the invite while losing
-  // the person is the worse of the two failures.
+  
+  
+  
+  
+  
+  
+  
+  
   let invitation: { sent: boolean; reason?: string; url?: string } = { sent: false };
 
   if (!parsed.data.email) {
@@ -169,17 +163,17 @@ export const POST = route(async (request: Request) => {
       const clerk = await clerkClient();
       const created = await clerk.invitations.createInvitation({
         emailAddress: parsed.data.email,
-        // A week is long enough for somebody on a night shift to see it, and short
-        // enough that an old invite in a forwarded message is not a live key.
+        
+        
         expiresInDays: 7,
-        // They land on the app, signed in, with their tabs already correct.
+        
         redirectUrl: new URL('/', request.url).toString(),
       });
       invitation = { sent: true, url: created.url };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'The invitation could not be sent.';
-      // Clerk refuses to invite an address that already has an account or a pending
-      // invitation. That is information the manager needs, not a crash.
+      
+      
       const alreadyKnown = /already|exists|invited/i.test(message);
       invitation = {
         sent: false,

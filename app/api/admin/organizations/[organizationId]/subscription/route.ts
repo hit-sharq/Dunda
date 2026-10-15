@@ -6,13 +6,7 @@ import { initiateBillingPayment } from "@/lib/server/payments";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Sets what a club pays.
- *
- * The price lives on the subscription rather than being copied from the plan, so
- * a plan's price can move without rewriting every club that once sat on it — and a
- * club negotiated onto a bespoke figure keeps it when the catalogue changes.
- */
+
 const setSubscriptionSchema = z.object({
   planId: z.string().nullable().optional(),
   monthlyPrice: z.number().int().min(0).nullable().optional(),
@@ -64,8 +58,8 @@ export const POST = route(
       );
     }
 
-    // A plan's price is the default; an explicit price on the subscription is a
-    // figure this club agreed, so it wins.
+    
+    
     let amount = input.monthlyPrice ?? null;
     let planCode: string | null = null;
     let branchLimit: number | undefined;
@@ -103,8 +97,8 @@ export const POST = route(
     if (input.billingCycle) data.billing_cycle = input.billingCycle;
     if (input.status) {
       data.status = input.status;
-      // Cancelling is dated, so the console can show when it happened. Uncancelling
-      // clears it, because leaving a cancellation date on an active club is a lie.
+      
+      
       data.cancelled_at = input.status === "CANCELLED" ? new Date() : null;
     }
     if (amount !== null) data.amount = amount;
@@ -113,10 +107,10 @@ export const POST = route(
     if (input.renewsAt !== undefined) {
       data.renews_at = input.renewsAt ? new Date(input.renewsAt) : null;
     }
-    // Automatic renewal is the club's
-    // choice to make, so the console can
-    // turn a mandate offer off — and back
-    // on — without touching anything else.
+    
+    
+    
+    
     if (input.autoRenew !== undefined) {
       data.auto_renew = input.autoRenew;
     }
@@ -139,9 +133,9 @@ export const POST = route(
           },
         });
 
-    // Usage is counted from the club's real rows rather than accepted from the
-    // caller, so the console cannot be made to show a club within its limits when
-    // it has more branches than the plan allows.
+    
+    
+    
     const [branches, users] = await Promise.all([
       prisma.dunda_branches.count({ where: { organization_id: organizationId } }),
       prisma.dunda_staff.count({
@@ -178,12 +172,12 @@ export const POST = route(
       },
     });
 
-    // A club's first bill goes out with its first
-    // plan: the owner pays before the software is
-    // theirs to run, rather than being chased
-    // afterwards. A deployment without a provider
-    // still provisions the club — the operator
-    // collects by hand from the console instead.
+    
+    
+    
+    
+    
+    
     let payment: {
       billingPaymentId: string;
       orderTrackingId: string;
@@ -196,9 +190,6 @@ export const POST = route(
         organizationId,
         subscriptionId: subscription.id,
         kind: "SUBSCRIPTION_FIRST",
-        // The mandate is offered unless the
-        // operator explicitly turned it off.
-        autoRenew: input.autoRenew ?? true,
       })
         .then((initiation) => ({
           billingPaymentId: initiation.billingPaymentId,
@@ -237,9 +228,9 @@ export const POST = route(
         users,
         userLimit: subscription.user_limit,
       },
-      // The link the club's owner pays on, so the
-      // console can send it and the club's own
-      // screen can offer it.
+      
+      
+      
       payment,
       statuses: STATUSES,
     });

@@ -16,6 +16,7 @@ const finishSetupSchema = z.object({
   currency: z.string().trim().length(3).transform((value) => value.toUpperCase()).default("KES"),
   taxRate: z.number().int().min(0).max(100).default(16),
   serviceChargeRate: z.number().int().min(0).max(100).default(10),
+  autoRenew: z.boolean().default(false),
 });
 
 function tokenHash(token: string) {
@@ -296,7 +297,7 @@ export const POST = route(async (request: Request, context: { params: Promise<{ 
       organizationId: created.organization.id,
       subscriptionId: created.subscription.id,
       kind: "SUBSCRIPTION_FIRST",
-      autoRenew: true,
+      autoRenew: body.autoRenew,
     })
       .then(({ redirectUrl, amount, currency }) => ({ redirectUrl, amount, currency }))
       .catch((error: unknown) => {

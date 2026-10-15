@@ -5,16 +5,7 @@ import { confirmClubPayment } from "@/lib/server/payments";
 
 export const dynamic = "force-dynamic";
 
-/**
- * The state of one provider payment, for a till waiting on a
- * guest to finish paying on their phone.
- *
- * The webhook is what settles a payment, but a notification can
- * be lost, so a poll for an attempt that has been waiting is
- * also a chance to ask the provider directly. The confirmation
- * is idempotent, so a poll that races the webhook changes
- * nothing.
- */
+
 export const GET = route(
   async (request: Request, context: { params: Promise<{ attemptId: string }> }) => {
     const session = await requireSession();
@@ -44,10 +35,10 @@ export const GET = route(
       );
     }
 
-    // An attempt that has been waiting half a minute is asked
-    // about directly. Thirty seconds is long enough that the
-    // webhook has had its chance, and short enough that a
-    // guest mid-payment is not disturbed by the question.
+    
+    
+    
+    
     const waiting =
       attempt.status === "INITIATED" &&
       Date.now() - attempt.requested_at.getTime() > 30_000;
@@ -55,9 +46,9 @@ export const GET = route(
       try {
         await confirmClubPayment(attemptId);
       } catch {
-        // The provider is unreachable, which the poll
-        // reports as the attempt it already knows about
-        // rather than as an error the till cannot act on.
+        
+        
+        
       }
       const refreshed = await prisma.dunda_payment_attempts.findUniqueOrThrow({
         where: { id: attemptId },

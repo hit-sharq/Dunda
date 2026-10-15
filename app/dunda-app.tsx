@@ -24,6 +24,7 @@ import {
 } from '@/lib/api-client-react/src';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch, NotificationBell } from '@/components/chrome';
+import { PesapalMerchantSettings } from '@/components/pesapal-merchant-settings';
 import { useLiveRefresh } from '@/hooks/use-live-refresh';
 import { usePaymentAttempt } from '@/hooks/use-payment-attempt';
 import {
@@ -123,11 +124,11 @@ const nav: Array<{
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
-  /** The permission that opens this screen, if it needs one. */
+  
   permission?: string;
-  /** Never rendered unless /me says the caller may. */
+  
   operatorOnly?: boolean;
-  /** Which part of the job this screen serves. Drives the grouped navigation. */
+  
   group?: 'Tonight' | 'Selling' | 'Running the club' | 'Numbers' | 'Platform';
 }> = [
   { href: '/overview', label: 'Overview', icon: LayoutDashboard, group: 'Tonight' },
@@ -151,7 +152,7 @@ const nav: Array<{
     label: 'Operator',
     icon: Store,
     group: 'Platform',
-    /** Shown only when /me says so, so it is never present in a club user's page. */
+    
     operatorOnly: true,
   },
 ] as const;
@@ -180,15 +181,7 @@ function Staff() {
   </div>;
 }
 
-/**
- * Adding a guest by hand.
- *
- * The customers list has an "Add customer" button that pointed at this route
- * before it existed, so it 404'd. Guests normally arrive through a reservation
- * or the till, which is why this was never needed — but a bouncer taking a
- * name at the door has nowhere else to put it, and a name they typed has to go
- * somewhere.
- */
+
 function NewCustomer() {
   const me = useGetMe();
   const create = useCreateCustomer();
@@ -315,17 +308,107 @@ function Customers() {
 
 function Events() {
   const events = useGetEvents();
+  const branches = useGetBranches();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [saleEvent, setSaleEvent] = useState<Event | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [selling, setSelling] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [createForm, setCreateForm] = useState({ name: "", branchId: "", startsAt: "", endsAt: "", capacity: "", ticketPrice: "0", description: "" });
+  const [saleForm, setSaleForm] = useState({ guestName: "", phone: "", email: "", quantity: "1", method: "MPESA" as "CASH" | "MPESA" | "CARD" | "BANK_TRANSFER" });
+  const rows = (events.data ?? []) as Array<Event & { ticketPrice?: number; ticketsSold?: number; ticketsPending?: number }>;
+
+  async function createEvent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreating(true);
+    setNotice("");
+    try {
+      const response = await fetch("/api/events", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: createForm.name,
+          branchId: createForm.branchId || branches.data?.[0]?.id,
+          startsAt: new Date(createForm.startsAt).toISOString(),
+          endsAt: new Date(createForm.endsAt).toISOString(),
+          capacity: Number(createForm.capacity) || 0,
+          ticketPrice: Number(createForm.ticketPrice) || 0,
+          description: createForm.description || null,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Could not create the event.");
+      setCreateOpen(false);
+      setCreateForm({ name: "", branchId: "", startsAt: "", endsAt: "", capacity: "", ticketPrice: "0", description: "" });
+      setNotice(`${body.name} is ready.`);
+      await events.refetch();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not create the event.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function sellTickets(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!saleEvent) return;
+    setSelling(true);
+    setNotice("");
+    try {
+      const response = await fetch(`/api/events/${encodeURIComponent(saleEvent.id)}/tickets`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...saleForm, quantity: Number(saleForm.quantity) }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Could not sell those tickets.");
+      if (body.redirectUrl) {
+        window.location.assign(body.redirectUrl);
+        return;
+      }
+      setNotice(`${body.ticket.quantity} ticket(s) issued${body.amount ? ` · ${money(body.amount)} received` : " · complimentary"}.`);
+      setSaleEvent(null);
+      setSaleForm({ guestName: "", phone: "", email: "", quantity: "1", method: "MPESA" });
+      await events.refetch();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not sell those tickets.");
+    } finally {
+      setSelling(false);
+    }
+  }
+
   return <div className="rise">
-    <PageIntro eyebrow="Events / bookings" title="Upcoming events" detail="Special nights, reservations, and VIP packages." action={<Button onClick={() => events.refetch()} data-testid="button-refresh-events"><RefreshCw size={15} /> Refresh</Button>} />
+    <PageIntro eyebrow="Events / bookings" title="Upcoming events" detail="Schedule a night, set its ticket price, and issue tickets at the door." action={<div className="flex gap-2"><Button variant="outline" onClick={() => void events.refetch()} data-testid="button-refresh-events"><RefreshCw size={15} /> Refresh</Button><Button onClick={() => setCreateOpen(true)} data-testid="button-create-event"><Plus size={15} /> New event</Button></div>} />
+    {notice && <p role="status" className="mb-4 rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-4 py-3 text-sm">{notice}</p>}
     <section className="surface rounded-2xl p-5">
-      <QueryNotice loading={events.isLoading} error={events.error} what="events" emptyTitle="No events scheduled." emptyHint="Create an event to start tracking bookings." empty={!events.isLoading && !events.isError && !events.data?.length} onRetry={() => events.refetch()} />
-      {events.data?.map((e: Event) => <div key={e.id} className="border-b border-[var(--app-line-soft)] py-4 last:border-0" data-testid={`card-event-${e.id}`}>
-        <h3 className="font-display text-xl font-bold">{e.name}</h3>
-        <p className="text-xs text-[var(--app-muted)] mt-1">{e.date} · {e.startTime}–{e.endTime} · capacity: {e.capacity}</p>
-        {e.description && <p className="text-sm text-[var(--app-ink-soft)] mt-2">{e.description}</p>}
-        <span className={`mt-2 inline-block w-fit text-xs font-semibold ${e.status === 'UPCOMING' ? 'text-[var(--app-success)]' : 'text-[var(--app-warn)]'}`}>{e.status}</span>
-      </div>)}
+      <QueryNotice loading={events.isLoading} error={events.error} what="events" emptyTitle="No events scheduled." emptyHint="Create an event to start selling tickets." empty={!events.isLoading && !events.isError && !rows.length} onRetry={() => events.refetch()} />
+      <div className="grid gap-3">
+        {rows.map((event) => <article key={event.id} className="rounded-xl border border-[var(--app-line-soft)] p-4" data-testid={`card-event-${event.id}`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div><h3 className="font-display text-xl font-bold">{event.name}</h3><p className="mt-1 text-xs text-[var(--app-muted)]">{event.date} · {event.startTime}–{event.endTime} · capacity {event.capacity || "unlimited"}</p>{event.description && <p className="mt-2 text-sm text-[var(--app-ink-soft)]">{event.description}</p>}</div>
+            <div className="text-right"><span className={`text-xs font-semibold ${event.status === "UPCOMING" ? "text-[var(--app-success)]" : "text-[var(--app-warn)]"}`}>{event.status}</span><p className="mt-1 font-mono text-sm">{money(event.ticketPrice ?? 0)} / ticket</p><p className="text-xs text-[var(--app-muted)]">{event.ticketsSold ?? 0} issued{event.ticketsPending ? ` · ${event.ticketsPending} awaiting payment` : ""}</p></div>
+          </div>
+          {(event.status === "UPCOMING" || event.status === "LIVE") && <Button className="mt-3" onClick={() => setSaleEvent(event)} data-testid={`button-sell-event-tickets-${event.id}`}><Ticket size={15} /> Sell tickets</Button>}
+        </article>)}
+      </div>
     </section>
+    {createOpen && <Modal title="Create event" onClose={() => setCreateOpen(false)}><form onSubmit={createEvent} className="grid gap-3">
+      <Field label="Event name"><input required value={createForm.name} onChange={(event) => setCreateForm({ ...createForm, name: event.target.value })} className={inputClass} /></Field>
+      <Field label="Branch"><select required value={createForm.branchId || branches.data?.[0]?.id || ""} onChange={(event) => setCreateForm({ ...createForm, branchId: event.target.value })} className={inputClass}>{branches.data?.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></Field>
+      <div className="grid grid-cols-2 gap-3"><Field label="Starts"><input required type="datetime-local" value={createForm.startsAt} onChange={(event) => setCreateForm({ ...createForm, startsAt: event.target.value })} className={inputClass} /></Field><Field label="Ends"><input required type="datetime-local" value={createForm.endsAt} onChange={(event) => setCreateForm({ ...createForm, endsAt: event.target.value })} className={inputClass} /></Field></div>
+      <div className="grid grid-cols-2 gap-3"><Field label="Capacity (0 = unlimited)"><input type="number" min="0" value={createForm.capacity} onChange={(event) => setCreateForm({ ...createForm, capacity: event.target.value })} className={inputClass} /></Field><Field label="Ticket price"><input required type="number" min="0" value={createForm.ticketPrice} onChange={(event) => setCreateForm({ ...createForm, ticketPrice: event.target.value })} className={inputClass} /></Field></div>
+      <Field label="Description"><textarea value={createForm.description} onChange={(event) => setCreateForm({ ...createForm, description: event.target.value })} className={inputClass} /></Field>
+      <Button type="submit" disabled={creating || !branches.data?.length}>{creating ? "Creating…" : "Create event"}</Button>
+    </form></Modal>}
+    {saleEvent && <Modal title={`Sell tickets · ${saleEvent.name}`} onClose={() => setSaleEvent(null)}><form onSubmit={sellTickets} className="grid gap-3">
+      <p className="text-sm text-[var(--app-muted)]">{money((saleEvent as Event & { ticketPrice?: number }).ticketPrice ?? 0)} each</p>
+      <Field label="Guest name"><input required value={saleForm.guestName} onChange={(event) => setSaleForm({ ...saleForm, guestName: event.target.value })} className={inputClass} /></Field>
+      <div className="grid grid-cols-2 gap-3"><Field label="Phone"><input value={saleForm.phone} onChange={(event) => setSaleForm({ ...saleForm, phone: event.target.value })} className={inputClass} /></Field><Field label="Email"><input type="email" value={saleForm.email} onChange={(event) => setSaleForm({ ...saleForm, email: event.target.value })} className={inputClass} /></Field></div>
+      <div className="grid grid-cols-2 gap-3"><Field label="Quantity"><input required type="number" min="1" max="20" value={saleForm.quantity} onChange={(event) => setSaleForm({ ...saleForm, quantity: event.target.value })} className={inputClass} /></Field><Field label="Payment method"><select value={saleForm.method} onChange={(event) => setSaleForm({ ...saleForm, method: event.target.value as typeof saleForm.method })} className={inputClass}><option value="MPESA">M-Pesa</option><option value="CARD">Card</option><option value="BANK_TRANSFER">Bank transfer</option><option value="CASH">Cash</option></select></Field></div>
+      <Button type="submit" disabled={selling}>{selling ? "Preparing tickets…" : "Issue tickets"}</Button>
+    </form></Modal>}
   </div>;
 }
 
@@ -370,10 +453,10 @@ function AppShell({ children }: { children: ReactNode }) {
   const me = useGetMe();
 
   const isOperator = me.data?.operator === true;
-  // The branch switcher and the open-order badge are club furniture. A platform
-  // operator usually runs no club at all, and asking the club API for their data
-  // there would answer 403 on every page load — noise that hides a real failure.
-  // So the queries wait until there is a club to ask about.
+  
+  
+  
+  
   const hasClub = Boolean(me.data?.organizationId);
   const branches = useGetBranches({ query: { queryKey: ['getBranches'], enabled: hasClub } });
   const openOrders = useGetOrders(undefined, {
@@ -390,9 +473,9 @@ function AppShell({ children }: { children: ReactNode }) {
         }
         if (!('permission' in item) || !item.permission) return true;
         if (isOwner) return true;
-        // While /me is still loading, show nothing rather than everything; the
-        // server refuses these routes anyway, so an empty list is the honest
-        // answer.
+        
+        
+        
         if (!granted) return false;
         return granted.includes(item.permission);
       }),
@@ -444,9 +527,7 @@ function AppShell({ children }: { children: ReactNode }) {
   return <div className="app-noise relative min-h-[100dvh] bg-[var(--app-bg)] md:flex">
     <aside className={`fixed inset-y-0 left-0 z-[60] flex h-[100dvh] w-[252px] max-w-[85vw] flex-col overflow-y-auto overscroll-contain bg-[hsl(var(--app-chrome))] px-4 py-5 text-[var(--app-chrome-ink)] shadow-2xl transition-transform duration-200 ease-out md:static md:z-auto md:h-auto md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-hidden={isMobile ? !mobileOpen : undefined}>
       <div className="mb-9 flex shrink-0 items-center justify-between px-2"><Logo dark /><button onClick={() => setMobileOpen(false)} className="md:hidden" data-testid="button-close-menu"><X size={18} /></button></div>
-      {/* No club, no branch to switch between. The switcher would read "No branch
-          assigned" on every page, which looks like a fault rather than the fact
-          that this account runs the platform rather than a venue. */}
+      {}
       {hasClub && <div className="relative mb-6 shrink-0">
         <button onClick={() => setBranchOpen(!branchOpen)} className="flex w-full items-center justify-between rounded-xl bg-[hsl(var(--app-chrome-raised))] px-3 py-2.5 text-left" data-testid="button-branch-switcher"><span className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-[.16em] text-[var(--app-muted)]">Live branch</span><span className="mt-0.5 block truncate text-sm font-semibold">{branches.data?.[0]?.name ?? 'No branch assigned'}</span></span><ChevronDown size={15} className={branchOpen ? 'rotate-180 transition-transform' : 'transition-transform'} /></button>
         {branchOpen && <div className="absolute left-0 right-0 top-14 z-20 max-h-64 overflow-y-auto rounded-xl border border-[var(--app-line)] bg-[hsl(var(--app-chrome-raised))] p-1.5 shadow-xl">
@@ -454,13 +535,8 @@ function AppShell({ children }: { children: ReactNode }) {
           {branches.data?.map((branch) => <div key={branch.id} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm" data-testid={`button-branch-${branch.id}`}><span className="truncate">{branch.name}{branch.city ? <span className="ml-1 text-xs text-[var(--app-faint)]">{branch.city}</span> : null}</span><span className={branch.status === 'LIVE' ? 'text-xs text-[var(--app-success)]' : 'text-xs text-[var(--app-faint)]'}>{branch.status}</span></div>)}
         </div>}
       </div>}
-      {/* Grouped by the job rather than the module, because a cashier's shift is
-          "sell, take money, close" and a flat list of sixteen screens in whatever
-          order they were written in does not say that. A section with nothing in
-          it is dropped rather than left as a heading over nothing. */}
-      {/* The console has eleven screens and one entry point, so an operator had to
-          know a URL to reach anything past the overview. Its own navigation, shown
-          only while inside /admin, so the club sidebar stays a club sidebar. */}
+      {}
+      {}
       {location.startsWith('/admin') && (
         <nav className="mb-6 grid shrink-0 gap-1 rounded-xl border border-[var(--app-line)] p-1.5" aria-label="Console">
           <p className="px-2 pb-1 pt-0.5 font-mono text-[9px] font-semibold uppercase tracking-[.18em] text-[var(--app-faint)]">
@@ -478,8 +554,8 @@ function AppShell({ children }: { children: ReactNode }) {
             ['/admin/system', 'System', Activity],
             ['/admin/audit', 'Audit', Database],
           ] as const).map(([href, label, Icon]) => {
-            // A club detail page is a different screen reached from a club, so it
-            // highlights the Clubs entry rather than having none.
+            
+            
             const active = location === href || (href === '/admin/clubs' && location.startsWith('/admin/clients'));
             return (
               <Link
@@ -539,16 +615,7 @@ function AppShell({ children }: { children: ReactNode }) {
   </div>;
 }
 
-/**
- * The club's subscription payment, at the top of every
- * screen until it is paid.
- *
- * The link opens Pesapal on the owner's own device,
- * which is the only place the payment can be made: it
- * is their card and their mandate, not the club's till.
- * A club whose last link expired — the provider lets
- * them lapse — is offered a fresh one instead.
- */
+
 function SubscriptionPaymentNotice({
   enabled,
   canRequest,
@@ -558,6 +625,7 @@ function SubscriptionPaymentNotice({
 }) {
   const { data } = useSubscriptionPayment(enabled);
   const request = useRequestSubscriptionPayment();
+  const [autoRenew, setAutoRenew] = useState(false);
   const payment = data?.payment ?? null;
   const subscription = data?.subscription ?? null;
   const owesWithoutLink =
@@ -586,6 +654,11 @@ function SubscriptionPaymentNotice({
               · renews automatically
             </span>
           )}
+          {subscription?.autoRenewPending && (
+            <span className="text-xs font-medium opacity-70">
+              · waiting for Pesapal to confirm renewal setup
+            </span>
+          )}
         </p>
         {payment !== null ? (
           <a
@@ -598,14 +671,20 @@ function SubscriptionPaymentNotice({
             Pay now <ChevronRight size={13} />
           </a>
         ) : canRequest ? (
-          <button
-            onClick={() => request.mutate()}
-            disabled={request.isPending}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[var(--app-ink)] px-3 text-xs font-bold text-[var(--app-bg)] hover:opacity-90 disabled:opacity-50"
-            data-testid="button-request-payment-link"
-          >
-            {request.isPending ? 'Getting link…' : 'Get payment link'}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs font-medium text-[var(--app-ink)]">
+              <input type="checkbox" checked={autoRenew} onChange={(event) => setAutoRenew(event.target.checked)} className="h-4 w-4 accent-[hsl(var(--app-ink))]" data-testid="checkbox-billing-auto-renew" />
+              Offer automatic renewal
+            </label>
+            <button
+              onClick={() => request.mutate(autoRenew)}
+              disabled={request.isPending}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[var(--app-ink)] px-3 text-xs font-bold text-[var(--app-bg)] hover:opacity-90 disabled:opacity-50"
+              data-testid="button-request-payment-link"
+            >
+              {request.isPending ? 'Getting link…' : 'Get payment link'}
+            </button>
+          </div>
         ) : (
           <span className="text-xs font-medium text-[var(--app-ink)] opacity-70">
             The club owner can pay from their account.
@@ -624,14 +703,7 @@ function Metric({ label, value, note, trend, tone = 'plain' }: { label: string; 
   return <div className={`surface rounded-2xl p-4 md:p-5 ${tone === 'coral' ? 'bg-[var(--app-gold)] text-[var(--app-ink)]' : tone === 'green' ? 'bg-[var(--app-success-soft)]' : ''}`}><div className="mb-4 flex items-start justify-between"><span className={`text-xs font-semibold uppercase tracking-[.12em] ${tone === 'plain' ? 'text-[var(--app-faint)]' : 'opacity-70'}`}>{label}</span>{trend && <span className={`flex items-center gap-1 text-xs font-semibold ${trend === 'up' ? 'text-[var(--app-success)]' : 'text-[var(--app-critical)]'}`}>{trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}{trend === 'up' ? 'on plan' : 'watch'}</span>}</div><div className="font-display text-3xl font-bold tracking-tight">{value}</div><p className={`mt-1 text-xs ${tone === 'plain' ? 'text-[var(--app-muted)]' : 'opacity-70'}`}>{note}</p></div>;
 }
 
-/**
- * The dashboard a platform operator sees.
- *
- * There is no club to run, so this is not an empty shell pretending to be a
- * shift. It answers the two questions somebody running Dunda actually has — how
- * many clubs are on it, and how much they pay — and puts the console one click
- * away, which is the whole reason this account can see anything at all.
- */
+
 function PlatformLanding() {
   const summary = useGetAdminSummary();
   const organizations = useGetAdminOrganizations();
@@ -692,9 +764,9 @@ function PlatformLanding() {
 
 function Overview() {
   const me = useGetMe();
-  // These four screens describe one club's night. An operator running no club has
-  // no night to describe, and asking anyway answers 403 four times — noise that
-  // buries a real failure. So they wait, and the platform view takes over below.
+  
+  
+  
   const hasClub = Boolean(me.data?.organizationId);
   const summary = useGetDashboardSummary({ query: { queryKey: ['getDashboardSummary'], enabled: hasClub } });
   const activity = useGetDashboardActivity({ query: { queryKey: ['getDashboardActivity'], enabled: hasClub } });
@@ -704,9 +776,9 @@ function Overview() {
   const series = s?.revenueSeries ?? [];
   const max = Math.max(...series.map((x) => x.value), 1);
   const occupancyPct = s && s.totalTables > 0 ? Math.round((s.activeTables / s.totalTables) * 100) : 0;
-  // A platform operator has no club, so there is no room to watch. Offering the
-  // console here — rather than an empty dashboard they cannot act on — is what
-  // makes the admin entry in the nav worth having.
+  
+  
+  
   if (me.data?.operator === true && !hasClub) return <PlatformLanding />;
   return <div className="rise"><PageIntro eyebrow={`Command center / ${todayLabel}`} title="Run the room." detail={s?.branchName ? `${s.branchName} · live now` : 'Live shift'} action={<Link href="/pos" className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[var(--app-gold)] px-4 text-sm font-semibold text-[var(--app-ink)] hover:bg-[var(--app-gold)]" data-testid="link-open-pos"><ShoppingBag size={16} /> Open POS <ChevronRight size={15} /></Link>} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Revenue tonight" value={s ? money(s.revenue) : '—'} note={`${s?.orders ?? 0} completed orders`} tone="coral" /><Metric label="Open tabs" value={s ? String(s.activeTabs).padStart(2, '0') : '—'} note={s ? `${s.activeTables} tables currently active` : 'Loading live count'} /><Metric label="Average order" value={s ? money(s.averageOrderValue) : '—'} note="Across all payment methods" /><Metric label="Outstanding" value={s ? money(s.outstandingPayments) : '—'} note={s && s.outstandingPayments > 0 ? 'Needs attention before close' : 'Nothing outstanding'} /></div>
@@ -729,8 +801,8 @@ function Pos() {
   const [table, setTable] = useState('');
   const [payment, setPayment] = useState<CheckoutInputMethod>('MPESA');
   const [notice, setNotice] = useState('');
-  // A payment the provider is taking. The till cannot
-  // close the tab itself — the provider's answer does.
+  
+  
   const [pendingPayment, setPendingPayment] = useState<{ attemptId: string; redirectUrl: string; amount: number } | null>(null);
   const qc = useQueryClient();
   const createTab = useCreateTab();
@@ -745,9 +817,9 @@ function Pos() {
   const create = (event: FormEvent) => { event.preventDefault(); if (!customer || !table) return; createTab.mutate({ data: { customer, table } }, { onSuccess: (tab) => { setSelectedId(tab.id); setShowNew(false); setCustomer(''); setTable(''); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); } }); };
   const add = (p: Product) => { if (!selectedId) { setNotice('Open a tab first, then add items.'); return; } addItem.mutate({ tabId: selectedId, data: { productId: p.id, quantity: 1 } }, { onSuccess: (tab) => {       qc.setQueryData(getGetTabsQueryKey({ status: 'OPEN' }), tabs.data); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); setNotice(`${p.name} added`); } }); };
   const pay = () => { if (!openTab) return; checkout.mutate({ tabId: openTab.id, data: { payments: [{ method: payment, amount: openTab.total }], idempotencyKey: crypto.randomUUID() } }, { onSuccess: (result) => { if ('status' in result) { setPendingPayment({ attemptId: result.attemptId, redirectUrl: result.redirectUrl, amount: result.amount }); return; } setNotice(`Receipt ${result.receipt.number} closed successfully`); setSelectedId(undefined); qc.invalidateQueries({ queryKey: getGetTabsQueryKey({ status: 'OPEN' }) }); qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); } }); };
-  // The poll answers what the callback may have missed:
-  // a resolved attempt settles the tab, a failed one
-  // leaves the bill open.
+  
+  
+  
   useEffect(() => {
     if (!pendingPayment || !attempt.data) return;
     if (attempt.data.status === 'RESOLVED') {
@@ -796,7 +868,7 @@ interface PoolTableView {
   } | null;
 }
 
-/** A running game reads as hours and minutes rather than a raw seconds count. */
+
 function formatDuration(seconds: number): string {
   const safe = Math.max(0, Math.floor(seconds));
   const hours = Math.floor(safe / 3600);
@@ -806,30 +878,21 @@ function formatDuration(seconds: number): string {
 }
 
 
-/**
- * Where a role lands when it signs in.
- *
- * Everyone opening on the same screen is why the app can feel generic: a
- * bartender and the owner both got the revenue command centre, and neither of
- * those was what they opened the app to do. Each role now starts on the screen
- * that is its work, and the list is ordered so the first entry they may use
- * wins — a permission the role does not hold is skipped rather than sent
- * somewhere they cannot follow.
- */
+
 const ROLE_LANDING: { match: string[]; href: string }[] = [
-  // Management first. A manager can do everything a pool attendant can, so
-  // ordering by permission rather than by seniority would drop the owner of the
-  // club onto the pool screen — which is why this list is built from what each
-  // role is for, and the manager entries come ahead of the floor ones.
+  
+  
+  
+  
   { match: ['manage_staff', 'manage_roles'], href: '/overview' },
   { match: ['void_order', 'refund_payment'], href: '/overview' },
   { match: ['adjust_inventory', 'approve_transfer'], href: '/inventory' },
   { match: ['view_reports'], href: '/reports' },
   { match: ['manage_payments'], href: '/pos' },
   { match: ['update_ticket'], href: '/bar' },
-  // Before reservations on purpose. A pool attendant takes bookings, but the
-  // tables themselves are the job — landing them on a calendar to manage the
-  // exception rather than the norm is the wrong first screen.
+  
+  
+  
   { match: ['manage_pool'], href: '/pool' },
   { match: ['manage_reservations'], href: '/reservations' },
   { match: ['view_pos'], href: '/pos' },
@@ -845,15 +908,7 @@ function landingFor(permissions: string[] | undefined): string | null {
   return null;
 }
 
-/**
- * The pool area.
- *
- * A pool attendant's whole job is these five tables, so it is its own screen
- * rather than something buried in the floor view. Rate and accrued time come from
- * the server on every read, so the number an attendant quotes is the number the
- * session will actually settle at — the charge is worked out from the rate rules
- * in the database, never from a value held in the browser.
- */
+
 function Pool() {
   const [tables, setTables] = useState<PoolTableView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -876,8 +931,8 @@ function Pool() {
 
   useEffect(() => {
     void load();
-    // A running session's charge moves on its own, so the table is re-read on a
-    // timer rather than only when the attendant presses something.
+    
+    
     const timer = setInterval(() => void load(), 15000);
     return () => clearInterval(timer);
   }, [load]);
@@ -1037,32 +1092,71 @@ function Settings() {
     }
   }
 
-  return <div className="rise"><PageIntro eyebrow="Workspace / admin" title="Settings without the maze." detail="A calm place for organization preferences, branch controls, and team access." /><div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]"><section className="surface rounded-2xl p-6"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--app-gold-soft)] text-[var(--app-critical)]"><Store size={21} /></div><h3 className="mt-5 font-display text-2xl font-bold">Organization settings</h3><p className="mt-2 text-sm leading-6 text-[var(--app-muted)]">Your organization is connected to Dunda. Fine-grain permissions, receipts, and integrations will live here.</p><div className="mt-6 rounded-xl bg-[var(--app-bg)] p-4"><div className="flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-[.1em] text-[var(--app-muted)]">Workspace status</span><span className="flex items-center text-xs font-semibold text-[var(--app-success)] status-dot">{settingsBranches.data?.length ? 'Operational' : 'No branches yet'}</span></div>{settingsBranches.data?.length ? <ul className="mt-2 grid gap-1">{settingsBranches.data.map((b) => <li key={b.id} className="flex items-center justify-between text-sm"><span className="font-semibold">{b.name}</span><span className="text-xs text-[var(--app-muted)]">{b.city} · {b.status}</span></li>)}</ul> : <p className="mt-2 text-sm text-[var(--app-muted)]">No branches are configured yet.</p>}</div></section><section className="surface rounded-2xl p-6"><div className="mb-6 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[var(--app-faint)]">Configuration</p><h3 className="font-display text-xl font-bold">Branch controls</h3></div><SlidersHorizontal size={18} className="text-[var(--app-muted)]" /></div><div className="mb-4 flex items-center justify-between text-xs font-semibold text-[var(--app-muted)]"><span>{branchCount} of {branchLimit} branches used</span>{branchLimit > 0 && branchCount >= branchLimit && <span className="text-[var(--app-warn)]">Upgrade to add more</span>}</div>{mayManageBranches && branchLimit > 0 && branchCount < branchLimit ? <form onSubmit={addBranch} className="grid gap-2"><div className="grid grid-cols-2 gap-2"><input value={branchForm.name} onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })} placeholder="Branch name" className="h-10 rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-3 text-sm font-semibold outline-none" data-testid="input-branch-name" /><input value={branchForm.city} onChange={(e) => setBranchForm({ ...branchForm, city: e.target.value })} placeholder="City" className="h-10 rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-3 text-sm font-semibold outline-none" data-testid="input-branch-city" /></div><button type="submit" disabled={branchPending || !branchForm.name.trim() || !branchForm.city.trim()} className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[var(--app-gold)] px-4 text-sm font-bold text-[var(--app-ink)] disabled:opacity-50" data-testid="button-add-branch">{branchPending ? "Opening…" : "Open branch"}</button></form> : mayManageBranches ? <p className="text-xs text-[var(--app-muted)]">This plan is at its branch limit. Upgrade to open another branch.</p> : <p className="text-xs text-[var(--app-muted)]">Ask an owner to manage branches.</p>}{branchResult && <p className={`mt-4 text-xs font-semibold ${branchResult.ok ? "text-[var(--app-success)]" : "text-[var(--app-critical)]"}`} role="status">{branchResult.text}</p>}</section></div></div>; }
+  return (
+    <div className="rise grid gap-5">
+      <PageIntro
+        eyebrow="Workspace / admin"
+        title="Settings without the maze."
+        detail="A calm place for organization preferences, branch controls, and team access."
+      />
+      <PesapalMerchantSettings isOwner={Boolean(me.data?.isOwner)} />
+      <div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
+        <section className="surface rounded-2xl p-6">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--app-gold-soft)] text-[var(--app-critical)]"><Store size={21} /></div>
+          <h3 className="mt-5 font-display text-2xl font-bold">Organization settings</h3>
+          <p className="mt-2 text-sm leading-6 text-[var(--app-muted)]">Your organization is connected to Dunda. Fine-grain permissions, receipts, and integrations will live here.</p>
+          <div className="mt-6 rounded-xl bg-[var(--app-bg)] p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-[.1em] text-[var(--app-muted)]">Workspace status</span>
+              <span className="flex items-center text-xs font-semibold text-[var(--app-success)] status-dot">{settingsBranches.data?.length ? 'Operational' : 'No branches yet'}</span>
+            </div>
+            {settingsBranches.data?.length ? (
+              <ul className="mt-2 grid gap-1">{settingsBranches.data.map((branch) => <li key={branch.id} className="flex items-center justify-between text-sm"><span className="font-semibold">{branch.name}</span><span className="text-xs text-[var(--app-muted)]">{branch.city} · {branch.status}</span></li>)}</ul>
+            ) : <p className="mt-2 text-sm text-[var(--app-muted)]">No branches are configured yet.</p>}
+          </div>
+        </section>
+        <section className="surface rounded-2xl p-6">
+          <div className="mb-6 flex items-center justify-between">
+            <div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[var(--app-faint)]">Configuration</p><h3 className="font-display text-xl font-bold">Branch controls</h3></div>
+            <SlidersHorizontal size={18} className="text-[var(--app-muted)]" />
+          </div>
+          <div className="mb-4 flex items-center justify-between text-xs font-semibold text-[var(--app-muted)]">
+            <span>{branchCount} of {branchLimit} branches used</span>
+            {branchLimit > 0 && branchCount >= branchLimit && <span className="text-[var(--app-warn)]">Upgrade to add more</span>}
+          </div>
+          {mayManageBranches && branchLimit > 0 && branchCount < branchLimit ? (
+            <form onSubmit={addBranch} className="grid gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input value={branchForm.name} onChange={(event) => setBranchForm({ ...branchForm, name: event.target.value })} placeholder="Branch name" className="h-10 rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-3 text-sm font-semibold outline-none" data-testid="input-branch-name" />
+                <input value={branchForm.city} onChange={(event) => setBranchForm({ ...branchForm, city: event.target.value })} placeholder="City" className="h-10 rounded-xl border border-[var(--app-line)] bg-[var(--app-surface)] px-3 text-sm font-semibold outline-none" data-testid="input-branch-city" />
+              </div>
+              <button type="submit" disabled={branchPending || !branchForm.name.trim() || !branchForm.city.trim()} className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[var(--app-gold)] px-4 text-sm font-bold text-[var(--app-ink)] disabled:opacity-50" data-testid="button-add-branch">{branchPending ? "Opening…" : "Open branch"}</button>
+            </form>
+          ) : mayManageBranches ? (
+            <p className="text-xs text-[var(--app-muted)]">This plan is at its branch limit. Upgrade to open another branch.</p>
+          ) : (
+            <p className="text-xs text-[var(--app-muted)]">Ask an owner to manage branches.</p>
+          )}
+          {branchResult && <p className={`mt-4 text-xs font-semibold ${branchResult.ok ? "text-[var(--app-success)]" : "text-[var(--app-critical)]"}`} role="status">{branchResult.text}</p>}
+        </section>
+      </div>
+    </div>
+  );
+}
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) { return <div className="fixed inset-0 z-50 grid place-items-center bg-[var(--app-info)]/45 p-4"><div className="w-full max-w-md rounded-2xl border border-[var(--app-line)] bg-[var(--app-surface)] p-5 shadow-2xl md:p-6" role="dialog" aria-modal="true"><div className="mb-5 flex items-center justify-between"><h3 className="font-display text-2xl font-bold">{title}</h3><button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-[var(--app-muted)] hover:bg-[var(--app-line-soft)]" data-testid="button-close-modal"><X size={18} /></button></div>{children}</div></div>; }
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="grid gap-1.5 text-xs font-semibold text-[var(--app-faint)]">{label}{children}</label>; }
 
-/**
- * Blocks a screen the signed-in role may not use.
- *
- * Hiding the link is a courtesy; this is the actual guard, so a typed path or a
- * bookmark cannot reach it. The server still refuses the underlying calls.
- */
-/**
- * Gates the operator console inside the club app.
- *
- * The link only appears for an operator, so this is a second line rather than the
- * boundary: the API answers a non-operator exactly as it answers an unknown path.
- * A refusal here renders that same not-found, so typing the path learns nothing.
- */
+
+
 function RequireOperator({ children }: { children: ReactNode }) {
   const me = useGetMe();
   if (me.isLoading) {
     return <div className="grid min-h-[40vh] place-items-center text-sm text-[var(--app-ink-soft)]">Checking…</div>;
   }
-  // A failed /me means the session is signed in but has no club, which the
-  // router above already handles. Reaching here means a real answer arrived and it
-  // was not yes, so say that rather than claiming the page is missing.
+  
+  
+  
   if (!me.data || me.data.operator !== true) return <NotAnOperator />;
   return <>{children}</>;
 }
@@ -1073,7 +1167,7 @@ const wrap =
     return <Require permission={permission}>{element}</Require>;
   };
 
-/** A client detail route needs its id from the path. */
+
 function OperatorClientRoute() {
   const params = useParams<{ id: string }>();
   return (
@@ -1108,8 +1202,8 @@ function Require({
 }
 
 function Auth({ mode }: { mode: 'sign-in' | 'sign-up' }) {
-  // A session that ended on its own sends the person here; saying why is the
-  // difference between "the app is broken" and "please sign in again".
+  
+  
   const sessionEnded = (() => {
     try {
       const flag = window.sessionStorage.getItem('dunda:session-ended') === '1';
@@ -1133,11 +1227,11 @@ function ProtectedRouter() {
   const [pathname] = useLocation();
   useApiAuth();
   useSessionGuard();
-  // Serverless hosting cannot hold a WebSocket open, so live screens poll.
+  
   useLiveRefresh(Boolean(isSignedIn));
-  // A 403 here means the account is signed in but not yet
-  // linked to a Dunda staff record. Without this the user just sees empty
-  // screens and has no idea why.
+  
+  
+  
   const me = useGetMe();
   const { user } = useUser();
   const isOperator = me.data?.operator === true;
@@ -1145,9 +1239,9 @@ function ProtectedRouter() {
     status?: number;
     data?: { code?: string; reason?: string };
   } | null;
-  // An operator is never blocked here. They may own no club yet, which is the
-  // normal state for someone who provisions clients, so refusing them would
-  // leave the console unreachable exactly when it is needed.
+  
+  
+  
   const unlinked =
     !isOperator &&
     me.isError &&
@@ -1158,9 +1252,9 @@ function ProtectedRouter() {
     meError?.data?.code === "ORGANIZATION_SUSPENDED";
   if (!isLoaded) return <div className="grid min-h-[100dvh] place-items-center bg-[var(--app-bg)] text-sm text-[var(--app-ink-soft)]">Loading your workspace…</div>;
 
-  // A platform operator lands on the console; anybody else lands on their own
-  // first screen. Only for a session with no club, since an operator may also be
-  // staff and the club screens are then the right ones.
+  
+  
+  
   const home = isOperator && !me.data?.staff ? '/admin' : landingFor(me.data?.permissions);
   if (isSignedIn && me.data && home && pathname === '/') {
     return <Redirect to={home} />;
@@ -1187,9 +1281,7 @@ function ProtectedRouter() {
           the screens open. Your account is fine — there is just nothing attached
           to it yet.
         </p>
-        {/* What to ask for, and what to ask with. "Contact whoever" with no
-            address is the message somebody sends when they have already been
-            turned away once. */}
+        {}
         <ol className="mt-4 grid gap-2 text-left text-sm text-[var(--app-muted)]">
           <li className="flex gap-2"><span className="font-mono text-xs text-[var(--app-gold)]">1</span><span>Ask a manager to add <span className="font-semibold text-[var(--app-ink)]">{user?.primaryEmailAddress?.emailAddress ?? 'this account'}</span> to the staff list.</span></li>
           <li className="flex gap-2"><span className="font-mono text-xs text-[var(--app-gold)]">2</span><span>They pick a role. The role is what decides your tabs — nothing is set individually.</span></li>
@@ -1200,10 +1292,10 @@ function ProtectedRouter() {
       </div>
     </div>;
   }
-  // An operator is never bounced to the console from here. They land on the
-  // dashboard like anybody else, and the console is one click away in the nav.
-  // Redirecting them would mean the dashboard's own admin entry could never be
-  // used, and it used to loop for an operator with no club.
+  
+  
+  
+  
 
   return isSignedIn ?     <AppShell><Switch><Route path="/admin" component={() => <RequireOperator><OperatorOverview /></RequireOperator>} />
 <Route path="/admin/clubs" component={() => <RequireOperator><OperatorClients /></RequireOperator>} />
@@ -1235,10 +1327,10 @@ function ClerkQueryClientCacheInvalidator() {
 }
 
 function App() {
-  // Wouter's own location, not the bare `location` global. The ErrorBoundary's
-  // reset key has to track the route so a caught error clears when the person
-  // navigates somewhere else; reading the global here would read window.location,
-  // which is why it looked fine and was not.
+  
+  
+  
+  
   const [location] = useLocation();
   return <WouterRouter base={basePath}><ClerkProvider publishableKey={resolveClerkPublishableKey()} proxyUrl={clerkProxyUrl} appearance={{ theme: shadcn, cssLayerName: 'clerk', options: { logoPlacement: 'inside', logoLinkUrl: basePath || '/', logoImageUrl: logoImageUrl() }, variables: { colorPrimary: 'hsl(var(--app-gold))', colorForeground: 'var(--app-ink)', colorMutedForeground: 'var(--app-ink-soft)', colorDanger: 'var(--app-critical)', colorBackground: 'var(--app-surface)', colorInput: 'var(--app-surface)', colorInputForeground: 'var(--app-ink)', colorNeutral: 'var(--app-line)', fontFamily: 'DM Sans, sans-serif', borderRadius: '0.75rem' }, elements: { rootBox: 'w-full flex justify-center', cardBox: 'bg-[var(--app-surface)] rounded-2xl w-[440px] max-w-full overflow-hidden', card: '!shadow-none !border-0 !bg-transparent !rounded-none', footer: '!shadow-none !border-0 !bg-transparent !rounded-none', headerTitle: 'text-[var(--app-ink)]', headerSubtitle: 'text-[var(--app-ink-soft)]', socialButtonsBlockButtonText: 'text-[var(--app-ink)]', formFieldLabel: 'text-[var(--app-ink-soft)]', footerActionLink: 'text-[var(--app-gold)]', footerActionText: 'text-[var(--app-ink-soft)]', dividerText: 'text-[var(--app-ink-soft)]', formFieldInput: 'text-[var(--app-ink)] bg-white', formButtonPrimary: 'bg-[var(--app-gold)] text-[var(--app-ink)]', main: 'bg-transparent' } }} signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`}><QueryClientProvider client={queryClient}><ClerkQueryClientCacheInvalidator /><ErrorBoundary resetKey={location}><MoneyProvider><Router /></MoneyProvider></ErrorBoundary></QueryClientProvider></ClerkProvider></WouterRouter>;
 }

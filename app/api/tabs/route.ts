@@ -7,7 +7,7 @@ import { notFound, wrongState } from "@/lib/errors.server";
 
 export const dynamic = "force-dynamic";
 
-/** Open tabs with what each party currently owes. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -60,7 +60,7 @@ export const GET = route(async (request: Request) => {
   );
 });
 
-/** Opens a tab at a table. */
+
 export const POST = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

@@ -4,17 +4,7 @@ import { useGetAdminSubscriptions } from "@/lib/api-client-react/src";
 import { Card, field, inputStyle, linkButton, primaryButton, State, labelStyle, valueStyle, tableStyle, thStyle, tdStyle } from "./ui";
 import { colors } from "./theme";
 
-/**
- * Every subscription on the platform and where it stands.
- *
- * Separate from Billing on purpose. Billing answers "what has Dunda been paid";
- * this answers "what has each club committed to, and when does it come due". A
- * club three weeks from renewal is not a billing problem yet, and it is not
- * visible on a payment ledger until the day it is one.
- *
- * Renewals due are listed on their own because they are the only rows anyone
- * acts on from here: everything else is reference.
- */
+
 export function Subscriptions() {
   const subs = useGetAdminSubscriptions();
   const [, setLocation] = useLocation();
@@ -210,7 +200,7 @@ export function Subscriptions() {
   );
 }
 
-/** Status as a chip, so a column of them can be scanned rather than read. */
+
 function statusPill(status: string): React.CSSProperties {
   const tone =
     status === "ACTIVE"

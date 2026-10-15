@@ -5,13 +5,7 @@ import { route, Forbidden, NotProvisioned, resolveSession, parseBody } from "@/l
 
 export const dynamic = "force-dynamic";
 
-/**
- * Edits what a plan sells for and what it allows.
- *
- * A price change here does not touch clubs already subscribed: each subscription
- * carries its own amount, so moving a plan's price affects the next club that
- * takes it rather than silently repricing everyone on it.
- */
+
 const updatePlanSchema = z.object({
   code: z.string().min(1),
   name: z.string().min(1),
@@ -39,9 +33,9 @@ export const PATCH = route(
       );
     }
 
-    // The code is the plan's identity in subscriptions that predate plan ids, so it
-    // is not editable: changing it would leave those subscriptions naming a plan
-    // that no longer exists.
+    
+    
+    
     if (input.code !== existing.code) {
       return NextResponse.json(
         { error: "A plan's code cannot be changed once it is in use.", code: "VALIDATION_FAILED" },
@@ -61,8 +55,8 @@ export const PATCH = route(
       },
     });
 
-    // Moving a price up does not immediately reprice anyone. Noted here so the
-    // console can show what has changed and who has not accepted it yet.
+    
+    
     const affected = await prisma.dunda_subscriptions.count({
       where: { plan_id: plan.id, status: "ACTIVE" },
     });

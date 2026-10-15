@@ -1,12 +1,4 @@
-/**
- * Seeds a working club into the connected database.
- *
- * Everything here is written through Prisma into the real tables. There is no
- * in-memory fixture and no mock layer: after this runs, the screens read what this
- * wrote, and the money in it obeys the same rules the till does.
- *
- * Run with: npm run db:seed
- */
+
 import { PrismaClient } from "@prisma/client";
 import { calculateTotals } from "../lib/server/money";
 import { computeCharge } from "../lib/server/pool";
@@ -16,7 +8,7 @@ const prisma = new PrismaClient();
 const ORG_ID = "org_singapore_club";
 const BRANCH_ID = "br_singapore_main";
 
-/** Roles, and what each may do. Mirrors section 6 of the specification. */
+
 const ROLES = [
   {
     key: "owner",
@@ -101,12 +93,12 @@ const PERMISSIONS = [
   ["refund_payment", "Issue refunds", "Payments"],
   ["close_order", "Close orders", "POS"],
   ["manage_payments", "Take payment", "Payments"],
-  // Split from view_pos so the order queue can be granted on its own. A bartender
-  // needs their own station, not every order in the building, and a cashier needs
-  // the queue without needing anything else the till exposes.
+  
+  
+  
   ["view_orders", "See the order queue", "POS"],
-  // A pool attendant runs tables, not the bar. Borrowing view_pos gave them the
-  // till, the floor screen and the full order queue, none of which is their work.
+  
+  
   ["manage_pool", "Run the pool tables", "Pool"],
   ["view_inventory", "View stock", "Inventory"],
   ["adjust_inventory", "Adjust stock", "Inventory"],
@@ -139,11 +131,7 @@ const CATEGORIES = [
   { name: "Other", color: "#7a8580", group: "OTHER", station: "BAR", sort: 10 },
 ] as const;
 
-/**
- * The catalog. Prices are what the club actually charges in Nairobi, in shillings.
- * Units show the conversion the club uses: a crate of Tusker is 24 bottles, a
- * bottle pours 6 glasses. None of that is a constant in the code.
- */
+
 const PRODUCTS = [
   { name: "Tusker Lager", category: "Beer", price: 150, cost: 95, unit: "bottle", stock: 96, min: 24, sku: "BEER-TUS-001", barcode: "6001015000018" },
   { name: "Tusker Malt", category: "Beer", price: 150, cost: 92, unit: "bottle", stock: 72, min: 24, sku: "BEER-TUS-002", barcode: "6001015000025" },
@@ -218,10 +206,7 @@ const SUPPLIERS = [
   { name: "Pool Gear Kenya", contact: "Billiards Dept", phone: "+254709000004", email: "info@poolgear.co.ke" },
 ] as const;
 
-/**
- * Pool pricing. Nothing in the application assumes these numbers: the rate rules
- * live in the database and the billing engine reads whatever is here.
- */
+
 const POOL_RATES = {
   weekday: 400,
   friday: 600,
@@ -232,15 +217,15 @@ const POOL_RATES = {
 async function main() {
   console.log("Seeding Singapore Club into the live database…");
 
-  // The seed is idempotent: a club already there is rebuilt rather than duplicated,
-  // so re-running after a schema change does not produce two Singapores.
-  // Deleted child-first: every table that points at another is emptied before the
-  // one it points at, so no foreign key is left holding a row nobody can see.
+  
+  
+  
+  
   await prisma.$transaction([
-    // Order tickets, items and anything hanging off an order or a tab.
+    
     prisma.dunda_order_ticket_items.deleteMany({ where: { organization_id: ORG_ID } }),
     prisma.dunda_order_tickets.deleteMany({ where: { organization_id: ORG_ID } }),
-    // Prisma types this relation as to-one, so the nested filter goes under `is`.
+    
     prisma.dunda_order_item_units.deleteMany({ where: { dunda_order_items: { is: { dunda_orders: { organization_id: ORG_ID } } } } }),
     prisma.dunda_order_items.deleteMany({ where: { dunda_orders: { is: { organization_id: ORG_ID } } } }),
     prisma.dunda_tab_item_units.deleteMany({ where: { dunda_tab_items: { organization_id: ORG_ID } } }),
@@ -249,7 +234,7 @@ async function main() {
     prisma.dunda_receipts.deleteMany({ where: { organization_id: ORG_ID } }),
     prisma.dunda_payments.deleteMany({ where: { organization_id: ORG_ID } }),
 
-    // A pool session points at a tab, so it has to go before the tab.
+    
     prisma.dunda_pool_sessions.deleteMany({ where: { organization_id: ORG_ID } }),
     prisma.dunda_tabs.deleteMany({ where: { organization_id: ORG_ID } }),
     prisma.dunda_orders.deleteMany({ where: { organization_id: ORG_ID } }),
@@ -293,8 +278,8 @@ async function main() {
     prisma.dunda_customers.deleteMany({ where: { organization_id: ORG_ID } }),
     prisma.dunda_suppliers.deleteMany({ where: { organization_id: ORG_ID } }),
     prisma.dunda_billing_payments.deleteMany({ where: { organization_id: ORG_ID } }),
-    // Plans are platform-wide rather than per-club, so the org-scoped deletes
-    // above never touch them. Clearing them is what makes the seed re-runnable.
+    
+    
     prisma.dunda_plans.deleteMany({}),
     prisma.dunda_subscriptions.deleteMany({ where: { organization_id: ORG_ID } }),
     prisma.dunda_invoices.deleteMany({ where: { organization_id: ORG_ID } }),
@@ -318,8 +303,8 @@ async function main() {
     },
   });
 
-  // Every rate the club uses is stored here, so changing VAT takes effect on the
-  // next order rather than needing a deploy.
+  
+  
   await prisma.dunda_organization_settings.create({
     data: {
       organization_id: ORG_ID,
@@ -345,9 +330,9 @@ async function main() {
     });
   }
 
-  // The plan catalogue. These are the tiers Dunda sells, and they are rows rather
-  // than constants so the platform owner can change what a plan costs and what it
-  // allows without a deploy — nothing in the application reads a price directly.
+  
+  
+  
   const PLANS = [
     { code: "STARTER", name: "Starter", monthly_price: 4500, branch_limit: 1, user_limit: 5, description: "One venue, running the floor and the rail.", modules: ["pos", "floor", "orders", "products", "customers", "staff", "payments", "reports"] },
     { code: "PROFESSIONAL", name: "Professional", monthly_price: 9500, branch_limit: 2, user_limit: 15, description: "Adds pool, inventory and reservations.", modules: ["pos", "floor", "pool", "orders", "inventory", "products", "customers", "reservations", "staff", "payments", "expenses", "reports"] },
@@ -363,8 +348,8 @@ async function main() {
         name: plan.name,
         description: plan.description,
         monthly_price: plan.monthly_price,
-        // Two months' notice on the annual rate, which is roughly what a club
-        // gets for paying up front.
+        
+        
         annual_price: plan.monthly_price * 20,
         branch_limit: plan.branch_limit,
         user_limit: plan.user_limit,
@@ -376,9 +361,9 @@ async function main() {
     planIds.set(plan.code, created.id);
   }
 
-  // Singapore Club runs on Business, so the console has a live subscription to
-  // read rather than an empty state. The trial has ended and money has been
-  // taken, which is what a paying club looks like.
+  
+  
+  
   await prisma.dunda_subscriptions.create({
     data: {
       organization_id: ORG_ID,
@@ -397,8 +382,8 @@ async function main() {
     },
   });
 
-  // One settled subscription payment, so the billing screen shows a real
-  // transaction with a provider reference rather than an empty table.
+  
+  
   const subscription = await prisma.dunda_subscriptions.findFirstOrThrow({
     where: { organization_id: ORG_ID },
   });
@@ -424,9 +409,9 @@ async function main() {
       name: "Main Branch",
       city: "Nairobi",
       address: "Moi Avenue, opposite Jamia Mall",
-      // LIVE, not ACTIVE: the schema defaults a branch to LIVE and the shell
-      // renders it in its live colour only for that value. Seeding ACTIVE left
-      // the branch switcher showing a branch that looked switched off.
+      
+      
+      
       status: "LIVE",
       timezone: "Africa/Nairobi",
       phone: "+254202000100",
@@ -436,8 +421,8 @@ async function main() {
 
   console.log(`  organization ${organization.name}, branch ${branch.name}`);
 
-  // Permissions and roles. The owner role holds every permission, granted by name
-  // rather than by a wildcard, so the role screen can show what an owner can do.
+  
+  
   const permissionIds = new Map<string, string>();
   for (const [name, description, category] of PERMISSIONS) {
     const row = await prisma.dunda_permissions.upsert({
@@ -476,7 +461,7 @@ async function main() {
   }
   console.log(`  ${ROLES.length} roles, ${PERMISSIONS.length} permissions`);
 
-  // Catalog
+  
   const categoryIds = new Map<string, string>();
   for (const category of CATEGORIES) {
     const row = await prisma.dunda_categories.create({
@@ -521,8 +506,8 @@ async function main() {
   }
   console.log(`  ${PRODUCTS.length} products across ${CATEGORIES.length} categories`);
 
-  // Selling units. A bottle of Tusker sells as a bottle or a glass; the glass is
-  // one sixth of the bottle, which is stored here rather than assumed in code.
+  
+  
   await addUnit(productIds.get("Tusker Lager"), ORG_ID, "bottle", "btl", 1, 150, true);
   await addUnit(productIds.get("Tusker Lager"), ORG_ID, "glass", "gls", 1 / 6, 50, false);
   await addUnit(productIds.get("Tusker Malt"), ORG_ID, "bottle", "btl", 1, 150, true);
@@ -538,8 +523,8 @@ async function main() {
   await addUnit(productIds.get("Dasani Water"), ORG_ID, "bottle", "btl", 1, 80, true);
   await addUnit(productIds.get("Dasani Water"), ORG_ID, "pack", "pk", 6, 450, false);
 
-  // Cocktails draw their ingredients rather than holding stock of their own. The
-  // quantities are what the bartender actually pours.
+  
+  
   await addRecipe(productIds.get("Old Fashioned"), ORG_ID, [
     ["Johnnie Walker Black", 45, "shot"],
     ["Coca-Cola", 0, null],
@@ -557,7 +542,7 @@ async function main() {
     ["Coca-Cola", 0, null],
   ]);
 
-  // Floor
+  
   const floors = [
     { name: "Ground Floor", sections: ["Main Floor", "VIP", "Lounge", "Outdoor"] },
   ];
@@ -597,7 +582,7 @@ async function main() {
     }
   }
 
-  // Pool tables, with the positions the floor designer draws them at.
+  
   const poolTables = [];
   for (let i = 1; i <= 5; i++) {
     poolTables.push(
@@ -619,8 +604,8 @@ async function main() {
     );
   }
 
-  // Rate rules. Friday and Saturday carry the weekend rate; a happy-hour rule sits
-  // over the early evening on weekdays.
+  
+  
   for (const table of poolTables) {
     await prisma.dunda_pool_rate_rules.create({
       data: {
@@ -700,7 +685,7 @@ async function main() {
   }
   console.log(`  ${poolTables.length} pool tables with weekday, weekend and happy-hour rates`);
 
-  // Staff
+  
   const staffIds = new Map<string, string>();
   for (const member of STAFF) {
     const row = await prisma.dunda_staff.create({
@@ -717,8 +702,8 @@ async function main() {
     staffIds.set(member.role, row.id);
   }
 
-  // On shift right now, with a float. This is what the dashboard's "on shift"
-  // figure and the shift variance report both read.
+  
+  
   const shiftStaff = ["general_manager", "manager", "cashier", "bartender", "waiter", "pool_attendant"];
   const shiftIds: string[] = [];
   for (const [index, roleKey] of shiftStaff.entries()) {
@@ -776,13 +761,7 @@ async function main() {
   console.log("A club sign-in needs a row in dunda_staff matching its clerk_user_id.");
 }
 
-/**
- * A night of trading.
- *
- * Written through the same rules the application enforces: totals come from
- * calculateTotals, pool charges from computeCharge, and stock is moved with
- * real movement rows rather than by writing a quantity.
- */
+
 async function seedTrading(
   branch: { id: string },
   productIds: Map<string, string>,
@@ -793,8 +772,8 @@ async function seedTrading(
   const settings = { taxRate: 16, serviceChargeRate: 10 };
   const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000);
 
-  // Opening stock is recorded as received movements, so the stock on hand is
-  // explainable rather than a starting number with no history behind it.
+  
+  
   const inventoryItems = await prisma.dunda_inventory_items.findMany({
     where: { organization_id: ORG_ID },
     select: { id: true, product_id: true, current_quantity: true, name: true },
@@ -819,7 +798,7 @@ async function seedTrading(
     });
   }
 
-  // Orders through the night, each priced from the catalog rather than typed in.
+  
   const menu: { product: string; quantity: number }[] = [
     { product: "Tusker Lager", quantity: 4 },
     { product: "Old Fashioned", quantity: 2 },
@@ -907,8 +886,8 @@ async function seedTrading(
       for (const item of items) {
         await prisma.dunda_order_items.create({ data: item });
 
-        // Stock leaves when the sale completes, recorded as a movement so the
-        // quantity on hand can always be explained.
+        
+        
         const product = await prisma.dunda_products.findUniqueOrThrow({
           where: { id: item.product_id },
           select: {
@@ -969,7 +948,7 @@ async function seedTrading(
         }
       }
 
-      // Payment. Part cash, part M-Pesa, the way a real table settles.
+      
       const cashShare = n % 2 === 0 ? Math.round(totals.total / 2) : totals.total;
       const mpesaShare = totals.total - cashShare;
 
@@ -1007,8 +986,8 @@ async function seedTrading(
     }
   }
 
-  // A tab with a live pool session on it: the combined bill the product is built
-  // around. Bar, food and pool on one tab, one total for the guest.
+  
+  
   const waiter = staffIds.get("waiter") ?? null;
   const bartender = staffIds.get("bartender") ?? null;
   const poolTable = await prisma.dunda_pool_tables.findFirstOrThrow({
@@ -1034,7 +1013,7 @@ async function seedTrading(
     discount: 0,
   });
 
-  // A second tab mid-order, still owing money.
+  
   await buildTab({
     customer: customers[1],
     tableName: "Table 3",
@@ -1049,7 +1028,7 @@ async function seedTrading(
     leaveOpen: true,
   });
 
-  // A closed tab with a receipt, settled across two methods — the split bill.
+  
   await buildTab({
     customer: customers[2],
     tableName: "VIP 1",
@@ -1070,7 +1049,7 @@ async function seedTrading(
   console.log(`  ${orderNumber - 1041} settled orders and 3 tabs`);
 }
 
-/** Builds a tab the way the till does: lines, then pool, then one combined total. */
+
 async function buildTab(input: {
   customer: { id: string; name: string } | undefined;
   tableName: string;
@@ -1090,8 +1069,8 @@ async function buildTab(input: {
   let poolTotal = 0;
   let subtotal = 0;
 
-  // The tab row is written before its items, because the items carry a foreign key
-  // to it. Its money columns are filled in once the lines are known.
+  
+  
   await prisma.dunda_tabs.create({
     data: {
       id: tabId,
@@ -1135,8 +1114,8 @@ async function buildTab(input: {
 
   let sessionId: string | null = null;
   if (input.pool) {
-    // The charge is worked out by the billing engine, not by arithmetic here, so
-    // the seeded bill is exactly what the application would have produced.
+    
+    
     const startedAt = new Date(Date.now() - input.pool.startedHoursAgo * 60 * 60 * 1000);
     const charge = computeCharge(startedAt, new Date(), 0, {
       hourlyRate: input.pool.rate,
@@ -1254,7 +1233,7 @@ async function buildTab(input: {
   }
 }
 
-/** Some tabs settled earlier in the evening, so the pool report has history. */
+
 async function seedTablesAndPool(
   branch: { id: string },
   productIds: Map<string, string>,
@@ -1271,7 +1250,7 @@ async function seedTablesAndPool(
     orderBy: { name: "asc" },
   });
 
-  // Finished games from earlier tonight, each charged by the billing engine.
+  
   const finished: { tableIndex: number; hoursAgo: number; rate: number }[] = [
     { tableIndex: 1, hoursAgo: 3, rate: POOL_RATES.happyHour },
     { tableIndex: 2, hoursAgo: 5, rate: POOL_RATES.weekday },
@@ -1311,7 +1290,7 @@ async function seedTablesAndPool(
     });
   }
 
-  // A session running right now on Pool 2, so the floor shows real elapsed time.
+  
   const running = poolTables[1];
   if (running) {
     await prisma.dunda_pool_sessions.create({
@@ -1336,7 +1315,7 @@ async function seedTablesAndPool(
   void waiter;
 }
 
-/** Bookings for tonight and the coming days, including one on a pool table. */
+
 async function seedReservations() {
   const customers = await prisma.dunda_customers.findMany({
     where: { organization_id: ORG_ID },
@@ -1383,7 +1362,7 @@ async function seedReservations() {
     });
   }
 
-  // A pool booking, which lives on the pool table rather than a seated table.
+  
   const poolGuest = customers[2];
   if (poolGuest && poolTable) {
     const startsAt = new Date(Date.now() + 4 * 60 * 60 * 1000);
@@ -1410,7 +1389,7 @@ async function seedReservations() {
   console.log(`  ${bookings.length + 1} reservations`);
 }
 
-/** Adds a selling unit, e.g. a glass off a bottle. */
+
 async function addUnit(
   productId: string | undefined,
   organizationId: string,
@@ -1433,8 +1412,8 @@ async function addUnit(
     },
   });
 
-  // The conversion is also recorded as a row, so "how many glasses in a bottle"
-  // is a question the club's data answers rather than one the code assumes.
+  
+  
   await prisma.dunda_unit_conversions.upsert({
     where: {
       product_id_from_unit_id_to_unit_id: {
@@ -1454,7 +1433,7 @@ async function addUnit(
   });
 }
 
-/** Builds a cocktail from the ingredients it actually consumes. */
+
 async function addRecipe(
   productId: string | undefined,
   organizationId: string,

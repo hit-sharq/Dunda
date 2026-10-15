@@ -9,14 +9,7 @@ import {
 import { Card, Metric, State, linkButton } from "./ui";
 import { colors, money, timeAgo } from "./theme";
 
-/**
- * The platform owner's morning screen.
- *
- * The number worth reading is not the revenue figure but the exceptions: clubs
- * past due, renewals due this month, and clubs that have gone quiet. A club with
- * no order in a fortnight is a churn signal, and it is the one thing here that
- * asks you to do something.
- */
+
 export function Overview() {
   const summary = useGetAdminSummary();
   const orgs = useGetAdminOrganizations();

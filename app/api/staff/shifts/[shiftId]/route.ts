@@ -6,13 +6,7 @@ import { wrongState } from "@/lib/errors.server";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Closes a shift and records what the till came to against what it should have.
- *
- * The expected figure is computed from the cash actually taken during this shift
- * plus the float, and stored alongside the counted figure. Both are kept: a
- * variance that only lived in a report would be gone by the time anyone asked.
- */
+
 export const POST = route(
   async (request: Request, context: { params: Promise<{ shiftId: string }> }) => {
     const session = await requireSession();

@@ -4,7 +4,7 @@ import { route, Forbidden, NotProvisioned, resolveSession } from "@/lib/server/h
 
 export const dynamic = "force-dynamic";
 
-/** The plans the platform sells, with what each one allows. */
+
 export const GET = route(async () => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();
@@ -14,8 +14,8 @@ export const GET = route(async () => {
     orderBy: { sort_order: "asc" },
   });
 
-  // How many clubs sit on each plan, so the owner can see what is actually being
-  // bought rather than what the pricing page offers.
+  
+  
   const counts = await prisma.dunda_subscriptions.groupBy({
     by: ["plan_id"],
     _count: { _all: true },
@@ -41,7 +41,7 @@ export const GET = route(async () => {
   );
 });
 
-/** Creates or edits a plan. Pricing is never hardcoded in the application. */
+
 export const POST = route(async (request: Request) => {
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();
@@ -66,8 +66,8 @@ export const POST = route(async (request: Request) => {
     );
   }
 
-  // Prices are whole currency units and are never negative. A plan the platform
-  // gives away for free is legitimate; one that pays the platform is not.
+  
+  
   if (body.monthlyPrice < 0 || (body.annualPrice ?? 0) < 0) {
     return NextResponse.json(
       { error: "A price cannot be negative.", code: "VALIDATION_FAILED" },

@@ -31,15 +31,7 @@ interface Health {
   };
 }
 
-/**
- * Whether the platform is working.
- *
- * Reports what it found rather than only whether it passed, because the person
- * reading this at three in the morning needs to know which part is down, not just
- * that something is. The database check is a real query and the payment provider is
- * only a configuration check — contacting the provider to see if it is up would
- * mean sending it something, which is not what a health screen is for.
- */
+
 export function System() {
   const [, setLocation] = useLocation();
   const [health, setHealth] = useState<Health | null>(null);

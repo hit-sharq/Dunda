@@ -10,21 +10,13 @@ import { getOpenBillingPayment, requestBillingPayment } from "@/lib/server/payme
 
 export const dynamic = "force-dynamic";
 
-/**
- * The club's own subscription, and what it owes Dunda.
- *
- * This is the club owner's view of billing: which
- * plan they are on, and the payment link they are
- * meant to complete. It is deliberately separate
- * from the console's billing, which is the
- * platform's ledger rather than a club's bill.
- */
+
 export const GET = route(async () => {
   const session = await resolveSession();
-  // A signed-in account with no club has nothing
-  // to pay with, and an operator runs the platform
-  // rather than a club, so both are refused rather
-  // than answered with somebody else's bill.
+  
+  
+  
+  
   if (!session || !session.organizationId) throw new NotProvisioned();
   if (session.isOperator) throw new Forbidden("club_billing");
 
@@ -40,6 +32,7 @@ export const GET = route(async () => {
       amount: true,
       currency: true,
       auto_renew: true,
+      auto_renew_pending: true,
       started_at: true,
       trial_ends_at: true,
       renews_at: true,
@@ -60,6 +53,7 @@ export const GET = route(async () => {
           amount: subscription.amount,
           currency: subscription.currency,
           autoRenew: subscription.auto_renew,
+          autoRenewPending: subscription.auto_renew_pending,
           startedAt: subscription.started_at?.toISOString() ?? null,
           trialEndsAt: subscription.trial_ends_at?.toISOString() ?? null,
           renewsAt: subscription.renews_at?.toISOString() ?? null,
@@ -70,21 +64,17 @@ export const GET = route(async () => {
   });
 });
 
-/**
- * The club owner asks for their payment link.
- *
- * Paying for the software is the owner's own
- * decision, so it is theirs to initiate. A link
- * already open is returned rather than replaced,
- * because a second order would ask for the same
- * money twice.
- */
-export const POST = route(async () => {
+
+export const POST = route(async (request: Request) => {
   const session = await resolveSession();
   if (!session || !session.organizationId) throw new NotProvisioned();
   if (session.isOperator) throw new Forbidden("club_billing");
   if (!session.isOwner) throw new Forbidden("owner");
 
-  const initiation = await requestBillingPayment(session.organizationId);
+  const body = (await request.json().catch(() => ({}))) as { autoRenew?: unknown };
+  const initiation = await requestBillingPayment(
+    session.organizationId,
+    body.autoRenew === true,
+  );
   return NextResponse.json(initiation);
 });

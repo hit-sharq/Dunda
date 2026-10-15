@@ -13,14 +13,7 @@ import { Button, Field, Modal, inputClass } from "../components/ui";
 import { QueryNotice } from "../components/query-notice";
 import { describeActionError } from "../lib/errors";
 
-/**
- * Adding somebody to the team.
- *
- * Creating a staff record does not sign anybody in. It reserves their name,
- * email and role, and the moment they sign up with that address the record is
- * claimed and they get exactly the role chosen here. A record with no linked
- * account is shown as awaiting them, so it is never mistaken for a live login.
- */
+
 export function StaffManager() {
   const staff = useGetStaff();
   const me = useGetMe();
@@ -94,8 +87,8 @@ export function StaffManager() {
 
       <ul>
         {rows.map((s) => {
-          // A record with no linked account has been created but nobody has
-          // signed in with that address yet.
+          
+          
           const pending = !s.clerkUserId;
           return (
             <li
@@ -173,14 +166,14 @@ export function StaffManager() {
                   onSuccess: (created) => {
                     qc.invalidateQueries({ queryKey: getGetStaffQueryKey() });
                     setInviting(null);
-                    // Say what actually happened to the invitation rather than a
-                    // line that reads the same either way. Somebody added to a
-                    // night roster is waiting on an email; whether it went out is
-                    // the first thing they want to know.
-                    // Say what actually happened to the invitation rather than a
-                    // line that reads the same either way. Somebody added to a
-                    // night roster is waiting on an email; whether it went out is
-                    // the first thing they want to know.
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
                     (function report() {
                       const outcome = created as unknown as {
                         invitation?: { sent: boolean; reason?: string };
@@ -236,9 +229,7 @@ export function StaffManager() {
                 placeholder="the address they will sign up with"
                 data-testid="input-invite-email"
               />
-              {/* The invitation goes to this address, and so does the claim when
-                  they accept, so it is not decoration: a different address means a
-                  person who signs up is not linked to this row. */}
+              {}
               <p className="mt-1 text-xs text-[hsl(var(--app-faint))]">
                 The invitation goes here, and this is what links their account to
                 the role you pick.

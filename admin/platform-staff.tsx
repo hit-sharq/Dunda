@@ -64,13 +64,7 @@ function normalizeStaff(data: AdminStaffResponse | undefined): StaffRow[] {
   return [...admins, ...clubUsers];
 }
 
-/**
- * Everyone who can sign in to a client.
- *
- * `linked` is the column that matters: a staff record with no linked account
- * has been created but nobody has accepted their invite yet, so that person
- * cannot sign in and has no access to anything.
- */
+
 export function PlatformStaff() {
   const staff = useGetAdminStaff();
   const [search, setSearch] = useState("");

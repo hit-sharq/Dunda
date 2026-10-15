@@ -7,7 +7,7 @@ import { notFound } from "@/lib/errors.server";
 
 export const dynamic = "force-dynamic";
 
-/** Orders with their items and their preparation tickets. */
+
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
@@ -54,7 +54,7 @@ export const GET = route(async (request: Request) => {
   );
 });
 
-/** Takes an order and routes it to the bar or the kitchen. */
+
 export const POST = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;

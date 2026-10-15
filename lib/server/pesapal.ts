@@ -1,35 +1,15 @@
 import { ApiError } from "@/lib/errors.server";
+import {
+  pesapalCredentialFingerprint,
+  type PesapalCredentials,
+} from "@/lib/server/pesapal-credentials";
 
-/**
- * Pesapal API 3.0 client.
- *
- * The only thing in the system that talks to the outside
- * world over money, kept in one place: every order created
- * and every status read goes through here, and every answer
- * is recorded by the caller rather than trusted from a
- * callback.
- *
- * Three env vars run it. PESAPAL_CONSUMER_KEY and
- * PESAPAL_CONSUMER_SECRET are the app's credentials from
- * the Pesapal dashboard. PESAPAL_ENV picks the sandbox
- * ("sandbox") or the live gateway (anything else), and
- * PESAPAL_BASE_URL overrides either for testing against a
- * stub. NEXT_PUBLIC_APP_URL is the public address of this
- * deployment, which is where Pesapal sends the buyer back
- * and where it posts its notifications.
- *
- * Endpoints, per the API 3.0 documentation:
- *   Auth/RequestToken            POST   no bearer
- *   URLSetup/RegisterIPN         POST   bearer
- *   Transactions/SubmitOrderRequest  POST  bearer
- *   Transactions/GetTransactionStatus GET bearer
- *   Transactions/RefundRequest   POST   bearer
- */
+
 
 const SANDBOX_BASE_URL = "https://cybqa.pesapal.com/pesapalv3";
 const PRODUCTION_BASE_URL = "https://pay.pesapal.com/v3";
 
-/** The provider's name as it is written on payments and attempts. */
+
 export const PESAPAL_PROVIDER = "PESAPAL";
 
 function baseUrl(): string {
@@ -41,35 +21,34 @@ function baseUrl(): string {
     : PRODUCTION_BASE_URL;
 }
 
-/** Whether the deployment holds credentials at all. */
-export function pesapalConfigured(): boolean {
-  return Boolean(
-    process.env.PESAPAL_CONSUMER_KEY && process.env.PESAPAL_CONSUMER_SECRET,
-  );
+
+export function pesapalConfigured(credentials?: PesapalCredentials): boolean {
+  return credentials
+    ? Boolean(credentials.consumerKey && credentials.consumerSecret)
+    : Boolean(process.env.PESAPAL_CONSUMER_KEY && process.env.PESAPAL_CONSUMER_SECRET);
 }
 
-/** Where Pesapal sends the buyer back, and where it posts notifications. */
+
 export function pesapalCallbackUrl(): string {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000")
     .replace(/\/+$/, "");
   return `${appUrl}/api/webhooks/pesapal`;
 }
 
-function requireCredentials(): void {
-  if (!pesapalConfigured()) {
+function platformCredentials(): PesapalCredentials {
+  const consumerKey = process.env.PESAPAL_CONSUMER_KEY;
+  const consumerSecret = process.env.PESAPAL_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) {
     throw new ApiError(
       503,
       "The payment provider is not configured on this deployment.",
       { code: "PROVIDER_NOT_CONFIGURED" },
     );
   }
+  return { consumerKey, consumerSecret };
 }
 
-/**
- * A provider that answers anything other than 2xx is a provider
- * problem, not a caller problem, so it leaves as a 502 with what
- * the provider said rather than as a 500 that looks like our fault.
- */
+
 async function providerResponse(response: Response): Promise<unknown> {
   const text = await response.text();
   if (!response.ok) {
@@ -88,17 +67,22 @@ async function providerResponse(response: Response): Promise<unknown> {
   }
 }
 
-// A token is valid for five minutes, so it is held in memory
-// and reused until shortly before it expires. Two terminals
-// paying at the same moment then share one token instead of
-// each asking for their own.
-let cachedToken: { value: string; expiresAt: number } | null = null;
 
-async function requestToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt - 30_000 > Date.now()) {
-    return cachedToken.value;
+
+
+
+const cachedTokens = new Map<string, { value: string; expiresAt: number }>();
+
+async function requestToken(credentials?: PesapalCredentials): Promise<string> {
+  const merchantCredentials = credentials ?? platformCredentials();
+  if (!pesapalConfigured(merchantCredentials)) {
+    throw new ApiError(503, "Pesapal credentials are incomplete.", {
+      code: "PROVIDER_NOT_CONFIGURED",
+    });
   }
-  requireCredentials();
+  const fingerprint = pesapalCredentialFingerprint(merchantCredentials);
+  const cached = cachedTokens.get(fingerprint);
+  if (cached && cached.expiresAt - 30_000 > Date.now()) return cached.value;
 
   const response = await fetch(`${baseUrl()}/api/Auth/RequestToken`, {
     method: "POST",
@@ -107,8 +91,8 @@ async function requestToken(): Promise<string> {
       Accept: "application/json",
     },
     body: JSON.stringify({
-      consumer_key: process.env.PESAPAL_CONSUMER_KEY,
-      consumer_secret: process.env.PESAPAL_CONSUMER_SECRET,
+      consumer_key: merchantCredentials.consumerKey,
+      consumer_secret: merchantCredentials.consumerSecret,
     }),
   });
 
@@ -117,9 +101,9 @@ async function requestToken(): Promise<string> {
     token?: string;
     expires_in?: number;
   };
-  // The live gateway spells the token "token" where
-  // the documentation says "access_token", so both
-  // are read.
+  
+  
+  
   const tokenValue = body.access_token ?? body.token;
   if (!tokenValue) {
     throw new ApiError(502, "Pesapal did not return an access token.", {
@@ -127,30 +111,25 @@ async function requestToken(): Promise<string> {
     });
   }
 
-  cachedToken = {
+  cachedTokens.set(fingerprint, {
     value: tokenValue,
-    // Pesapal issues tokens for five minutes; the default
-    // covers a provider that does not say.
+    
+    
     expiresAt: Date.now() + (body.expires_in ?? 300) * 1000,
-  };
-  return cachedToken.value;
+  });
+  return tokenValue;
 }
 
-/**
- * The IPN registration for this deployment's callback URL.
- *
- * SubmitOrderRequest will not be accepted without a
- * notification_id, which Pesapal hands out when a
- * notification URL is registered. The id is cached for the
- * life of the process: it identifies the URL, and the URL
- * does not change between orders.
- */
-let cachedIpnId: string | null = null;
 
-async function registerIpn(): Promise<string> {
-  if (cachedIpnId) return cachedIpnId;
+const cachedIpnIds = new Map<string, string>();
 
-  const token = await requestToken();
+async function registerIpn(credentials?: PesapalCredentials): Promise<string> {
+  const merchantCredentials = credentials ?? platformCredentials();
+  const fingerprint = pesapalCredentialFingerprint(merchantCredentials);
+  const cached = cachedIpnIds.get(fingerprint);
+  if (cached) return cached;
+
+  const token = await requestToken(merchantCredentials);
   const response = await fetch(`${baseUrl()}/api/URLSetup/RegisterIPN`, {
     method: "POST",
     headers: {
@@ -160,8 +139,8 @@ async function registerIpn(): Promise<string> {
     },
     body: JSON.stringify({
       url: pesapalCallbackUrl(),
-      // POST, so the notification reaches this server even
-      // when the buyer's browser never makes it back.
+      
+      
       ipn_notification_type: "POST",
     }),
   });
@@ -178,21 +157,27 @@ async function registerIpn(): Promise<string> {
     );
   }
 
-  cachedIpnId = body.ipn_id;
-  return cachedIpnId;
+  cachedIpnIds.set(fingerprint, body.ipn_id);
+  return body.ipn_id;
+}
+
+export async function verifyPesapalCredentials(
+  credentials: PesapalCredentials,
+): Promise<void> {
+  await registerIpn(credentials);
 }
 
 export interface PesapalSubscriptionDetails {
-  /** dd-MM-yyyy, the first day the mandate covers. */
+  
   startDate: Date;
-  /** dd-MM-yyyy, the last day the mandate covers. */
+  
   endDate: Date;
-  /** How often the card is charged. */
+  
   frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
 }
 
 export interface PesapalOrderInput {
-  /** Our reference for the order: the attempt or billing payment id. */
+  
   id: string;
   amount: number;
   currency: string;
@@ -200,20 +185,10 @@ export interface PesapalOrderInput {
   payerEmail?: string | null;
   payerPhone?: string | null;
   payerName?: string | null;
-  /**
-   * Our identifier for the account being charged,
-   * which Pesapal echoes back with every automatic
-   * charge. For a club's subscription this is the
-   * organization id, so a recurring charge names
-   * the club it belongs to.
-   */
+  credentials?: PesapalCredentials;
+  
   accountNumber?: string | null;
-  /**
-   * Sent when the payment should offer the payer
-   * an automatic renewal. The payer still accepts
-   * the mandate on the payment page; this only
-   * prefills what they are accepting.
-   */
+  
   subscriptionDetails?: PesapalSubscriptionDetails | null;
 }
 
@@ -228,22 +203,15 @@ function formatDay(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const year = date.getFullYear();
-  // The provider spells dates dd-MM-yyyy.
+  
   return `${day}-${month}-${year}`;
 }
 
-/**
- * Creates an order and returns where the buyer should be sent.
- *
- * The amount is sent as the club's own whole units with two
- * decimals appended, because Pesapal prices in major currency
- * units and the books keep whole units: 18000 is KES 18,000
- * on both sides of the call.
- */
+
 export async function createOrder(input: PesapalOrderInput): Promise<PesapalOrder> {
   const [token, notificationId] = await Promise.all([
-    requestToken(),
-    registerIpn(),
+    requestToken(input.credentials),
+    registerIpn(input.credentials),
   ]);
 
   const [firstName, ...rest] = (input.payerName ?? "").split(/\s+/);
@@ -257,9 +225,9 @@ export async function createOrder(input: PesapalOrderInput): Promise<PesapalOrde
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        // The provider only accepts alphanumerics, dashes,
-        // underscores, dots and colons here, and a uuid is
-        // exactly that.
+        
+        
+        
         id: input.id,
         currency: input.currency,
         amount: Number(input.amount.toFixed(2)),
@@ -267,12 +235,12 @@ export async function createOrder(input: PesapalOrderInput): Promise<PesapalOrde
         callback_url: pesapalCallbackUrl(),
         cancellation_url: pesapalCallbackUrl(),
         notification_id: notificationId,
-        // The account the charge belongs to, which is
-        // what an automatic charge names us back by.
+        
+        
         account_number: input.accountNumber ?? "",
-        // Offered when the payer should be asked to
-        // renew automatically. They still accept on
-        // the payment page; this prefills the terms.
+        
+        
+        
         subscription_details: input.subscriptionDetails
           ? {
               start_date: formatDay(input.subscriptionDetails.startDate),
@@ -306,8 +274,8 @@ export async function createOrder(input: PesapalOrderInput): Promise<PesapalOrde
     status?: string;
   };
 
-  // The provider reports its own failures in a 200 body,
-  // so the answer is checked rather than the HTTP status.
+  
+  
   if (body.error || body.status !== "200") {
     throw new ApiError(
       502,
@@ -337,18 +305,18 @@ export async function createOrder(input: PesapalOrderInput): Promise<PesapalOrde
 }
 
 export interface PesapalRecurringInfo {
-  /** Our account number, echoed back. */
+  
   accountReference: string | null;
   amount: number | null;
   firstName: string | null;
   lastName: string | null;
-  /** The provider's recurring payment identifier. */
+  
   correlationId: string | null;
 }
 
 export interface PesapalOrderStatus {
   orderTrackingId: string;
-  /** The provider's own spelling, kept as it arrived. */
+  
   status: string;
   paymentMethod: string | null;
   paymentAmount: number | null;
@@ -357,24 +325,17 @@ export interface PesapalOrderStatus {
   transactionId: string | null;
   paymentAccount: string | null;
   description: string | null;
-  /** Present on automatic charges. */
+  
   subscriptionTransactionInfo: PesapalRecurringInfo | null;
   raw: unknown;
 }
 
-/**
- * Reads an order's status from Pesapal.
- *
- * This is the only answer the system acts on. A callback —
- * browser or notification — is a nudge that says "go and
- * look"; the status read here is what settles the money.
- * Pesapal deliberately sends no status with the callback,
- * so there is nothing to trust but this.
- */
+
 export async function getOrderStatus(
   orderTrackingId: string,
+  credentials?: PesapalCredentials,
 ): Promise<PesapalOrderStatus> {
-  const token = await requestToken();
+  const token = await requestToken(credentials);
 
   const response = await fetch(
     `${baseUrl()}/api/Transactions/GetTransactionStatus?orderTrackingId=${encodeURIComponent(orderTrackingId)}`,
@@ -407,9 +368,9 @@ export async function getOrderStatus(
     error?: { message?: string } | null;
   };
 
-  // The status arrives as a description and a code that
-  // agree with each other: 1 is COMPLETED, 2 is FAILED,
-  // 3 is REVERSED, 0 is INVALID.
+  
+  
+  
   const status = asString(body.payment_status_description) ?? statusCodeLabel(body.status_code);
   if (!status) {
     throw new ApiError(
@@ -448,28 +409,20 @@ export async function getOrderStatus(
 }
 
 export interface PesapalRefundInput {
-  /** The confirmation code the completed payment returned. */
+  
   confirmationCode: string;
   amount: number;
-  /** Who asked for the refund, as the provider records it. */
+  
   username: string;
   remarks: string;
+  credentials: PesapalCredentials;
 }
 
-/**
- * Asks the provider to send money back to the payer.
- *
- * The provider answers 200 with an error code in the
- * body: 200 means the request was received and is
- * being processed, 500 means it was rejected. Neither
- * means the money has moved yet — the provider's
- * finance team finalises it — so the caller records
- * the request rather than a completed reversal.
- */
+
 export async function refundPayment(
   input: PesapalRefundInput,
 ): Promise<string> {
-  const token = await requestToken();
+  const token = await requestToken(input.credentials);
 
   const response = await fetch(`${baseUrl()}/api/Transactions/RefundRequest`, {
     method: "POST",
@@ -491,9 +444,9 @@ export async function refundPayment(
     message?: string;
   };
 
-  // The provider reports its own failures in a 200
-  // body, so the answer is checked rather than the
-  // HTTP status.
+  
+  
+  
   const code = Number(body.error);
   if (code === 500) {
     throw new ApiError(
@@ -521,18 +474,9 @@ function statusCodeLabel(code: number | undefined): string | null {
   }
 }
 
-/** The provider's spellings of "the money arrived". */
+
 const COMPLETED_STATUSES = new Set(["COMPLETED", "SUCCESS", "SUCCESSFUL"]);
-/**
- * The provider's spellings of "the money did not
- * arrive, or arrived and went back".
- *
- * INVALID is deliberately absent: it is the state of
- * every order that has not been paid yet, so it means
- * "still waiting", not "failed". An abandoned order
- * stays open and shows up in the operator's stuck
- * payments rather than as a failure.
- */
+
 const FAILED_STATUSES = new Set([
   "FAILED",
   "REJECTED",
