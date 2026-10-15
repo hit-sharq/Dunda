@@ -49,7 +49,7 @@ import { System as OperatorSystem } from '@/admin/system';
 import { Overview as OperatorOverview } from '@/admin/overview';
 import { Billing as OperatorBilling } from '@/admin/billing';
 import { PERMISSION_LABELS } from '@/lib/errors';
-import { Skeleton } from '@/components/ui';
+import { Skeleton, inputClass } from '@/components/ui';
 import { Pos as NewPos } from '@/screens/pos';
 import { Products } from '@/screens/products';
 import { FloorDesigner } from '@/screens/floor-designer';
