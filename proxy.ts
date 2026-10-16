@@ -72,7 +72,7 @@ const clerk = clerkMiddleware(async (auth, request) => {
 });
 
 export default async function middleware(request: NextRequest) {
-  const response = (await clerk(request)) as NextResponse;
+  const response = (await clerk(request, undefined as any)) as NextResponse;
   // Skip security headers for JSON API routes (they don't need CSP/HSTS)
   if (!request.nextUrl.pathname.startsWith("/api")) {
     securityHeaders(response, request);
