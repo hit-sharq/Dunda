@@ -11,6 +11,7 @@ import {
   parseBody,
 } from "@/lib/server/http";
 import { invitationFailureReason } from "@/lib/server/clerk";
+import { checkRateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,8 @@ const createSetupLinkSchema = z.object({
 });
 
 export const POST = route(async (request: Request) => {
+  checkRateLimit(clientIpKey(request), 10, 60 * 60 * 1000);
+
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();
   if (!session.isOperator) throw new Forbidden("platform_console");

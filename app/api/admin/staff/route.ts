@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { route, Forbidden, NotProvisioned, resolveSession } from "@/lib/server/http";
+import { checkRateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +85,8 @@ export const GET = route(async (request: Request) => {
 
 
 export const POST = route(async (request: Request) => {
+  checkRateLimit(clientIpKey(request), 20, 60 * 60 * 1000);
+
   const session = await resolveSession();
   if (!session) throw new NotProvisioned();
   if (!session.isOperator) throw new Forbidden("platform_console");
@@ -105,6 +108,17 @@ export const POST = route(async (request: Request) => {
     );
   }
 
+  // Prevent an operator from demoting themselves or purging all platform admins
+  if (body.clerkUserId === session.clerkUserId && body.role && body.role !== "PLATFORM_ADMIN") {
+    return NextResponse.json(
+      {
+        error: "You cannot change your own platform role.",
+        code: "VALIDATION_FAILED",
+      },
+      { status: 422 },
+    );
+  }
+
   const existing = await prisma.dunda_platform_users.findUnique({
     where: { clerk_user_id: body.clerkUserId },
   });
@@ -116,6 +130,22 @@ export const POST = route(async (request: Request) => {
       { error: `A platform role is ${allowed.join(", ")}.`, code: "VALIDATION_FAILED" },
       { status: 422 },
     );
+  }
+
+  // Prevent demoting the last remaining PLATFORM_ADMIN
+  if (existing && existing.role === "PLATFORM_ADMIN" && role !== "PLATFORM_ADMIN") {
+    const adminCount = await prisma.dunda_platform_users.count({
+      where: { role: "PLATFORM_ADMIN", status: "ACTIVE" },
+    });
+    if (adminCount <= 1) {
+      return NextResponse.json(
+        {
+          error: "Cannot demote the last platform administrator. Assign another administrator first.",
+          code: "VALIDATION_FAILED",
+        },
+        { status: 422 },
+      );
+    }
   }
 
   const user = await prisma.dunda_platform_users.upsert({

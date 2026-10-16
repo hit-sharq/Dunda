@@ -3,6 +3,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/client";
 import { route, requireSession, requirePermission, orgWhere, assertSameOrg } from "@/lib/server/http";
 import { createStaffSchema, createShiftSchema, clockOutSchema } from "@/lib/server/schemas";
+import { checkRateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,8 @@ export const GET = route(async (request: Request) => {
 
 
 export const POST = route(async (request: Request) => {
+  checkRateLimit(clientIpKey(request), 30, 60 * 60 * 1000);
+
   const session = await requirePermission("manage_staff");
   const organizationId = session.organizationId as string;
 

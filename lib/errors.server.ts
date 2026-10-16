@@ -31,3 +31,14 @@ export const wrongState = (message: string) =>
 
 export const moneyRule = (message: string) =>
   new ApiError(422, message, { code: "MONEY_RULE" });
+
+export class RateLimitError extends Error {
+  readonly status = 429;
+  readonly body: { error: string; code?: string };
+
+  constructor(message: string) {
+    super(message);
+    this.name = "RateLimitError";
+    this.body = { error: message, code: "RATE_LIMITED" };
+  }
+}

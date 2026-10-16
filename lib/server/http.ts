@@ -3,6 +3,7 @@ import { ZodError, type ZodType, type z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/client";
 import { ApiError } from "@/lib/errors.server";
+import { RateLimitError } from "@/lib/errors.server";
 import { isModuleEnabled } from "./settings";
 import { clerkClient } from "@clerk/nextjs/server";
 import { scheduleDueJobs } from "@/lib/server/cron";
@@ -68,6 +69,7 @@ export async function resolveSession(): Promise<Session | null> {
           clerk_user_id: null,
           status: "ACTIVE",
         },
+        orderBy: { created_at: "desc" },
         include: {
           dunda_roles: {
             include: {
@@ -383,6 +385,10 @@ function errorResponse(error: unknown): NextResponse {
       },
       { status: 403 },
     );
+  }
+
+  if (error instanceof RateLimitError) {
+    return NextResponse.json(error.body, { status: 429 });
   }
 
   

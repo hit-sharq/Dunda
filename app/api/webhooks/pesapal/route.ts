@@ -12,6 +12,26 @@ import { PESAPAL_PROVIDER } from "@/lib/server/pesapal";
 
 export const dynamic = "force-dynamic";
 
+function verifyWebhookSecret(request: Request): boolean {
+  const secret = process.env.PESAPAL_WEBHOOK_SECRET;
+  if (!secret) return false;
+  const provided = request.headers.get("x-pesapal-webhook-secret");
+  if (!provided) return false;
+  const a = Buffer.from(secret);
+  const b = Buffer.from(provided);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+function timingSafeEqual(a: Buffer, b: Buffer): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a[i] ^ b[i];
+  }
+  return result === 0;
+}
+
 
 
 
@@ -94,6 +114,13 @@ function ipnAcknowledgement(
 }
 
 export const GET = route(async (request: Request) => {
+  if (!verifyWebhookSecret(request)) {
+    return NextResponse.json(
+      { error: "Unauthorized webhook source.", code: "FORBIDDEN" },
+      { status: 401 },
+    );
+  }
+
   const payload = await readPayload(request);
   const { orderTrackingId, merchantReference, notificationType } =
     referenceFrom(payload as Record<string, string | null | undefined>);
@@ -123,6 +150,13 @@ export const GET = route(async (request: Request) => {
 });
 
 export const POST = route(async (request: Request) => {
+  if (!verifyWebhookSecret(request)) {
+    return NextResponse.json(
+      { error: "Unauthorized webhook source.", code: "FORBIDDEN" },
+      { status: 401 },
+    );
+  }
+
   const payload = await readPayload(request);
   const { orderTrackingId, merchantReference, notificationType } =
     referenceFrom(payload as Record<string, string | null | undefined>);

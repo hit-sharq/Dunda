@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/client";
 import { ApiError } from "@/lib/errors.server";
 import { initiateBillingPayment } from "@/lib/server/payments";
 import { route, resolveSession, parseBody } from "@/lib/server/http";
+import { checkRateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,8 @@ export const GET = route(async (_request: Request, context: { params: Promise<{ 
 });
 
 export const POST = route(async (request: Request, context: { params: Promise<{ token: string }> }) => {
+  checkRateLimit(clientIpKey(request), 20, 60 * 60 * 1000);
+
   const session = await resolveSession();
   if (!session) {
     return NextResponse.json({ error: "Sign in or create an account to continue.", code: "UNAUTHENTICATED" }, { status: 401 });

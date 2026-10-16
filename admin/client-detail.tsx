@@ -1,11 +1,11 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import {
   useAssignOrganizationOwner,
+  useGetAdminOrganizations,
   useGetPlans,
   useSetSubscription,
   type SetSubscriptionInput,
   type SubscriptionResultUsage,
-  useGetAdminOrganizations,
   useUpdateAdminOrganization,
 } from "@/lib/api-client-react/src";
 import { Card, State, field, inputStyle, linkButton, primaryButton } from "./ui";
@@ -13,34 +13,102 @@ import { colors, dateOnly, money } from "./theme";
 
 
 export function ClientDetail({ id }: { id: string }) {
-  const orgs = useGetAdminOrganizations();
   const update = useUpdateAdminOrganization();
   const assignOwner = useAssignOrganizationOwner();
   const plans = useGetPlans();
   const setSubscription = useSetSubscription();
-  const org = orgs.data?.find((o) => o.id === id);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/admin/roles", { credentials: "include" })
-      .then((r) => r.json())
-      .then((b: { id: string; name: string; isOwner: boolean }[]) => {
-        if (!cancelled && Array.isArray(b)) setRoles(b);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const [currency, setCurrency] = useState("");
-  const [taxRate, setTaxRate] = useState("");
-  const [serviceChargeRate, setServiceChargeRate] = useState("");
-  const [saved, setSaved] = useState<string | null>(null);
-  const [claimed, setClaimed] = useState<string | null>(null);
-  const [planChoice, setPlanChoice] = useState("");
-  const [cycle, setCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
-  const [subStatus, setSubStatus] = useState<NonNullable<SetSubscriptionInput["status"]>>("ACTIVE");
+  const orgs = useGetAdminOrganizations();
+  
+   const [orgData, setOrgData] = useState<null | {
+     id: string;
+     name: string;
+     slug: string;
+     domain: string | null;
+     currency: string;
+     status: string;
+     suspended_at: string | null;
+     suspended_reason: string | null;
+     created_at: string;
+     last_activity_at: string | null;
+     branches: number;
+     staff: number;
+     activeStaff: number;
+     tables: number;
+     revenueInWindow: number;
+     ordersInWindow: number;
+     lastOrderAt: string | null;
+     plan: string | null;
+     subscriptionStatus: string | null;
+     users: number;
+     planName: string | null;
+     trialEndsAt: string | null;
+     renewsAt: string | null;
+     taxRate: number;
+     serviceChargeRate: number;
+   }>(null);
+  const [orgLoading, setOrgLoading] = useState(true);
+  const [orgError, setOrgError] = useState<unknown>(null);
+  
+   // Fetch organization data when ID changes
+   const fetchOrganizationData = async () => {
+     if (!id) {
+       setOrgData(null);
+       setOrgLoading(false);
+       return;
+     }
+     
+     try {
+       setOrgLoading(true);
+       setOrgError(null);
+       
+       const response = await fetch(`/api/admin/organizations/${id}`, {
+         credentials: "include"
+       });
+       
+       if (!response.ok) {
+         throw new Error(`Failed to load organization: ${response.status}`);
+       }
+       
+       const data = await response.json();
+       
+       setOrgData({
+         id: data.id,
+         name: data.name,
+         slug: data.slug,
+         domain: data.domain,
+         currency: data.currency,
+         status: data.status,
+         suspended_at: data.suspended_at,
+         suspended_reason: data.suspended_reason,
+         created_at: data.created_at,
+         last_activity_at: data.last_activity_at,
+         branches: data.branches?.length ?? 0,
+         staff: data.staff?.length ?? 0,
+         activeStaff: data.activeStaff ?? 0,
+         tables: data.tables?.length ?? 0,
+         revenueInWindow: data.revenueInWindow ?? 0,
+         ordersInWindow: data.ordersInWindow ?? 0,
+         lastOrderAt: data.lastOrderAt ?? null,
+         plan: data.plan ?? null,
+         subscriptionStatus: data.subscription?.status ?? null,
+         users: data.users ?? 0,
+         planName: data.subscription?.planName ?? null,
+         trialEndsAt: data.subscription?.trialEndsAt ?? null,
+         renewsAt: data.subscription?.renewsAt ?? null,
+         taxRate: data.tax_rate ?? 0,
+         serviceChargeRate: data.service_charge_rate ?? 0,
+       });
+     } catch (error) {
+       setOrgError(error);
+       setOrgData(null);
+     } finally {
+       setOrgLoading(false);
+     }
+   };
+   
+   useEffect(() => {
+     fetchOrganizationData();
+   }, [id]);
   const [usage, setUsage] = useState<SubscriptionResultUsage | null>(null);
   
   
@@ -48,10 +116,20 @@ export function ClientDetail({ id }: { id: string }) {
   const [grantResult, setGrantResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [grantPending, setGrantPending] = useState(false);
   const [roles, setRoles] = useState<{ id: string; name: string; isOwner: boolean }[]>([]);
-  const [planNote, setPlanNote] = useState<string | null>(null);
-  
-  
-  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+   const [planNote, setPlanNote] = useState<string | null>(null);
+   
+   // Missing state declarations for form fields
+   const [planChoice, setPlanChoice] = useState("");
+   const [cycle, setCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
+   const [subStatus, setSubStatus] = useState<NonNullable<SetSubscriptionInput["status"]>>("ACTIVE");
+   const [currency, setCurrency] = useState("");
+   const [taxRate, setTaxRate] = useState("");
+   const [serviceChargeRate, setServiceChargeRate] = useState("");
+   const [saved, setSaved] = useState<string | null>(null);
+   const [claimed, setClaimed] = useState<string | null>(null);
+   
+   
+   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [roster, setRoster] = useState<
     {
       id: string;
@@ -88,13 +166,13 @@ export function ClientDetail({ id }: { id: string }) {
     text: string;
   } | null>(null);
 
-  useEffect(() => {
-    if (!org) return;
-    setPlanChoice((prev) => prev || org.plan || "");
-    setCurrency(org.currency);
-    setTaxRate(String(org.taxRate));
-    setServiceChargeRate(String(org.serviceChargeRate));
-  }, [org?.id, org?.currency, org?.taxRate, org?.serviceChargeRate]);
+   useEffect(() => {
+     if (!orgData) return;
+     setPlanChoice((prev) => prev || orgData.plan || "");
+     setCurrency(orgData.currency);
+     setTaxRate(String(orgData.taxRate));
+     setServiceChargeRate(String(orgData.serviceChargeRate));
+   }, [orgData?.id, orgData?.currency, orgData?.taxRate, orgData?.serviceChargeRate]);
 
   const reloadRoster = useCallback(() => {
     void fetch(`/api/admin/organizations/${id}`, { credentials: "include" })
@@ -232,12 +310,12 @@ export function ClientDetail({ id }: { id: string }) {
             : {
                 ok: true,
                 text: "Club reinstated. Its staff can sign back in.",
-              },
-        );
-        setSuspendReason("");
-        orgs.refetch();
-        reloadRoster();
-      })
+               },
+         );
+         setSuspendReason("");
+         fetchOrganizationData();
+         reloadRoster();
+       })
       .catch((e: unknown) =>
         setClubAction({
           ok: false,
@@ -247,78 +325,80 @@ export function ClientDetail({ id }: { id: string }) {
       .finally(() => setClubPending(false));
   }
 
-  if (orgs.isLoading) {
-    return (
-      <State loading>
-        <span />
-      </State>
-    );
-  }
+   if (orgLoading) {
+     return (
+       <State loading>
+         <span />
+       </State>
+     );
+   }
 
-  
-  
-  
-  if (!orgs.data) {
-    return <Card><p style={{ margin: 0, fontSize: 13, color: colors.muted }}>Loading…</p></Card>;
-  }
 
-  if (!org) {
-    return (
-      <State
-        empty
-        emptyTitle="No such club."
-        emptyHint={`Nothing here is filed under that id. It may have been removed, or the link may be wrong.`}
-      >
-        <span />
-      </State>
-    );
-  }
+   if (orgError) {
+     return (
+       <State error>
+         <span />
+       </State>
+     );
+   }
 
-  const dirty =
-    currency !== org.currency ||
-    Number(taxRate) !== org.taxRate ||
-    Number(serviceChargeRate) !== org.serviceChargeRate;
+   if (!orgData) {
+     return (
+       <State
+         empty
+         emptyTitle="No such club."
+         emptyHint={`Nothing here is filed under that id. It may have been removed, or the link may be wrong.`}
+       >
+         <span />
+       </State>
+     );
+   }
 
-  return (
-    <div style={{ display: "grid", gap: 20 }}>
-      <div>
-        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800 }}>{org.name}</h1>
-        <p style={{ margin: "4px 0 0", color: colors.muted, fontSize: 14 }}>
-          {org.slug} · client since {dateOnly(org.createdAt)}
-          {org.plan ? ` · ${org.plan}` : ""}
-        </p>
-      </div>
+   const dirty =
+     currency !== (orgData?.currency ?? '') ||
+     Number(taxRate) !== Number(orgData?.taxRate ?? 0) ||
+     Number(serviceChargeRate) !== Number(orgData?.serviceChargeRate ?? 0);
 
-      <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
-        <Card>
-          <p style={labelStyle}>Branches</p>
-          <p style={valueStyle}>{org.branches}</p>
-        </Card>
-        <Card>
-          <p style={labelStyle}>Active staff</p>
-          <p style={valueStyle}>
-            {org.activeStaff} of {org.staff}
-          </p>
-        </Card>
-        <Card>
-          <p style={labelStyle}>Tables</p>
-          <p style={valueStyle}>{org.tables}</p>
-        </Card>
-        <Card>
-          <p style={labelStyle}>Revenue, 30d</p>
-          <p style={valueStyle}>{money(org.revenueInWindow)}</p>
-        </Card>
-      </div>
+   return (
+     <div style={{ display: "grid", gap: 20 }}>
+       <div>
+         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800 }}>{orgData?.name}</h1>
+         <p style={{ margin: "4px 0 0", color: colors.muted, fontSize: 14 }}>
+            {orgData?.slug} · client since {dateOnly(orgData?.created_at ?? '')}
+           {orgData?.plan ? ` · ${orgData.plan}` : ""}
+         </p>
+       </div>
+
+       <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+         <Card>
+           <p style={labelStyle}>Branches</p>
+           <p style={valueStyle}>{orgData?.branches}</p>
+         </Card>
+         <Card>
+           <p style={labelStyle}>Active staff</p>
+           <p style={valueStyle}>
+             {orgData?.activeStaff} of {orgData?.staff}
+           </p>
+         </Card>
+         <Card>
+           <p style={labelStyle}>Tables</p>
+           <p style={valueStyle}>{orgData?.tables}</p>
+         </Card>
+         <Card>
+           <p style={labelStyle}>Revenue, 30d</p>
+           <p style={valueStyle}>{money(orgData?.revenueInWindow ?? 0)}</p>
+         </Card>
+       </div>
 
       <Card style={{ display: "grid", gap: 16, maxWidth: 640 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Plan</h2>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: colors.muted }}>
-            What this club pays. It has {org.branches} branch
-            {org.branches === 1 ? "" : "es"} and {org.activeStaff} active staff.
-            {org.plan && !plans.isLoading
-              ? ` Currently on ${(plans.data ?? []).find((pl) => pl.code === org.plan)?.name ?? org.plan}.`
-              : ""}
+             What this club pays. It has {orgData?.branches} branch
+             {orgData?.branches === 1 ? "" : "es"} and {orgData?.activeStaff} active staff.
+             {orgData?.plan && !plans.isLoading
+               ? ` Currently on ${(plans.data ?? []).find((pl) => pl.code === orgData.plan)?.name ?? orgData.plan}.`
+               : ""}
           </p>
         </div>
 
@@ -421,19 +501,19 @@ export function ClientDetail({ id }: { id: string }) {
           <button
             style={{ ...primaryButton, opacity: setSubscription.isPending ? 0.5 : 1 }}
             disabled={setSubscription.isPending}
-            onClick={() =>
-              setSubscription.mutate(
+             onClick={() =>
+               setSubscription.mutate(
+                 {
+                   organizationId: orgData?.id ?? '',
+                   data: { planId: planChoice, billingCycle: cycle, status: subStatus },
+                 },
                 {
-                  organizationId: org.id,
-                  data: { planId: planChoice, billingCycle: cycle, status: subStatus },
-                },
-                {
-                  onSuccess: (r) => {
-                    setUsage(r.usage);
-                    setPlanNote(`Set to ${r.subscription.plan} on ${r.subscription.billingCycle.toLowerCase()}.`);
-                    setPaymentUrl(r.payment?.redirectUrl ?? null);
-                    orgs.refetch();
-                  },
+                   onSuccess: (r) => {
+                     setUsage(r.usage);
+                     setPlanNote(`Set to ${r.subscription.plan} on ${r.subscription.billingCycle.toLowerCase()}.`);
+                     setPaymentUrl(r.payment?.redirectUrl ?? null);
+                     fetchOrganizationData();
+                   },
                 },
               )
             }
@@ -559,10 +639,10 @@ export function ClientDetail({ id }: { id: string }) {
                           ok: false,
                           text: `${person} is on the roster, but the invitation did not go out: ${body.invitation?.reason ?? "unknown reason"} They can still sign up themselves with that address.`,
                         },
-                  );
-                  setGrant({ name: "", email: "", roleId: "" });
-                  orgs.refetch();
-                })
+                   );
+                   setGrant({ name: "", email: "", roleId: "" });
+                   fetchOrganizationData();
+                 })
                 .catch((e: unknown) =>
                   setGrantResult({
                     ok: false,
@@ -848,21 +928,21 @@ export function ClientDetail({ id }: { id: string }) {
         <div style={{ display: "flex", gap: 10 }}>
           <button
             disabled={!dirty || update.isPending}
-            onClick={() =>
-              update.mutate(
+             onClick={() =>
+               update.mutate(
+                 {
+                   organizationId: orgData?.id ?? '',
+                   data: {
+                     currency,
+                     taxRate: Number(taxRate),
+                     serviceChargeRate: Number(serviceChargeRate),
+                   },
+                 },
                 {
-                  organizationId: org.id,
-                  data: {
-                    currency,
-                    taxRate: Number(taxRate),
-                    serviceChargeRate: Number(serviceChargeRate),
-                  },
-                },
-                {
-                  onSuccess: () => {
-                    setSaved("Saved. New orders use these figures.");
-                    orgs.refetch();
-                  },
+                   onSuccess: () => {
+                     setSaved("Saved. New orders use these figures.");
+                     fetchOrganizationData();
+                   },
                 },
               )
             }
@@ -881,22 +961,22 @@ export function ClientDetail({ id }: { id: string }) {
       <Card
         style={{
           display: "grid",
-          gap: 12,
-          maxWidth: 640,
-          borderColor: org.status === "SUSPENDED" ? colors.red : colors.line,
+           gap: 12,
+           maxWidth: 640,
+           borderColor: orgData?.status === "SUSPENDED" ? colors.red : colors.line,
         }}
       >
-        <div>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
-            {org.status === "SUSPENDED" ? "Club disabled" : "Disable club"}
-          </h2>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: colors.muted }}>
-            {org.status === "SUSPENDED"
-              ? `Disabled${org.suspendedAt ? ` on ${dateOnly(org.suspendedAt)}` : ""}${org.suspendedReason ? ` — ${org.suspendedReason}` : ""}. The club's staff are signed out of the app until it is reinstated.`
-              : "Takes the club out of service. Its staff are signed out of the app and every screen refuses them until it is reinstated."}
-          </p>
-        </div>
-        {org.status === "SUSPENDED" ? (
+         <div>
+           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
+             {orgData?.status === "SUSPENDED" ? "Club disabled" : "Disable club"}
+           </h2>
+           <p style={{ margin: "4px 0 0", fontSize: 13, color: colors.muted }}>
+              {orgData?.status === "SUSPENDED"
+                ? `Disabled${orgData?.suspended_at ? ` on ${dateOnly(orgData.suspended_at)}` : ""}${orgData?.suspended_reason ? ` — ${orgData.suspended_reason}` : ""}. The club's staff are signed out of the app until it is reinstated.`
+                : "Takes the club out of service. Its staff are signed out of the app and every screen refuses them until it is reinstated."}
+           </p>
+         </div>
+         {orgData?.status === "SUSPENDED" ? (
           <div>
             <button
               style={{ ...primaryButton, opacity: clubPending ? 0.5 : 1 }}
@@ -960,17 +1040,17 @@ export function ClientDetail({ id }: { id: string }) {
           <button
             style={{ ...primaryButton, opacity: assignOwner.isPending ? 0.5 : 1 }}
             disabled={assignOwner.isPending}
-            onClick={() =>
-              assignOwner.mutate(
-                { organizationId: org.id, data: {} },
-                {
-                  onSuccess: (r) => {
-                    setClaimed(
-                      `You are now the owner of ${org.name}.` +
-                        (r.demoted ? ` ${r.demoted.name} was made an Administrator.` : ""),
-                    );
-                    orgs.refetch();
-                  },
+             onClick={() =>
+               assignOwner.mutate(
+                 { organizationId: orgData?.id ?? '', data: {} },
+                 {
+                   onSuccess: (r) => {
+                     setClaimed(
+                       `You are now the owner of ${orgData?.name ?? ''}.` +
+                         (r.demoted ? ` ${r.demoted.name} was made an Administrator.` : ""),
+                     );
+                     fetchOrganizationData();
+                   },
                 },
               )
             }
@@ -984,23 +1064,23 @@ export function ClientDetail({ id }: { id: string }) {
         <h2 style={{ margin: "0 0 10px", fontSize: 17, fontWeight: 700 }}>
           What this client has set up
         </h2>
-        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: colors.muted, lineHeight: 1.8 }}>
-          <li>
-            {org.tables > 0
-              ? `${org.tables} tables on the floor`
-              : "No floor designed yet — they cannot take a table order"}
-          </li>
-          <li>
-            {org.staff > 0
-              ? `${org.staff} staff on the roster`
-              : "Nobody invited yet"}
-          </li>
-          <li>
-            {org.ordersInWindow > 0
-              ? `${org.ordersInWindow} completed orders in the last 30 days`
-              : "No completed orders in the last 30 days"}
-          </li>
-        </ul>
+         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: colors.muted, lineHeight: 1.8 }}>
+           <li>
+             {orgData?.tables > 0
+               ? `${orgData.tables} tables on the floor`
+               : "No floor designed yet — they cannot take a table order"}
+           </li>
+           <li>
+             {orgData?.staff > 0
+               ? `${orgData.staff} staff on the roster`
+               : "Nobody invited yet"}
+           </li>
+           <li>
+             {orgData?.ordersInWindow > 0
+               ? `${orgData.ordersInWindow} completed orders in the last 30 days`
+               : "No completed orders in the last 30 days"}
+           </li>
+         </ul>
       </Card>
     </div>
   );
