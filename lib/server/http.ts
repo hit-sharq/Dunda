@@ -57,7 +57,11 @@ export async function resolveSession(): Promise<Session | null> {
   
   if (!staff) {
     const email = await accountEmail(userId, sessionClaims);
-    if (email) {
+    // Do not auto-link platform operators to club staff records by email.
+    // This prevents club managers from "claiming" an operator's account
+    // by inviting their email to a club, which would demote them from
+    // platform operator to club staff on next sign-in.
+    if (email && !operatorIds().has(userId)) {
       staff = await prisma.dunda_staff.findFirst({
         where: {
           email: { equals: email, mode: "insensitive" },
@@ -96,9 +100,9 @@ export async function resolveSession(): Promise<Session | null> {
             },
           });
         } catch {
-          
-          
-          
+
+
+
           staff = null;
         }
       }
