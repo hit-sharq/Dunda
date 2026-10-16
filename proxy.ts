@@ -17,12 +17,12 @@ function securityHeaders(response: NextResponse, request: NextRequest): void {
   // Content Security Policy
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://checkout.stripe.com https://cdn.jsdelivr.net https://unpkg.com https://*.clerk.accounts https://*.clerk.com https://*.vercel.app",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://checkout.stripe.com https://cdn.jsdelivr.net https://unpkg.com https://*.clerk.accounts https://*.clerk.accounts.dev https://*.clerk.com https://*.clerk.com.dev https://*.vercel.app",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://*.clerk.accounts https://*.clerk.com https://api.stripe.com https://*.pesapal.com https://cybqa.pesapal.com https://pay.pesapal.com wss: https://*.vercel.app",
-    "frame-src 'self' https://js.stripe.com https://checkout.stripe.com https://*.clerk.accounts https://*.clerk.com",
+    "connect-src 'self' https://*.clerk.accounts https://*.clerk.accounts.dev https://*.clerk.com https://*.clerk.com.dev https://api.stripe.com https://*.pesapal.com https://cybqa.pesapal.com https://pay.pesapal.com wss: https://*.vercel.app",
+    "frame-src 'self' https://js.stripe.com https://checkout.stripe.com https://*.clerk.accounts https://*.clerk.accounts.dev https://*.clerk.com https://*.clerk.com.dev",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
