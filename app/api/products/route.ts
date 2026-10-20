@@ -1,75 +1,40 @@
-import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db/client";
-import { route, requireSession } from "@/lib/server/http";
+import { route, requireSession, orgWhere, parseBody } from "@/lib/server/http";
+import { checkRateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
+const productQuerySchema = z.object({
+  category_id: z.string().optional(),
+  search: z.string().optional(),
+  active: z.boolean().optional().default(true),
+});
 
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
   const organizationId = session.organizationId as string;
   const url = new URL(request.url);
-
-  const search = url.searchParams.get("search")?.trim();
-  const categoryId = url.searchParams.get("categoryId");
-  const activeOnly = url.searchParams.get("active") !== "false";
-
-  
-  
-  const where: Prisma.dunda_productsWhereInput = {
-    organization_id: organizationId,
-    ...(categoryId ? { category_id: categoryId } : {}),
-    ...(activeOnly ? { active: true } : {}),
-  };
-  if (search) {
-    where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { sku: { contains: search, mode: "insensitive" } },
-      { barcode: { contains: search, mode: "insensitive" } },
-    ];
-  }
+  const categoryId = url.searchParams.get("category_id") ?? undefined;
+  const search = url.searchParams.get("search") ?? undefined;
+  const active = url.searchParams.get("active") !== "false";
 
   const products = await prisma.dunda_products.findMany({
-    where,
-    orderBy: { name: "asc" },
-    take: 300,
-    include: {
-      dunda_product_units: { orderBy: { sort_order: "asc" } },
-      dunda_product_barcodes: { select: { barcode: true } },
+    where: {
+      ...orgWhere(organizationId),
+      ...(categoryId ? { category_id: categoryId } : {}),
+      ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+      ...(active ? { active: true } : {}),
     },
+    include: {
+      dunda_product_units: {
+        select: { id: true, name: true, selling_price: true, conversion_factor: true, is_base_unit: true },
+        orderBy: { is_base_unit: "desc" },
+      },
+    },
+    orderBy: { name: "asc" },
   });
 
-  return NextResponse.json(
-    products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      categoryId: p.category_id,
-      category: p.category,
-      price: p.price,
-      unit: p.unit,
-      baseUnit: p.base_unit,
-      stock: Number(p.stock),
-      available: p.available === "true",
-      active: p.active,
-      trackInventory: p.track_inventory,
-      accent: p.accent,
-      sku: p.sku,
-      barcode: p.barcode ?? p.dunda_product_barcodes[0]?.barcode ?? null,
-      cost: p.cost,
-      tax: p.tax,
-      description: p.description,
-      units: p.dunda_product_units.map((u) => ({
-        id: u.id,
-        productId: u.product_id,
-        name: u.name,
-        abbreviation: u.abbreviation,
-        conversionFactor: Number(u.conversion_factor),
-        sellingPrice: u.selling_price,
-        cost: u.cost,
-        wholeUnitsOnly: u.whole_units_only,
-        isBaseUnit: u.is_base_unit,
-      })),
-    })),
-  );
+  return NextResponse.json(products);
 });

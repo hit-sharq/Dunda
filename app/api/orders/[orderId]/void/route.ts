@@ -64,7 +64,7 @@ export const POST = route(
       });
 
       await (prisma.dunda_payment_attempts as any).updateMany({
-        where: { order_id: orderId, status: "INITIATED" },
+        where: { order_id: orderId as any, status: "INITIATED" } as any,
         data: { status: "FAILED", failure_reason: "Order cancelled", resolved_at: new Date() },
       });
     }

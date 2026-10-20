@@ -702,7 +702,15 @@ export interface CreateOrderInput {
   tabId: string | null;
   customerId: string | null;
   staffId: string | null;
-  items: { productId: string; quantity: number; unitId: string | null; notes: string | null }[];
+  items: {
+    productId: string;
+    quantity: number;
+    unitId: string | null;
+    notes: string | null;
+    unit_price?: number;        // waiter price override
+    overridden_by_id?: string;  // staff who changed price
+    override_reason?: string;   // why price changed
+  }[];
   notes: string | null;
   station: string;
 }
@@ -757,11 +765,13 @@ export async function createOrder(input: CreateOrderInput) {
       const unit =
         product.dunda_product_units.find((u) => u.id === item.unitId) ??
         product.dunda_product_units.find((u) => u.is_base_unit);
-      const unitPrice = unit?.selling_price ?? product.price;
+      const catalogPrice = unit?.selling_price ?? product.price;
+      const unitPrice = item.unit_price ?? catalogPrice;
+      const priceOverridden = item.unit_price !== undefined && item.unit_price !== catalogPrice;
       const total = unitPrice * item.quantity;
       subtotal += total;
 
-      const created = await tx.dunda_order_items.create({
+      const created = await (tx.dunda_order_items as any).create({
         data: {
           order_id: order.id,
           product_id: product.id,
@@ -769,6 +779,10 @@ export async function createOrder(input: CreateOrderInput) {
           name: product.name,
           quantity: item.quantity,
           unit_price: unitPrice,
+          original_price: priceOverridden ? catalogPrice : null,
+          price_overridden: priceOverridden,
+          overridden_by_id: priceOverridden ? item.overridden_by_id ?? input.staffId : null,
+          override_reason: priceOverridden ? item.override_reason ?? null : null,
           total,
           notes: item.notes,
           category_id: product.category_id,

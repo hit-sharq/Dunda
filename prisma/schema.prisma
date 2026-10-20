@@ -410,6 +410,10 @@ model dunda_order_items {
   name                     String
   quantity                 Int
   unit_price               Int
+  original_price           Int?
+  price_overridden         Boolean                  @default(false)
+  overridden_by_id         String?
+  override_reason          String?
   total                    Int
   notes                    String?
   category_id              String?
@@ -417,6 +421,7 @@ model dunda_order_items {
   dunda_orders             dunda_orders               @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_order_items_order_id_dunda_orders_id_fk")
   dunda_products           dunda_products             @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_order_items_product_id_dunda_products_id_fk")
   dunda_order_ticket_items dunda_order_ticket_items[]
+  dunda_staff              dunda_staff?               @relation(fields: [overridden_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_order_items_overridden_by_id_dunda_staff_id_fk")
 }
 
 model dunda_order_ticket_items {
