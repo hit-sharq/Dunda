@@ -280,6 +280,15 @@ export interface ClubPaymentConfirmation {
 }
 
 
+async function updateOrderToCompleted(orderId: string | null): Promise<void> {
+  if (!orderId) return;
+  await prisma.dunda_orders.update({
+    where: { id: orderId },
+    data: { status: "COMPLETED" },
+  });
+}
+
+
 export async function confirmClubPayment(
   attemptId: string,
 ): Promise<ClubPaymentConfirmation> {
@@ -358,6 +367,7 @@ export async function confirmClubPayment(
 
   if (attempt.event_ticket_id || attempt.reservation_id) {
     const paymentId = await settleLinkedClubPayment(attempt, status);
+    await updateOrderToCompleted(attempt.order_id);
     return { attemptId, outcome: "COMPLETED", paymentId, settlement: null };
   }
 
@@ -370,7 +380,7 @@ export async function confirmClubPayment(
     where: { id: attempt.tab_id },
     select: { branch_id: true },
   });
-  
+
   const settlement = await applyTabPayment({
     organizationId: attempt.organization_id,
     tabId: attempt.tab_id,
@@ -387,17 +397,19 @@ export async function confirmClubPayment(
     attemptId,
   });
 
-    await prisma.dunda_payment_provider_transactions.updateMany({
-      where: {
-        provider: PESAPAL_PROVIDER,
-        provider_transaction_id: status.orderTrackingId,
-      },
-      data: {
-        status: "COMPLETED",
-        response_payload: status.raw as Prisma.InputJsonValue,
-        raw_status: status.status,
-      },
-    });
+  await updateOrderToCompleted(attempt.order_id);
+
+  await prisma.dunda_payment_provider_transactions.updateMany({
+    where: {
+      provider: PESAPAL_PROVIDER,
+      provider_transaction_id: status.orderTrackingId,
+    },
+    data: {
+      status: "COMPLETED",
+      response_payload: status.raw as Prisma.InputJsonValue,
+      raw_status: status.status,
+    },
+  });
 
   return {
     attemptId,
