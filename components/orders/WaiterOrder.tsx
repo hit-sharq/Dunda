@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { TablePicker } from "@/components/orders/TablePicker";
 import { ProductMenu } from "@/components/orders/ProductMenu";
 import { OrderSummary } from "@/components/orders/OrderSummary";
+import { CollectPayment } from "@/components/orders/CollectPayment";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui";
 
@@ -27,12 +28,19 @@ interface OrderItem {
 }
 
 export function WaiterOrder({ organizationId, branchId }: WaiterOrderProps) {
-  const [selectedTable, setSelectedTable] = useState<{ id: string; name: string } | null>(null);
+  const [selectedTable, setSelectedTable] = useState<{
+    id: string;
+    name: string;
+    tabId: string | null;
+  } | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
 
-  const handleTableSelect = useCallback((tableId: string, tableName: string) => {
-    setSelectedTable({ id: tableId, name: tableName });
-  }, []);
+  const handleTableSelect = useCallback(
+    (tableId: string, tableName: string, tabId: string | null) => {
+      setSelectedTable({ id: tableId, name: tableName, tabId });
+    },
+    [],
+  );
 
   const handleAddItem = useCallback((item: {
     productId: string;
@@ -157,16 +165,21 @@ export function WaiterOrder({ organizationId, branchId }: WaiterOrderProps) {
           />
         </div>
 
-        <div className="w-[420px] flex-shrink-0">
-          <OrderSummary
-            items={items}
-            onRemoveItem={handleRemoveItem}
-            onUpdateQuantity={handleUpdateQuantity}
-            onSendToKitchen={handleSendToKitchen}
-            onPayNow={handlePayNow}
-            organizationId={organizationId}
-            branchId={branchId}
-          />
+        <div className="w-[420px] flex-shrink-0 flex flex-col gap-4">
+          {selectedTable?.tabId ? (
+            <CollectPayment tabId={selectedTable.tabId} tableName={selectedTable.name} />
+          ) : null}
+          <div className="flex-1">
+            <OrderSummary
+              items={items}
+              onRemoveItem={handleRemoveItem}
+              onUpdateQuantity={handleUpdateQuantity}
+              onSendToKitchen={handleSendToKitchen}
+              onPayNow={handlePayNow}
+              organizationId={organizationId}
+              branchId={branchId}
+            />
+          </div>
         </div>
       </div>
 

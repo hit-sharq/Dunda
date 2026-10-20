@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { route } from "@/lib/server/http";
-import { createOrder } from "@/lib/server/tabs";
+import { createOrder, addItemsToOrder } from "@/lib/server/tabs";
 import { checkRateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -71,22 +71,54 @@ export const POST = route(
       );
     }
 
-    const { order, ticket } = await createOrder({
-      organizationId: table.dunda_branches.organization_id,
-      branchId: table.branch_id,
-      tableId: table.id,
-      tabId: table.tab_id,
-      customerId: null,
-      staffId: null,
-      items: parsed.data.items.map((i) => ({
-        productId: i.productId,
-        quantity: i.quantity,
-        unitId: i.unitId ?? null,
-        notes: i.notes ?? null,
-      })),
-      notes: parsed.data.notes ?? null,
-      station: "BAR",
-    });
+    const { order, ticket } = await (async () => {
+      // A guest scanning the table QR again is adding to the order they
+      // already placed, not opening a second one.
+      const openOrder = await prisma.dunda_orders.findFirst({
+        where: {
+          organization_id: table.dunda_branches.organization_id,
+          table_id: table.id,
+          status: { in: ["DRAFT", "PENDING", "ACCEPTED", "PREPARING", "READY", "SERVED"] },
+        },
+        orderBy: { created_at: "desc" },
+        select: { id: true, number: true, status: true, subtotal: true, total: true, created_at: true },
+      });
+
+      if (openOrder) {
+        const added = await addItemsToOrder({
+          organizationId: table.dunda_branches.organization_id,
+          orderId: openOrder.id,
+          staffId: null,
+          items: parsed.data.items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            unitId: i.unitId ?? null,
+            notes: i.notes ?? null,
+          })),
+        });
+        return {
+          order: { ...openOrder, subtotal: added.order.subtotal },
+          ticket: added.ticket,
+        };
+      }
+
+      return createOrder({
+        organizationId: table.dunda_branches.organization_id,
+        branchId: table.branch_id,
+        tableId: table.id,
+        tabId: table.tab_id,
+        customerId: null,
+        staffId: null,
+        items: parsed.data.items.map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          unitId: i.unitId ?? null,
+          notes: i.notes ?? null,
+        })),
+        notes: parsed.data.notes ?? null,
+        station: "BAR",
+      });
+    })();
 
     return NextResponse.json(
       {

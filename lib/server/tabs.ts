@@ -827,6 +827,138 @@ export async function createOrder(input: CreateOrderInput) {
 }
 
 
+export interface AddItemsToOrderInput {
+  organizationId: string;
+  orderId: string;
+  staffId: string | null;
+  items: {
+    productId: string;
+    quantity: number;
+    unitId: string | null;
+    notes: string | null;
+  }[];
+}
+
+
+/**
+ * Adds items to an order that is still open (customer scans the table QR a
+ * second time to add more). Returns the updated order and a fresh kitchen
+ * ticket carrying only the new items.
+ */
+export async function addItemsToOrder(input: AddItemsToOrderInput) {
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.dunda_orders.findFirst({
+      where: orgWhere(input.organizationId, { id: input.orderId }),
+      include: { dunda_order_items: { select: { id: true, total: true } } },
+    });
+    if (!order) throw notFound("That order");
+
+    const OPEN_STATUSES = ["DRAFT", "PENDING", "ACCEPTED", "PREPARING", "READY", "SERVED"];
+    if (!OPEN_STATUSES.includes(order.status)) {
+      throw wrongState("That order is closed. Ask your server for a new one.");
+    }
+
+    const products = await tx.dunda_products.findMany({
+      where: orgWhere(input.organizationId, {
+        id: { in: input.items.map((i) => i.productId) },
+      }),
+      select: {
+        id: true,
+        name: true,
+        category_id: true,
+        price: true,
+        active: true,
+        dunda_product_units: {
+          select: { id: true, name: true, selling_price: true, conversion_factor: true, is_base_unit: true },
+        },
+      },
+    });
+    const byId = new Map(products.map((p) => [p.id, p]));
+
+    let addedSubtotal = 0;
+    const created = [];
+    for (const item of input.items) {
+      const product = byId.get(item.productId);
+      if (!product) throw notFound("One of the products on this order");
+      if (!product.active) throw wrongState(`${product.name} is no longer sold.`);
+
+      const unit =
+        product.dunda_product_units.find((u) => u.id === item.unitId) ??
+        product.dunda_product_units.find((u) => u.is_base_unit);
+      const unitPrice = unit?.selling_price ?? product.price;
+      const total = unitPrice * item.quantity;
+      addedSubtotal += total;
+
+      created.push(
+        await tx.dunda_order_items.create({
+          data: {
+            order_id: order.id,
+            product_id: product.id,
+            unit_id: unit?.id ?? null,
+            name: product.name,
+            quantity: item.quantity,
+            unit_price: unitPrice,
+            total,
+            notes: item.notes,
+            category_id: product.category_id,
+          },
+        }),
+      );
+    }
+
+    const existingSubtotal = order.dunda_order_items.reduce((sum, i) => sum + i.total, 0);
+    const subtotal = existingSubtotal + addedSubtotal;
+
+    await tx.dunda_orders.update({
+      where: { id: order.id },
+      data: { subtotal },
+    });
+
+    // A fresh ticket so the kitchen only sees what is new.
+    const ticket = await tx.dunda_order_tickets.create({
+      data: {
+        organization_id: input.organizationId,
+        branch_id: order.branch_id,
+        order_id: order.id,
+        tab_id: order.tab_id,
+        station: "BAR",
+        number: `${order.number}-BAR`,
+        status: "PENDING",
+        notes: "Additional items",
+      },
+    });
+
+    for (const item of created) {
+      await tx.dunda_order_ticket_items.create({
+        data: {
+          organization_id: input.organizationId,
+          ticket_id: ticket.id,
+          order_item_id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          notes: item.notes,
+        },
+      });
+    }
+
+    await tx.dunda_audit_logs.create({
+      data: {
+        organization_id: input.organizationId,
+        branch_id: order.branch_id,
+        staff_id: input.staffId,
+        action: "UPDATE",
+        entity: "order",
+        entity_id: order.id,
+        detail: `${order.number} got ${input.items.length} more item(s)`,
+        new_value: { subtotal },
+      },
+    });
+
+    return { order: { ...order, subtotal }, ticket };
+  }, TRANSACTION_OPTIONS);
+}
+
+
 export async function updateOrderStatus(
   organizationId: string,
   orderId: string,

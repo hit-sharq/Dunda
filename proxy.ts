@@ -9,6 +9,12 @@ const PUBLIC_ROUTES = [
   "/sign-up(.*)",
   "/terms(.*)",
   "/privacy(.*)",
+  // Customer self-ordering: a guest scans the table QR and orders without an account.
+  "/order(.*)",
+  "/order-status(.*)",
+  "/m(.*)",
+  "/pay(.*)",
+  "/api/public(.*)",
 ];
 
 const isPublicRoute = createRouteMatcher(PUBLIC_ROUTES);

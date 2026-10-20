@@ -9,11 +9,12 @@ interface TableRow {
   id: string;
   name: string;
   status: string;
+  tab_id: string | null;
 }
 
 interface TablePickerProps {
   branchId: string | null;
-  onTableSelect: (tableId: string, tableName: string) => void;
+  onTableSelect: (tableId: string, tableName: string, tabId: string | null) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -66,7 +67,7 @@ export function TablePicker({ branchId, onTableSelect }: TablePickerProps) {
           <Button
             key={table.id}
             variant="outline"
-            onClick={() => onTableSelect(table.id, table.name)}
+            onClick={() => onTableSelect(table.id, table.name, table.tab_id)}
             className={`aspect-square min-h-[80px] px-2 text-xs flex flex-col items-center gap-1 ${statusColors[table.status] ?? "border-[hsl(var(--app-line))] text-[hsl(var(--app-faint))]"}`}
           >
             {table.name}

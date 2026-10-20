@@ -233,6 +233,7 @@ export default async function CustomerOrderPage({
                 el('menu').innerHTML = '<div class="rounded-2xl border border-[hsl(var(--app-line))] bg-[hsl(var(--app-surface))] p-6 text-center">' +
                   '<p class="text-lg font-bold text-[hsl(var(--app-ink))]">Order ' + data.number + ' sent</p>' +
                   '<p class="mt-1 text-sm text-[hsl(var(--app-faint))]">Your server has it. They will bring it right over.</p>' +
+                  '<a class="mt-3 inline-block rounded-lg border border-[hsl(var(--app-line))] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--app-ink))]" href="/order-status/' + data.id + '">Track this order</a>' +
                   '</div>';
                 el('cart-bar').classList.add('hidden');
                 cart = [];

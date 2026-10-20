@@ -19,6 +19,7 @@ export const GET = route(async (request: Request) => {
       id: true,
       name: true,
       status: true,
+      tab_id: true,
     },
   });
 
