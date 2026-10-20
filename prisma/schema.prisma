@@ -628,6 +628,7 @@ model dunda_payment_attempts {
   tab_id                 String?
   event_ticket_id        String?
   reservation_id         String?
+  order_id               String?
   attempt_number         Int                     @default(1)
   amount                 Int
   currency               String                  @default("KES")
@@ -645,6 +646,7 @@ model dunda_payment_attempts {
   dunda_tabs             dunda_tabs?             @relation(fields: [tab_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_payment_attempts_tab_id_dunda_tabs_id_fk")
   dunda_event_tickets    dunda_event_tickets?    @relation(fields: [event_ticket_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_pay_attempts_event_ticket_fk")
   dunda_reservations     dunda_reservations?     @relation(fields: [reservation_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_pay_attempts_reservation_fk")
+  dunda_orders           dunda_orders?           @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_pay_attempts_order_id_dunda_orders_id_fk")
 
   @@index([organization_id, requested_at], map: "dunda_payment_attempts_org_requested")
 }
