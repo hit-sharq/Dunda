@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { route, requireSession, requirePermission, orgWhere } from "@/lib/server/http";
 import { refundClubPayment } from "@/lib/server/payments";
+import { checkRateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,8 @@ export const GET = route(async (request: Request) => {
 
 
 export const POST = route(async (request: Request) => {
+  checkRateLimit(clientIpKey(request), 30, 60 * 60 * 1000);
+
   const session = await requirePermission("refund_payment");
   const organizationId = session.organizationId as string;
 
@@ -94,10 +97,18 @@ export const POST = route(async (request: Request) => {
     reason: body.reason,
     staffId: session.staffId,
     staffName: staff?.name ?? "Dunda console",
+    // A manager who can approve refunds releases it on the spot. Anyone else
+    // gets a request that sits until a manager looks at it.
+    requiresApproval: session.permissions.has("approve_refunds"),
   });
 
   return NextResponse.json(
-    { id: refund.id, amount: refund.amount, status: refund.status },
+    {
+      id: refund.id,
+      amount: refund.amount,
+      status: refund.status,
+      awaitingApproval: refund.status === "PENDING",
+    },
     { status: 201 },
   );
 });

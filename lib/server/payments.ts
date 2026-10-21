@@ -24,6 +24,7 @@ import {
 } from "@/lib/server/tabs";
 import { orgWhere, assertSameOrg } from "./http";
 import { getOrganizationPesapalCredentials } from "./pesapal-credentials";
+import { recordPaymentRisk } from "./payments-risk";
 
 
 
@@ -368,6 +369,23 @@ export async function confirmClubPayment(
   if (attempt.event_ticket_id || attempt.reservation_id) {
     const paymentId = await settleLinkedClubPayment(attempt, status);
     await updateOrderToCompleted(attempt.order_id);
+    if (paymentId) {
+      await recordPaymentRisk({
+        paymentId,
+        organizationId: attempt.organization_id,
+        branchId: attempt.branch_id,
+        amount: attempt.amount,
+        currency: attempt.currency,
+        method: attempt.method,
+        paymentAccount: status.paymentAccount ?? null,
+        ipAddress: attempt.ip_address ?? null,
+        deviceFingerprint: attempt.device_fingerprint ?? null,
+        staffId: attempt.staff_id ?? null,
+        orderId: attempt.order_id ?? null,
+        tabId: attempt.tab_id ?? null,
+        receiptId: null,
+      });
+    }
     return { attemptId, outcome: "COMPLETED", paymentId, settlement: null };
   }
 
@@ -398,6 +416,25 @@ export async function confirmClubPayment(
   });
 
   await updateOrderToCompleted(attempt.order_id);
+
+  const settledPaymentId = settlement.payments[0]?.id ?? null;
+  if (settledPaymentId) {
+    await recordPaymentRisk({
+      paymentId: settledPaymentId,
+      organizationId: attempt.organization_id,
+      branchId: attempt.branch_id ?? tab.branch_id,
+      amount: attempt.amount,
+      currency: attempt.currency,
+      method: attempt.method,
+      paymentAccount: status.paymentAccount ?? null,
+      ipAddress: attempt.ip_address ?? null,
+      deviceFingerprint: attempt.device_fingerprint ?? null,
+      staffId: attempt.staff_id ?? null,
+      orderId: attempt.order_id ?? null,
+      tabId: attempt.tab_id ?? null,
+      receiptId: null,
+    });
+  }
 
   await prisma.dunda_payment_provider_transactions.updateMany({
     where: {
@@ -538,7 +575,16 @@ export interface RefundClubPaymentInput {
   staffId: string | null;
   
   staffName: string;
+  /** When true the refund is recorded as PENDING for a manager to approve. */
+  requiresApproval?: boolean;
 }
+
+
+/**
+ * A refund above this amount does not go out on a staff member's word alone.
+ * The refund is recorded as PENDING and a manager has to approve it.
+ */
+export const REFUND_APPROVAL_THRESHOLD = 10_000;
 
 
 export async function refundClubPayment(input: RefundClubPaymentInput) {
@@ -552,6 +598,18 @@ export async function refundClubPayment(input: RefundClubPaymentInput) {
     throw moneyRule("That payment has already been voided.");
   }
 
+  // A payment the card issuer is already disputing must not be refunded as
+  // well. Doing both is how a club pays for the same order twice.
+  const openDispute = await prisma.dunda_payment_disputes.findFirst({
+    where: { payment_id: payment.id, status: { in: ["OPEN", "UNDER_REVIEW"] } },
+    select: { id: true, status: true, reason: true },
+  });
+  if (openDispute) {
+    throw moneyRule(
+      "That payment is being disputed by the card issuer. Deal with the dispute before refunding it.",
+    );
+  }
+
   const alreadyRefunded = payment.dunda_refunds
     .filter((refund) => refund.status !== "REJECTED")
     .reduce((sum, refund) => sum + refund.amount, 0);
@@ -559,6 +617,43 @@ export async function refundClubPayment(input: RefundClubPaymentInput) {
 
   if (input.amount > refundable) {
     throw moneyRule(`Only ${refundable} of that payment can still be refunded.`);
+  }
+
+  // A refund above the limit does not go out on one person's word. The
+  // request is recorded as PENDING and a manager with approve_refunds has to
+  // release it. This check has to happen before the provider call, because
+  // reversing the money cannot be taken back.
+  const needsApproval =
+    input.amount > REFUND_APPROVAL_THRESHOLD && !input.requiresApproval;
+
+  if (needsApproval) {
+    const pending = await prisma.dunda_refunds.create({
+      data: {
+        organization_id: input.organizationId,
+        branch_id: payment.branch_id,
+        payment_id: payment.id,
+        amount: input.amount,
+        reason: input.reason,
+        status: "PENDING",
+        approved_by_id: input.staffId,
+      },
+      select: { id: true, amount: true, status: true, reason: true },
+    });
+
+    await prisma.dunda_audit_logs.create({
+      data: {
+        organization_id: input.organizationId,
+        branch_id: payment.branch_id,
+        staff_id: input.staffId,
+        action: "REQUEST",
+        entity: "refund",
+        entity_id: pending.id,
+        detail: `Refund of ${input.amount} needs approval before it is released`,
+        new_value: { amount: input.amount, reason: input.reason },
+      },
+    });
+
+    return { ...pending, status: "PENDING" as const, providerMessage: null };
   }
 
   let providerMessage: string | null = null;
@@ -670,6 +765,141 @@ export async function refundClubPayment(input: RefundClubPaymentInput) {
 
     return created;
   });
+}
+
+
+/**
+ * Releases a refund that was held for approval. The provider reversal happens
+ * here, so the manager is the one who actually moves the money.
+ */
+export async function approveRefund(input: {
+  organizationId: string;
+  refundId: string;
+  staffId: string | null;
+  staffName: string;
+  approve: boolean;
+  notes?: string | null;
+}) {
+  const refund = await prisma.dunda_refunds.findFirst({
+    where: orgWhere(input.organizationId, { id: input.refundId }),
+    include: {
+      dunda_payments: {
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          reference: true,
+          provider: true,
+          method: true,
+          tab_id: true,
+          branch_id: true,
+        },
+      },
+    },
+  });
+  if (!refund) throw notFound("That refund request");
+  if (refund.status !== "PENDING") {
+    throw moneyRule("That refund request has already been dealt with.");
+  }
+
+  if (!input.approve) {
+    const rejected = await prisma.dunda_refunds.update({
+      where: { id: refund.id },
+      data: { status: "REJECTED", approved_by_id: input.staffId },
+      select: { id: true, amount: true, status: true, reason: true },
+    });
+
+    await prisma.dunda_audit_logs.create({
+      data: {
+        organization_id: input.organizationId,
+        branch_id: refund.branch_id,
+        staff_id: input.staffId,
+        action: "REJECT",
+        entity: "refund",
+        entity_id: refund.id,
+        detail: `Refund of ${refund.amount} rejected`,
+        reason: input.notes ?? null,
+        previous_value: { status: "PENDING" },
+        new_value: { status: "REJECTED" },
+      },
+    });
+
+    return { ...rejected, providerMessage: null };
+  }
+
+  const payment = refund.dunda_payments;
+  let providerMessage: string | null = null;
+
+  if (payment.provider === PESAPAL_PROVIDER) {
+    if (payment.status !== "SUCCESSFUL") {
+      throw moneyRule("Only a completed payment can be refunded by the provider.");
+    }
+    if (!payment.reference) {
+      throw moneyRule("That payment has no confirmation code to refund.");
+    }
+    const providerCredentials = await getOrganizationPesapalCredentials(
+      input.organizationId,
+    );
+    providerMessage = await refundPayment({
+      confirmationCode: payment.reference,
+      amount: refund.amount,
+      username: input.staffName,
+      remarks: refund.reason ?? "Approved refund",
+      credentials: providerCredentials,
+    });
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.dunda_refunds.update({
+      where: { id: refund.id },
+      data: { status: "APPROVED", approved_by_id: input.staffId },
+      select: { id: true, amount: true, status: true, reason: true },
+    });
+
+    if (refund.amount === payment.amount) {
+      await tx.dunda_payments.update({
+        where: { id: payment.id },
+        data: {
+          status: "REFUNDED",
+          voided_at: new Date(),
+          voided_by_id: input.staffId,
+        },
+      });
+    }
+
+    if (payment.tab_id) {
+      const tab = await tx.dunda_tabs.findUniqueOrThrow({
+        where: { id: payment.tab_id },
+        select: { amount_paid: true, outstanding: true },
+      });
+      await tx.dunda_tabs.update({
+        where: { id: payment.tab_id },
+        data: {
+          amount_paid: Math.max(0, tab.amount_paid - refund.amount),
+          outstanding: Math.max(0, tab.outstanding + refund.amount),
+        },
+      });
+    }
+
+    await tx.dunda_audit_logs.create({
+      data: {
+        organization_id: input.organizationId,
+        branch_id: refund.branch_id,
+        staff_id: input.staffId,
+        action: "REFUND",
+        entity: "refund",
+        entity_id: refund.id,
+        detail: `Refund of ${refund.amount} approved${providerMessage ? ` · ${providerMessage}` : ""}`,
+        reason: input.notes ?? null,
+        previous_value: { status: "PENDING" },
+        new_value: { status: "APPROVED", amount: refund.amount },
+      },
+    });
+
+    return updated;
+  });
+
+  return { ...result, providerMessage };
 }
 
 export interface BillingPaymentInitiation {

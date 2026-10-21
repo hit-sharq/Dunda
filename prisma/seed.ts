@@ -91,6 +91,9 @@ const PERMISSIONS = [
   ["apply_discount", "Apply discounts", "POS"],
   ["void_order", "Void orders", "POS"],
   ["refund_payment", "Issue refunds", "Payments"],
+  ["approve_refunds", "Approve refunds over the limit", "Payments"],
+  ["manage_disputes", "Handle card disputes and chargebacks", "Payments"],
+  ["manage_risk", "Manage the blocklist and risk rules", "Payments"],
   ["close_order", "Close orders", "POS"],
   ["manage_payments", "Take payment", "Payments"],
   

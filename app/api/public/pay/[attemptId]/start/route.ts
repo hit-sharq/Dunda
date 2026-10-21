@@ -4,6 +4,7 @@ import { route } from "@/lib/server/http";
 import { notFound, wrongState } from "@/lib/errors.server";
 import { createOrder as createPesapalOrder } from "@/lib/server/pesapal";
 import { getOrganizationPesapalCredentials } from "@/lib/server/pesapal-credentials";
+import { assertNotBlockedBeforePayment } from "@/lib/server/payments-risk";
 import { checkRateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +70,26 @@ export const POST = route(
     }
 
     const credentials = await getOrganizationPesapalCredentials(attempt.organization_id);
+
+    // Refuse a blocked card, device or address before the customer reaches the
+    // payment page. This is the guard that actually stops fraud; everything
+    // after the redirect is post-mortem.
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    const deviceFingerprint =
+      request.headers.get("x-device-fingerprint")?.trim() ?? null;
+
+    await assertNotBlockedBeforePayment({
+      organizationId: attempt.organization_id,
+      ipAddress,
+      deviceFingerprint,
+    });
+
+    // Remember who came from where, so a dispute can be traced and a
+    // repeat offender can be spotted.
+    await prisma.dunda_payment_attempts.update({
+      where: { id: attempt.id },
+      data: { ip_address: ipAddress, device_fingerprint: deviceFingerprint },
+    });
 
     const pesapalOrder = await createPesapalOrder({
       id: attempt.id,

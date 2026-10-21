@@ -80,6 +80,11 @@ export const POST = route(
         method,
         provider: "PESAPAL",
         status: "INITIATED",
+        staff_id: session.staffId,
+        ip_address:
+          request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+        device_fingerprint:
+          request.headers.get("x-device-fingerprint")?.trim() ?? null,
       },
       select: { id: true, amount: true, method: true },
     });

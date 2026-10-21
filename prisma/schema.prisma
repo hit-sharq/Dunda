@@ -129,6 +129,7 @@ model dunda_branches {
   dunda_tables                                                                      dunda_tables[]
   dunda_tabs                                                                        dunda_tabs[]
   dunda_vip_packages                                                                dunda_vip_packages[]
+  dunda_payment_disputes                                                            dunda_payment_disputes[]
 }
 
 model dunda_categories {
@@ -217,7 +218,7 @@ model dunda_events {
 }
 
 model dunda_event_tickets {
-  id                        String              @id @default(uuid(7))
+  id                        String                   @id @default(uuid(7))
   organization_id           String
   event_id                  String
   customer_id               String?
@@ -225,19 +226,19 @@ model dunda_event_tickets {
   code                      String
   guest_name                String
   phone                     String?
-  ticket_type               String              @default("GENERAL")
-  price                     Int                 @default(0)
-  quantity                  Int                 @default(1)
-  amount                    Int                 @default(0)
-  status                    String              @default("ISSUED")
-  sold_at                   DateTime            @default(now()) @db.Timestamptz(6)
-  checked_in_at             DateTime?           @db.Timestamptz(6)
-  dunda_branches            dunda_branches?     @relation(fields: [branch_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_event_tickets_branch_id_dunda_branches_id_fk")
+  ticket_type               String                   @default("GENERAL")
+  price                     Int                      @default(0)
+  quantity                  Int                      @default(1)
+  amount                    Int                      @default(0)
+  status                    String                   @default("ISSUED")
+  sold_at                   DateTime                 @default(now()) @db.Timestamptz(6)
+  checked_in_at             DateTime?                @db.Timestamptz(6)
+  dunda_branches            dunda_branches?          @relation(fields: [branch_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_event_tickets_branch_id_dunda_branches_id_fk")
   branch_id                 String?
-  dunda_customers           dunda_customers?    @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_event_tickets_customer_id_dunda_customers_id_fk")
-  dunda_events              dunda_events        @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_event_tickets_event_id_dunda_events_id_fk")
-  dunda_organizations       dunda_organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_event_tickets_organization_id_dunda_organizations_id_fk")
-  dunda_staff_checked_in_by dunda_staff?        @relation("dunda_event_tickets_checked_in_by", fields: [checked_in_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_event_tickets_checked_in_by_id_dunda_staff_id_fk")
+  dunda_customers           dunda_customers?         @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_event_tickets_customer_id_dunda_customers_id_fk")
+  dunda_events              dunda_events             @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_event_tickets_event_id_dunda_events_id_fk")
+  dunda_organizations       dunda_organizations      @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_event_tickets_organization_id_dunda_organizations_id_fk")
+  dunda_staff_checked_in_by dunda_staff?             @relation("dunda_event_tickets_checked_in_by", fields: [checked_in_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_event_tickets_checked_in_by_id_dunda_staff_id_fk")
   dunda_payments            dunda_payments[]
   dunda_payment_attempts    dunda_payment_attempts[]
 
@@ -411,7 +412,7 @@ model dunda_order_items {
   quantity                 Int
   unit_price               Int
   original_price           Int?
-  price_overridden         Boolean                  @default(false)
+  price_overridden         Boolean                    @default(false)
   overridden_by_id         String?
   override_reason          String?
   total                    Int
@@ -550,6 +551,8 @@ model dunda_organizations {
   dunda_products                      dunda_products[]
   dunda_recipes                       dunda_recipes[]
   dunda_receipts                      dunda_receipts[]
+  dunda_payment_disputes              dunda_payment_disputes[]
+  dunda_card_blocklist                dunda_card_blocklist[]
   dunda_refunds                       dunda_refunds[]
   dunda_reservations                  dunda_reservations[]
   dunda_setup_tokens                  dunda_setup_tokens[]
@@ -607,14 +610,25 @@ model dunda_payments {
   paid_by                             String?
   voided_at                           DateTime?                             @db.Timestamptz(6)
   voided_by_id                        String?
+  card_last4                          String?
+  card_brand                          String?
+  card_bin                            String?
+  ip_address                          String?
+  device_fingerprint                  String?
+  risk_score                          Int?
+  risk_flags                          Json?
+  risk_action                         String?                               @default("ALLOW")
+  dispute_status                      String?                               @default("NONE")
+  evidence                            Json?
   dunda_branches                      dunda_branches                        @relation(fields: [branch_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_payments_branch_id_dunda_branches_id_fk")
   dunda_staff                         dunda_staff?                          @relation(fields: [cashier_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_payments_cashier_id_dunda_staff_id_fk")
   dunda_orders                        dunda_orders?                         @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_payments_order_id_dunda_orders_id_fk")
   dunda_organizations                 dunda_organizations                   @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_payments_organization_id_dunda_organizations_id_fk")
   dunda_tabs                          dunda_tabs?                           @relation(fields: [tab_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_payments_tab_id_dunda_tabs_id_fk")
-  dunda_event_tickets                 dunda_event_tickets?                   @relation(fields: [event_ticket_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "dunda_payments_event_ticket_id_dunda_event_tickets_id_fk")
-  dunda_reservations                  dunda_reservations?                    @relation(fields: [reservation_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "dunda_payments_reservation_id_dunda_reservations_id_fk")
+  dunda_event_tickets                 dunda_event_tickets?                  @relation(fields: [event_ticket_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "dunda_payments_event_ticket_id_dunda_event_tickets_id_fk")
+  dunda_reservations                  dunda_reservations?                   @relation(fields: [reservation_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "dunda_payments_reservation_id_dunda_reservations_id_fk")
   dunda_refunds                       dunda_refunds[]
+  dunda_payment_disputes              dunda_payment_disputes[]
   dunda_payment_attempts              dunda_payment_attempts[]
   dunda_payment_provider_transactions dunda_payment_provider_transactions[]
   dunda_receipts                      dunda_receipts[]
@@ -633,6 +647,9 @@ model dunda_payment_attempts {
   event_ticket_id        String?
   reservation_id         String?
   order_id               String?
+  ip_address             String?
+  device_fingerprint     String?
+  staff_id               String?
   attempt_number         Int                     @default(1)
   amount                 Int
   currency               String                  @default("KES")
@@ -891,32 +908,88 @@ model dunda_refunds {
   dunda_payments      dunda_payments      @relation(fields: [payment_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_refunds_payment_id_dunda_payments_id_fk")
 }
 
-model dunda_reservations {
+/// A chargeback or dispute raised against a settled payment. Kept separate
+/// from refunds so a payment that is both disputed and refunded is visible
+/// (that combination is a double loss) and so the chargeback rate can be
+/// measured, which is what the acquirer actually watches.
+model dunda_payment_disputes {
   id                  String              @id @default(uuid(7))
   organization_id     String
   branch_id           String
-  customer_id         String?
-  customer            String
-  phone               String
-  reservation_date    String
-  time                String
-  starts_at           DateTime            @db.Timestamptz(6)
-  ends_at             DateTime            @db.Timestamptz(6)
-  table_name          String
-  table_id            String?
-  pool_table_id       String?
-  guests              Int
-  deposit_amount      Int                 @default(0)
-  deposit_paid        Int                 @default(0)
-  status              String              @default("PENDING")
+  payment_id          String
+  reason              String
+  reason_detail       String?
+  amount              Int
+  currency            String              @default("KES")
+  status              String              @default("OPEN")
+  liability           String?             @default("UNDETERMINED")
+  provider_reference  String?
+  evidence            Json?
   notes               String?
-  created_at          DateTime            @default(now()) @db.Timestamptz(6)
-  dunda_branches      dunda_branches      @relation(fields: [branch_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_reservations_branch_id_dunda_branches_id_fk")
-  dunda_customers     dunda_customers?    @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_reservations_customer_id_dunda_customers_id_fk")
-  dunda_organizations dunda_organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_reservations_organization_id_dunda_organizations_id_fk")
-  dunda_tables        dunda_tables?       @relation(fields: [table_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_reservations_table_id_dunda_tables_id_fk")
-  dunda_pool_tables   dunda_pool_tables?  @relation(fields: [pool_table_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_reservations_pool_table_id_dunda_pool_tables_id_fk")
-  dunda_payments      dunda_payments[]
+  opened_at           DateTime            @default(now()) @db.Timestamptz(6)
+  due_at              DateTime?           @db.Timestamptz(6)
+  responded_at        DateTime?           @db.Timestamptz(6)
+  resolved_at         DateTime?           @db.Timestamptz(6)
+  responded_by_id     String?
+  dunda_branches      dunda_branches      @relation(fields: [branch_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_pdisputes_branch_fk")
+  dunda_organizations dunda_organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_pdisputes_org_fk")
+  dunda_payments      dunda_payments      @relation(fields: [payment_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_pdisputes_payment_fk")
+  dunda_staff         dunda_staff?        @relation(fields: [responded_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_pdisputes_staff_fk")
+
+  @@index([organization_id, status], map: "dunda_payment_disputes_org_status")
+  @@index([payment_id], map: "dunda_payment_disputes_payment")
+}
+
+/// Cards, fingerprints and IP addresses that are refused. Lets a club stop a
+/// repeat offender before the money is taken rather than after.
+model dunda_card_blocklist {
+  id                  String               @id @default(uuid(7))
+  organization_id     String?
+  kind                String               @default("CARD")
+  card_bin            String?
+  card_last4          String?
+  fingerprint         String?
+  ip_address          String?
+  reason              String
+  status              String               @default("ACTIVE")
+  notes               String?
+  created_at          DateTime             @default(now()) @db.Timestamptz(6)
+  expires_at          DateTime?            @db.Timestamptz(6)
+  created_by_id       String?
+  dunda_organizations dunda_organizations? @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_cblocklist_org_fk")
+  dunda_staff         dunda_staff?         @relation(fields: [created_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_cblocklist_staff_fk")
+
+  @@index([organization_id, status], map: "dunda_card_blocklist_org_status")
+  @@index([card_bin], map: "dunda_card_blocklist_bin")
+  @@index([card_last4], map: "dunda_card_blocklist_last4")
+}
+
+model dunda_reservations {
+  id                     String                   @id @default(uuid(7))
+  organization_id        String
+  branch_id              String
+  customer_id            String?
+  customer               String
+  phone                  String
+  reservation_date       String
+  time                   String
+  starts_at              DateTime                 @db.Timestamptz(6)
+  ends_at                DateTime                 @db.Timestamptz(6)
+  table_name             String
+  table_id               String?
+  pool_table_id          String?
+  guests                 Int
+  deposit_amount         Int                      @default(0)
+  deposit_paid           Int                      @default(0)
+  status                 String                   @default("PENDING")
+  notes                  String?
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  dunda_branches         dunda_branches           @relation(fields: [branch_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_reservations_branch_id_dunda_branches_id_fk")
+  dunda_customers        dunda_customers?         @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_reservations_customer_id_dunda_customers_id_fk")
+  dunda_organizations    dunda_organizations      @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_reservations_organization_id_dunda_organizations_id_fk")
+  dunda_tables           dunda_tables?            @relation(fields: [table_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_reservations_table_id_dunda_tables_id_fk")
+  dunda_pool_tables      dunda_pool_tables?       @relation(fields: [pool_table_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_reservations_pool_table_id_dunda_pool_tables_id_fk")
+  dunda_payments         dunda_payments[]
   dunda_payment_attempts dunda_payment_attempts[]
 
   @@index([organization_id, starts_at], map: "dunda_reservations_org_starts")
@@ -1092,6 +1165,8 @@ model dunda_staff {
   dunda_stock_movements                                             dunda_stock_movements[]
   dunda_stock_transfers                                             dunda_stock_transfers[]
   dunda_tabs                                                        dunda_tabs[]
+  dunda_payment_disputes                                            dunda_payment_disputes[]
+  dunda_card_blocklist                                              dunda_card_blocklist[]
 
   @@index([organization_id, branch_id, status], map: "dunda_staff_org_branch_status")
   @@index([organization_id, role_id], map: "dunda_staff_org_role")
@@ -1208,10 +1283,10 @@ model dunda_subscriptions {
   plan_id                String?
   amount                 Int                      @default(0)
   currency               String                   @default("KES")
-  trial_ends_at             DateTime?                @db.Timestamptz(6)
-  cancelled_at              DateTime?                @db.Timestamptz(6)
-  auto_renew                Boolean                  @default(false)
-  auto_renew_pending        Boolean                  @default(false)
+  trial_ends_at          DateTime?                @db.Timestamptz(6)
+  cancelled_at           DateTime?                @db.Timestamptz(6)
+  auto_renew             Boolean                  @default(false)
+  auto_renew_pending     Boolean                  @default(false)
   failed_payment_count   Int                      @default(0)
   created_at             DateTime                 @default(now()) @db.Timestamptz(6)
   updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
@@ -1294,63 +1369,63 @@ model dunda_tables {
 }
 
 model dunda_tabs {
-  id                  String                @id @default(uuid(7))
-  organization_id     String
-  branch_id           String
-  number              String                @unique(map: "dunda_tabs_number_unique")
-  customer            String
-  table_name          String
-  status              String                @default("OPEN")
-  customer_id         String?
-  staff_id            String?
-  bar_total           Int                   @default(0)
-  food_total          Int                   @default(0)
-  pool_total          Int                   @default(0)
-  subtotal            Int                   @default(0)
-  service_charge      Int                   @default(0)
-  tax                 Int                   @default(0)
-  discount            Int                   @default(0)
-  total               Int                   @default(0)
-  amount_paid         Int                   @default(0)
-  outstanding         Int                   @default(0)
-  opened_at           DateTime              @default(now()) @db.Timestamptz(6)
-  closed_at           DateTime?             @db.Timestamptz(6)
-  closed_by_id        String?
-  allowed_on_account  Boolean               @default(false)
-  table_id            String?
-  dunda_order_tickets dunda_order_tickets[]
-  dunda_orders        dunda_orders[]
-  dunda_payments      dunda_payments[]
+  id                     String                   @id @default(uuid(7))
+  organization_id        String
+  branch_id              String
+  number                 String                   @unique(map: "dunda_tabs_number_unique")
+  customer               String
+  table_name             String
+  status                 String                   @default("OPEN")
+  customer_id            String?
+  staff_id               String?
+  bar_total              Int                      @default(0)
+  food_total             Int                      @default(0)
+  pool_total             Int                      @default(0)
+  subtotal               Int                      @default(0)
+  service_charge         Int                      @default(0)
+  tax                    Int                      @default(0)
+  discount               Int                      @default(0)
+  total                  Int                      @default(0)
+  amount_paid            Int                      @default(0)
+  outstanding            Int                      @default(0)
+  opened_at              DateTime                 @default(now()) @db.Timestamptz(6)
+  closed_at              DateTime?                @db.Timestamptz(6)
+  closed_by_id           String?
+  allowed_on_account     Boolean                  @default(false)
+  table_id               String?
+  dunda_order_tickets    dunda_order_tickets[]
+  dunda_orders           dunda_orders[]
+  dunda_payments         dunda_payments[]
   dunda_payment_attempts dunda_payment_attempts[]
-  dunda_pool_sessions dunda_pool_sessions[]
-  dunda_receipts      dunda_receipts[]
-  dunda_tab_items     dunda_tab_items[]
-  dunda_branches      dunda_branches        @relation(fields: [branch_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_tabs_branch_id_dunda_branches_id_fk")
-  dunda_customers     dunda_customers?      @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_tabs_customer_id_dunda_customers_id_fk")
-  dunda_organizations dunda_organizations   @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_tabs_organization_id_dunda_organizations_id_fk")
-  dunda_staff         dunda_staff?          @relation(fields: [staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_tabs_staff_id_dunda_staff_id_fk")
-  dunda_tables        dunda_tables?         @relation(fields: [table_id], references: [id], onUpdate: NoAction, map: "dunda_tabs_table_id_dunda_tables_id_fk")
+  dunda_pool_sessions    dunda_pool_sessions[]
+  dunda_receipts         dunda_receipts[]
+  dunda_tab_items        dunda_tab_items[]
+  dunda_branches         dunda_branches           @relation(fields: [branch_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_tabs_branch_id_dunda_branches_id_fk")
+  dunda_customers        dunda_customers?         @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_tabs_customer_id_dunda_customers_id_fk")
+  dunda_organizations    dunda_organizations      @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_tabs_organization_id_dunda_organizations_id_fk")
+  dunda_staff            dunda_staff?             @relation(fields: [staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dunda_tabs_staff_id_dunda_staff_id_fk")
+  dunda_tables           dunda_tables?            @relation(fields: [table_id], references: [id], onUpdate: NoAction, map: "dunda_tabs_table_id_dunda_tables_id_fk")
 
   @@index([organization_id, status], map: "dunda_tabs_org_status")
   @@index([organization_id, branch_id, status], map: "dunda_tabs_org_branch_status")
 }
 
 model dunda_organization_settings {
-  id                  String              @id @default(uuid(7))
-  organization_id     String              @unique(map: "dunda_org_settings_org_unique")
-  currency            String              @default("KES")
-  timezone            String              @default("Africa/Nairobi")
-  tax_rate            Int                 @default(16)
-  tax_inclusive       Boolean             @default(false)
-  service_charge_rate Int                 @default(10)
-  service_charge_mode String              @default("PERCENT")
-  receipt_footer      String?
-  invoice_footer      String?
-  settings            Json                @default("{}")
+  id                            String              @id @default(uuid(7))
+  organization_id               String              @unique(map: "dunda_org_settings_org_unique")
+  currency                      String              @default("KES")
+  timezone                      String              @default("Africa/Nairobi")
+  tax_rate                      Int                 @default(16)
+  tax_inclusive                 Boolean             @default(false)
+  service_charge_rate           Int                 @default(10)
+  service_charge_mode           String              @default("PERCENT")
+  receipt_footer                String?
+  invoice_footer                String?
+  settings                      Json                @default("{}")
   pesapal_credentials_encrypted String?
-  created_at          DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime            @default(now()) @db.Timestamptz(6)
-  dunda_organizations dunda_organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_org_settings_organization_id_dunda_organizations_id_fk")
+  created_at                    DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                    DateTime            @default(now()) @db.Timestamptz(6)
+  dunda_organizations           dunda_organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dunda_org_settings_organization_id_dunda_organizations_id_fk")
 }
 
 model dunda_organization_features {
