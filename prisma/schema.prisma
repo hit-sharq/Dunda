@@ -635,6 +635,7 @@ model dunda_payments {
 
   @@index([organization_id, paid_at], map: "dunda_payments_org_paid_at")
   @@index([organization_id, tab_id], map: "dunda_payments_org_tab")
+  @@index([dispute_status], map: "dunda_payments_dispute_status")
 }
 
 model dunda_payment_attempts {
