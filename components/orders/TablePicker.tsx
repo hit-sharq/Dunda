@@ -57,18 +57,20 @@ export function TablePicker({ branchId, onTableSelect }: TablePickerProps) {
   }
 
   return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between mb-3">
+    <Card className="p-3 lg:p-4">
+      <div className="mb-3 flex items-center justify-between">
         <h3 className="font-semibold text-[hsl(var(--app-ink))]">Tables</h3>
         <Badge variant="outline">{tables.length}</Badge>
       </div>
-      <div className="grid grid-cols-4 gap-2">
+      {/* On a phone the tables scroll sideways in a strip, one thumb swipe
+          from the next table. On a tablet they sit in a grid. */}
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:grid lg:grid-cols-4 lg:overflow-visible">
         {tables.map((table) => (
           <Button
             key={table.id}
             variant="outline"
             onClick={() => onTableSelect(table.id, table.name, table.tab_id)}
-            className={`aspect-square min-h-[80px] px-2 text-xs flex flex-col items-center gap-1 ${statusColors[table.status] ?? "border-[hsl(var(--app-line))] text-[hsl(var(--app-faint))]"}`}
+            className={`min-h-[72px] w-[76px] shrink-0 px-2 text-xs flex flex-col items-center gap-1 lg:w-auto lg:aspect-square ${statusColors[table.status] ?? "border-[hsl(var(--app-line))] text-[hsl(var(--app-faint))]"}`}
           >
             {table.name}
             <span className="text-[10px]">{table.status}</span>

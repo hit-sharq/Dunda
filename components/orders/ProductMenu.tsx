@@ -109,7 +109,7 @@ export function ProductMenu({
           </Button>
         ))}
       </div>
-      <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-2">
+      <div className="flex-1 overflow-y-auto grid grid-cols-1 gap-2 sm:grid-cols-2">
         {filtered.length === 0 ? (
           <div className="col-span-full flex flex-col items-center justify-center py-8 text-[hsl(var(--app-faint))]">
             No products found

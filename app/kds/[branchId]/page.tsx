@@ -36,22 +36,30 @@ export default async function KDSPage({
             overflow: hidden;
           }
           .header {
-            padding: 1rem 2rem;
+            padding: 0.75rem 1rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 2px solid #334155;
           }
-          .title { font-size: 2rem; font-weight: 800; letter-spacing: -0.025em; }
+          .title { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.025em; }
           .subtitle { font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem; }
-          .time { font-size: 1.5rem; font-family: monospace; font-weight: 700; }
+          .time { font-size: 1.125rem; font-family: monospace; font-weight: 700; }
           .stations {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: 1fr;
             gap: 1rem;
-            padding: 1rem 2rem;
-            height: calc(100vh - 80px);
-            overflow: hidden;
+            padding: 0.75rem;
+            height: calc(100vh - 72px);
+            overflow-y: auto;
+          }
+          @media (min-width: 768px) {
+            .stations {
+              grid-template-columns: repeat(2, 1fr);
+              padding: 1rem 2rem;
+              height: calc(100vh - 80px);
+              overflow: hidden;
+            }
           }
           .station {
             background: #1e293b;
@@ -95,6 +103,7 @@ export default async function KDSPage({
             border: 1px solid #334155;
             border-radius: 0.75rem;
             padding: 1rem;
+            min-height: 96px;
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
@@ -110,7 +119,7 @@ export default async function KDSPage({
             align-items: center;
           }
           .ticket-number {
-            font-size: 1.5rem;
+            font-size: 1.75rem;
             font-weight: 800;
             font-family: monospace;
           }

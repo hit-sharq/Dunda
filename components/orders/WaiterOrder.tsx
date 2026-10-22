@@ -5,7 +5,6 @@ import { TablePicker } from "@/components/orders/TablePicker";
 import { ProductMenu } from "@/components/orders/ProductMenu";
 import { OrderSummary } from "@/components/orders/OrderSummary";
 import { CollectPayment } from "@/components/orders/CollectPayment";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui";
 
 interface WaiterOrderProps {
@@ -27,6 +26,14 @@ interface OrderItem {
   override_reason?: string;
 }
 
+/**
+ * The waiter screen, built for a phone held in one hand.
+ *
+ * On a small screen it is a single column: the table strip across the top,
+ * the menu in the middle, and the order pinned to the bottom where the thumb
+ * already is. On a tablet or a terminal it opens into two columns so a
+ * waiter with a bigger screen can see the order and the menu at once.
+ */
 export function WaiterOrder({ organizationId, branchId }: WaiterOrderProps) {
   const [selectedTable, setSelectedTable] = useState<{
     id: string;
@@ -34,56 +41,64 @@ export function WaiterOrder({ organizationId, branchId }: WaiterOrderProps) {
     tabId: string | null;
   } | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [showCart, setShowCart] = useState(false);
 
   const handleTableSelect = useCallback(
     (tableId: string, tableName: string, tabId: string | null) => {
       setSelectedTable({ id: tableId, name: tableName, tabId });
+      setShowCart(false);
     },
     [],
   );
 
-  const handleAddItem = useCallback((item: {
-    productId: string;
-    productName: string;
-    unitId: string | null;
-    unitName: string;
-    unitPrice: number;
-    quantity: number;
-    notes: string | null;
-    unit_price?: number;
-    overridden_by_id?: string;
-    override_reason?: string;
-  }) => {
-    const orderItem: OrderItem = {
-      id: crypto.randomUUID(),
-      ...item,
-    };
-    setItems((prev) => {
-      const existing = prev.find(
-        (i) =>
-          i.productId === item.productId &&
-          i.unitId === item.unitId &&
-          i.unit_price === item.unit_price &&
-          i.notes === item.notes,
-      );
-      if (existing) {
-        return prev.map((i) =>
-          i.id === existing.id ? { ...i, quantity: i.quantity + item.quantity } : i,
+  const handleAddItem = useCallback(
+    (item: {
+      productId: string;
+      productName: string;
+      unitId: string | null;
+      unitName: string;
+      unitPrice: number;
+      quantity: number;
+      notes: string | null;
+      unit_price?: number;
+      overridden_by_id?: string;
+      override_reason?: string;
+    }) => {
+      const orderItem: OrderItem = { id: crypto.randomUUID(), ...item };
+      setItems((prev) => {
+        const existing = prev.find(
+          (i) =>
+            i.productId === item.productId &&
+            i.unitId === item.unitId &&
+            i.unit_price === item.unit_price &&
+            i.notes === item.notes,
         );
-      }
-      return [...prev, orderItem];
-    });
-  }, []);
+        if (existing) {
+          return prev.map((i) =>
+            i.id === existing.id
+              ? { ...i, quantity: i.quantity + item.quantity }
+              : i,
+          );
+        }
+        return [...prev, orderItem];
+      });
+    },
+    [],
+  );
 
   const handleRemoveItem = useCallback((itemId: string) => {
     setItems((prev) => prev.filter((i) => i.id !== itemId));
   }, []);
 
   const handleUpdateQuantity = useCallback((itemId: string, quantity: number) => {
-    setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, quantity } : i)));
+    setItems((prev) =>
+      prev.map((i) => (i.id === itemId ? { ...i, quantity } : i)),
+    );
   }, []);
 
-  const handleSendToKitchen = async () => {
+  const subtotal = items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+
+  const sendOrder = async () => {
     if (items.length === 0 || !selectedTable) return;
 
     const res = await fetch("/api/orders", {
@@ -111,88 +126,102 @@ export function WaiterOrder({ organizationId, branchId }: WaiterOrderProps) {
     if (res.ok) {
       setItems([]);
       setSelectedTable(null);
-      alert("Order sent to kitchen!");
+      setShowCart(false);
+      alert("Order sent to the kitchen.");
     } else {
-      alert("Failed to send order");
+      const data = await res.json().catch(() => ({}));
+      alert(data.error ?? "Could not send the order.");
     }
   };
 
-  const handlePayNow = async () => {
-    if (items.length === 0 || !selectedTable) return;
-
-    const subtotal = items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
-
-    const res = await fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", credentials: "include" },
-      body: JSON.stringify({
-        organizationId,
-        branchId: selectedTable.id,
-        tableId: selectedTable.id,
-        staffId: "",
-        items: items.map((i) => ({
-          productId: i.productId,
-          quantity: i.quantity,
-          unitId: i.unitId,
-          notes: i.notes,
-          unit_price: i.unit_price,
-          overridden_by_id: i.overridden_by_id,
-          override_reason: i.override_reason,
-        })),
-        notes: "",
-        station: "BAR",
-      }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      alert(`Payment initiated! Reference: ${data.orderTrackingId}`);
-    } else {
-      alert("Failed to initiate payment");
-    }
-  };
+  const orderSummary = (
+    <OrderSummary
+      items={items}
+      onRemoveItem={handleRemoveItem}
+      onUpdateQuantity={handleUpdateQuantity}
+      onSendToKitchen={sendOrder}
+      onPayNow={() => setShowCart(true)}
+      organizationId={organizationId}
+      branchId={branchId}
+    />
+  );
 
   return (
-    <div className="flex flex-col h-full gap-4">
-      <TablePicker branchId={branchId} onTableSelect={handleTableSelect} />
-
-      <div className="flex-1 flex gap-4">
-        <div className="flex-1">
-          <ProductMenu
-            organizationId={organizationId}
-            branchId={branchId}
-            onAddItem={handleAddItem}
-          />
-        </div>
-
-        <div className="w-[420px] flex-shrink-0 flex flex-col gap-4">
-          {selectedTable?.tabId ? (
-            <CollectPayment tabId={selectedTable.tabId} tableName={selectedTable.name} />
-          ) : null}
-          <div className="flex-1">
-            <OrderSummary
-              items={items}
-              onRemoveItem={handleRemoveItem}
-              onUpdateQuantity={handleUpdateQuantity}
-              onSendToKitchen={handleSendToKitchen}
-              onPayNow={handlePayNow}
-              organizationId={organizationId}
-              branchId={branchId}
-            />
-          </div>
-        </div>
+    <div className="flex min-h-dvh flex-col gap-3 lg:flex-row">
+      {/* Table strip. On a phone it scrolls sideways so every table is one
+          thumb swipe away. */}
+      <div className="shrink-0 lg:w-[300px]">
+        <TablePicker branchId={branchId} onTableSelect={handleTableSelect} />
       </div>
 
-      {selectedTable && (
-        <div className="mt-2 flex items-center gap-2 text-[hsl(var(--app-faint))] text-sm">
-          <span className="bg-[hsl(var(--app-gold-soft))] text-[hsl(var(--app-ink))] rounded-full px-2 py-0.5 text-[10px] font-medium">
-            Table: {selectedTable.name}
-          </span>
-          <Button variant="outline" size="sm" onClick={() => setSelectedTable(null)}>
-            Change table
-          </Button>
+      {/* Menu */}
+      <div className="min-w-0 flex-1">
+        <ProductMenu
+          organizationId={organizationId}
+          branchId={branchId}
+          onAddItem={handleAddItem}
+        />
+      </div>
+
+      {/* On a tablet the order sits beside the menu. On a phone it slides up
+          from the bottom instead, so the menu keeps the whole screen. */}
+      <div className="hidden shrink-0 lg:block lg:w-[380px]">
+        {selectedTable?.tabId ? (
+          <div className="mb-3">
+            <CollectPayment
+              tabId={selectedTable.tabId}
+              tableName={selectedTable.name}
+            />
+          </div>
+        ) : null}
+        {orderSummary}
+      </div>
+
+      {/* Phone: the sticky order bar and the sheet it opens. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 lg:hidden">
+        {items.length > 0 ? (
+          <button
+            onClick={() => setShowCart(true)}
+            className="flex w-full items-center justify-between border-t border-[hsl(var(--app-line))] bg-[hsl(var(--app-surface))] px-4 py-3 text-left shadow-[0_-4px_24px_rgba(0,0,0,0.12)]"
+          >
+            <span>
+              <span className="block text-xs text-[hsl(var(--app-faint))]">
+                {items.reduce((s, i) => s + i.quantity, 0)} item(s) · {selectedTable?.name}
+              </span>
+              <span className="block text-base font-bold text-[hsl(var(--app-ink))]">
+                KES {subtotal.toLocaleString()}
+              </span>
+            </span>
+            <span className="rounded-lg bg-[hsl(var(--app-gold))] px-3 py-2 text-xs font-bold text-[hsl(var(--app-ink))]">
+              View order
+            </span>
+          </button>
+        ) : null}
+      </div>
+
+      {showCart ? (
+        <div className="fixed inset-0 z-40 flex items-end bg-black/50 lg:hidden">
+          <div className="max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-[hsl(var(--app-bg))] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-bold text-[hsl(var(--app-ink))]">
+                Order {selectedTable?.name ? `· ${selectedTable.name}` : ""}
+              </h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowCart(false)}>
+                Close
+              </Button>
+            </div>
+            {selectedTable?.tabId ? (
+              <div className="mb-3">
+                <CollectPayment
+                  tabId={selectedTable.tabId}
+                  tableName={selectedTable.name}
+                />
+              </div>
+            ) : null}
+            {orderSummary}
+          </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
