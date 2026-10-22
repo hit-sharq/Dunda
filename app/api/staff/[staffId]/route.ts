@@ -22,6 +22,50 @@ const updateStaffSchema = z.object({
   status: z.enum(["ACTIVE", "SUSPENDED", "INACTIVE"]).optional(),
 });
 
+export const GET = route(
+  async (request: Request, context: { params: Promise<{ staffId: string }> }) => {
+    const session = await requirePermission("manage_staff");
+    const organizationId = session.organizationId as string;
+    const { staffId } = await context.params;
+
+    const staff = await prisma.dunda_staff.findFirst({
+      where: orgWhere(organizationId, { id: staffId }),
+      select: {
+        id: true,
+        clerk_user_id: true,
+        name: true,
+        email: true,
+        phone: true,
+        status: true,
+        branch_id: true,
+        role_id: true,
+        created_at: true,
+        dunda_roles: { select: { name: true } },
+      },
+    });
+
+    if (!staff) {
+      return NextResponse.json(
+        { error: "That staff member is not on this club's roster.", code: "NOT_FOUND" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({
+      id: staff.id,
+      clerkUserId: staff.clerk_user_id,
+      name: staff.name,
+      email: staff.email,
+      phone: staff.phone,
+      role: staff.dunda_roles.name,
+      roleId: staff.role_id,
+      status: staff.status,
+      branchId: staff.branch_id,
+      createdAt: staff.created_at.toISOString(),
+    });
+  },
+);
+
 export const PATCH = route(
   async (request: Request, context: { params: Promise<{ staffId: string }> }) => {
     const session = await requirePermission("manage_staff");

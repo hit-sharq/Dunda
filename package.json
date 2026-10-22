@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && npm run check:api && next build",
     "start": "next start",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -17,7 +17,11 @@
     "verify:flow": "tsx scripts/verify-flow.ts",
     "verify:payments": "tsx scripts/verify-payments.ts",
     "verify:inventory": "tsx scripts/verify-inventory-report.ts",
-    "verify:reports": "tsx scripts/verify-reports.ts"
+    "verify:reports": "tsx scripts/verify-reports.ts",
+    "check:api": "node scripts/check-api-contract.mjs",
+    "check:schema": "prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code --script > /dev/null || (echo 'The database and prisma/schema.prisma disagree. Run prisma migrate deploy.' && exit 1)",
+    "check": "npm run typecheck && npm run check:api && npm run check:schema",
+    "release": "prisma migrate deploy"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

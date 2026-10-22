@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db/client";
-import { route, requirePermission, orgWhere } from "@/lib/server/http";
+import { route, requirePermission, orgWhere, parseBody } from "@/lib/server/http";
+import { refundClubPayment } from "@/lib/server/payments";
+import { checkRateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
+
+const refundInputSchema = z.object({
+  paymentId: z.string().min(1, "Which payment are you refunding?"),
+  amount: z.number().int().positive("A refund has to be more than nothing."),
+  reason: z.string().min(1, "A refund needs a reason for the audit trail."),
+  status: z.enum(["PENDING", "APPROVED"]).optional(),
+});
 
 /** Every refund raised by this club, newest first. */
 export const GET = route(async (request: Request) => {
@@ -55,5 +65,49 @@ export const GET = route(async (request: Request) => {
         disputeStatus: r.dunda_payments.dispute_status,
       },
     })),
+  );
+});
+
+/**
+ * Raises a refund. A refund over the limit is held as PENDING for a manager
+ * to release; anything smaller goes straight back to the card.
+ */
+export const POST = route(async (request: Request) => {
+  checkRateLimit(clientIpKey(request), 30, 60 * 60 * 1000);
+
+  const session = await requirePermission("refund_payment");
+  const organizationId = session.organizationId as string;
+
+  const input = await parseBody(refundInputSchema, request);
+
+  const staff = session.staffId
+    ? await prisma.dunda_staff.findUnique({
+        where: { id: session.staffId },
+        select: { name: true },
+      })
+    : null;
+
+  const refund = await refundClubPayment({
+    organizationId,
+    paymentId: input.paymentId,
+    amount: input.amount,
+    reason: input.reason,
+    staffId: session.staffId,
+    staffName: staff?.name ?? "Dunda console",
+    requiresApproval: session.permissions.has("approve_refunds"),
+  });
+
+  return NextResponse.json(
+    {
+      id: refund.id,
+      paymentId: input.paymentId,
+      amount: refund.amount,
+      reason: input.reason,
+      status: refund.status,
+      approvedById: session.staffId,
+      createdAt: new Date().toISOString(),
+      awaitingApproval: refund.status === "PENDING",
+    },
+    { status: 201 },
   );
 });
