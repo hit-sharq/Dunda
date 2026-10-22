@@ -263,11 +263,11 @@ function ProductModal({ product, onClose, onAddItem }: ProductModalProps) {
                 Quantity
               </label>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="h-8 w-8">
+                <Button variant="outline" size="sm" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="h-11 w-11">
                   −
                 </Button>
                 <span className="w-8 text-center text-sm font-medium">{quantity}</span>
-                <Button variant="outline" size="sm" onClick={() => setQuantity(quantity + 1)} className="h-8 w-8">
+                <Button variant="outline" size="sm" onClick={() => setQuantity(quantity + 1)} className="h-11 w-11">
                   +
                 </Button>
               </div>

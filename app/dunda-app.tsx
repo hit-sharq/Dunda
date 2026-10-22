@@ -525,7 +525,7 @@ function AppShell({ children }: { children: ReactNode }) {
   }, [mobileOpen]);
   const signOutAndReturn = () => { void signOut({ redirectUrl: basePath || '/' }); setLocation('/'); };
   return <div className="app-noise relative min-h-[100dvh] bg-[var(--app-bg)] md:flex">
-    <aside className={`fixed inset-y-0 left-0 z-[60] flex h-[100dvh] w-[252px] max-w-[85vw] flex-col overflow-y-auto overscroll-contain bg-[hsl(var(--app-chrome))] px-4 py-5 text-[var(--app-chrome-ink)] shadow-2xl transition-transform duration-200 ease-out md:static md:z-auto md:h-auto md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-hidden={isMobile ? !mobileOpen : undefined}>
+    <aside className={`fixed inset-y-0 left-0 z-[60] flex h-[100dvh] w-[252px] max-w-[85vw] flex-col overflow-y-auto overscroll-contain bg-[hsl(var(--app-chrome))] px-4 py-5 text-[var(--app-chrome-ink)] shadow-2xl transition-transform duration-200 ease-out md:static md:z-auto md:h-auto md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`} inert={isMobile && !mobileOpen ? true : undefined}>
       <div className="mb-9 flex shrink-0 items-center justify-between px-2"><Logo dark /><button onClick={() => setMobileOpen(false)} className="md:hidden" data-testid="button-close-menu"><X size={18} /></button></div>
       {}
       {hasClub && <div className="relative mb-6 shrink-0">

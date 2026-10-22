@@ -70,11 +70,11 @@ export function OrderSummary({
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <Button variant="outline" size="sm" onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} className="h-6 w-6 px-0">
+                  <Button variant="outline" size="sm" onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} className="h-11 w-11 px-0">
                     −
                   </Button>
                   <span className="text-xs font-mono">{item.quantity}</span>
-                  <Button variant="outline" size="sm" onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} className="h-6 w-6 px-0">
+                  <Button variant="outline" size="sm" onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} className="h-11 w-11 px-0">
                     +
                   </Button>
                   {item.notes && (
@@ -84,7 +84,7 @@ export function OrderSummary({
                   )}
                 </div>
               </div>
-              <Button variant="danger" size="sm" onClick={() => onRemoveItem(item.id)} className="h-6 w-6 p-1">
+              <Button variant="danger" size="sm" onClick={() => onRemoveItem(item.id)} className="h-11 w-11 p-1">
                 ×
               </Button>
             </div>
