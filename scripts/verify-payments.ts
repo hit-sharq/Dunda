@@ -7,6 +7,7 @@ import {
   initiateBillingPayment,
   resolveCallbackReference,
   getOpenBillingPayment,
+  refundClubPayment,
 } from "../lib/server/payments";
 
 const prisma = new PrismaClient();
@@ -225,19 +226,101 @@ async function main() {
   });
   check("a cash settlement closes the tab", cash.tabClosed === true && cash.tab.outstanding === 0);
 
+  console.log("\nRefunds go back through the provider and the books");
+
+  const table4 = await freeTable();
+  const tab4 = await openTab({
+    organizationId: ORG, branchId: BR, customer: customer.name,
+    table: table4.name, tableId: table4.id, customerId: customer.id, staffId: staff.id,
+  });
+  await addTabItem({ organizationId: ORG, tabId: tab4.id, productId: beer.id, quantity: 1, unitId: null, notes: null, staffId: staff.id });
+  const bill4 = await prisma.dunda_tabs.findUniqueOrThrow({ where: { id: tab4.id } });
+  const cash4 = await applyTabPayment({
+    organizationId: ORG, tabId: tab4.id, branchId: BR,
+    payments: [{ method: "CASH", amount: bill4.total }],
+    staffId: staff.id,
+  });
+  check("cash settles tab4", cash4.tabClosed === true && cash4.tab.outstanding === 0);
+  const cashPayment4 = cash4.payments[0]!;
+  const refunded4 = await refundClubPayment({
+    organizationId: ORG, paymentId: cashPayment4.id, amount: bill4.total,
+    reason: "verify-payments refund", staffId: staff.id, staffName: staff.name,
+  });
+  check("cash refund approved in books", refunded4.status === "APPROVED" && refunded4.amount === bill4.total);
+  const paid4 = await prisma.dunda_payments.findUniqueOrThrow({ where: { id: cashPayment4.id } });
+  check("full refund voids cash payment", paid4.status === "REFUNDED");
+  const tab4after = await prisma.dunda_tabs.findUniqueOrThrow({ where: { id: tab4.id } });
+  check("refund puts money back on tab", tab4after.outstanding === bill4.total && tab4after.amount_paid === 0);
+
+  const table5 = await freeTable();
+  const tab5 = await openTab({
+    organizationId: ORG, branchId: BR, customer: customer.name,
+    table: table5.name, tableId: table5.id, customerId: customer.id, staffId: staff.id,
+  });
+  await addTabItem({ organizationId: ORG, tabId: tab5.id, productId: beer.id, quantity: 2, unitId: null, notes: null, staffId: staff.id });
+  const bill5 = await prisma.dunda_tabs.findUniqueOrThrow({ where: { id: tab5.id } });
+  const trackingId5 = `${RUN}-refund-tracking`;
+  const attempt5 = await prisma.dunda_payment_attempts.create({
+    data: { organization_id: ORG, branch_id: BR, tab_id: tab5.id, amount: bill5.total, currency: "KES", method: "MPESA", provider: "PESAPAL", status: "INITIATED", reference: trackingId5 },
+  });
+  const settled5 = await applyTabPayment({
+    organizationId: ORG, tabId: tab5.id, branchId: BR,
+    payments: [{ method: "MPESA", amount: bill5.total, provider: "PESAPAL", reference: "PESAPAL_REFUND_CONFIRMATION_5" }],
+    staffId: null, attemptId: attempt5.id,
+  });
+  const providerPayment5 = settled5.payments[0]!;
+
+  const partial5 = await refundClubPayment({
+    organizationId: ORG, paymentId: providerPayment5.id, amount: 1,
+    reason: "partial", staffId: staff.id, staffName: staff.name,
+  }).then(() => "accepted").catch((error: Error) => error.message);
+  check("mobile money refunded in full only", partial5 !== "accepted", { message: partial5 });
+
+  const over5 = await refundClubPayment({
+    organizationId: ORG, paymentId: providerPayment5.id, amount: bill5.total + 1,
+    reason: "too much", staffId: staff.id, staffName: staff.name,
+  }).then(() => "accepted").catch((error: Error) => error.message);
+  check("refund cannot exceed payment", over5 !== "accepted", { message: over5 });
+
+  const savedKey5 = process.env.PESAPAL_CONSUMER_KEY;
+  const savedSecret5 = process.env.PESAPAL_CONSUMER_SECRET;
+  delete process.env.PESAPAL_CONSUMER_KEY;
+  delete process.env.PESAPAL_CONSUMER_SECRET;
+  const refused5 = await refundClubPayment({
+    organizationId: ORG, paymentId: providerPayment5.id, amount: bill5.total,
+    reason: "full refund", staffId: staff.id, staffName: staff.name,
+  }).then(() => "accepted").catch((error: Error) => error.message);
+  if (savedKey5 !== undefined) process.env.PESAPAL_CONSUMER_KEY = savedKey5;
+  if (savedSecret5 !== undefined) process.env.PESAPAL_CONSUMER_SECRET = savedSecret5;
+  check("provider refund refuses without credentials", refused5 !== "accepted", { message: refused5 });
+  const untouched5 = await prisma.dunda_payments.findUniqueOrThrow({ where: { id: providerPayment5.id } });
+  check("refused refund leaves books untouched", untouched5.status === "SUCCESSFUL");
+  const untouchedTab5 = await prisma.dunda_tabs.findUniqueOrThrow({ where: { id: tab5.id } });
+  check("tab still owes full amount", untouchedTab5.outstanding === bill5.total);
+
+  await prisma.dunda_refunds.create({
+    data: { organization_id: ORG, branch_id: BR, payment_id: providerPayment5.id, amount: 1, reason: "earlier refund", status: "APPROVED" },
+  });
+  const second5 = await refundClubPayment({
+    organizationId: ORG, paymentId: providerPayment5.id, amount: 1,
+    reason: "again", staffId: staff.id, staffName: staff.name,
+  }).then(() => "accepted").catch((error: Error) => error.message);
+  check("provider payment refunded once", second5 !== "accepted", { message: second5 });
+
   
   
   
   
   await prisma.$transaction([
-    prisma.dunda_receipts.deleteMany({ where: { tab_id: { in: [tab.id, tab2.id, tab3.id] } } }),
-    prisma.dunda_payments.deleteMany({ where: { tab_id: { in: [tab.id, tab2.id, tab3.id] } } }),
-    prisma.dunda_payment_provider_transactions.deleteMany({ where: { reference: attempt.id } }),
-    prisma.dunda_payment_attempts.deleteMany({ where: { id: attempt.id } }),
-    prisma.dunda_tab_items.deleteMany({ where: { tab_id: { in: [tab.id, tab2.id, tab3.id] } } }),
-    prisma.dunda_tabs.deleteMany({ where: { id: { in: [tab.id, tab2.id, tab3.id] } } }),
+    prisma.dunda_receipts.deleteMany({ where: { tab_id: { in: [tab.id, tab2.id, tab3.id, tab4.id, tab5.id] } } }),
+    prisma.dunda_refunds.deleteMany({ where: { payment_id: { in: [cashPayment4.id, providerPayment5.id] } } }),
+    prisma.dunda_payments.deleteMany({ where: { tab_id: { in: [tab.id, tab2.id, tab3.id, tab4.id, tab5.id] } } }),
+    prisma.dunda_payment_provider_transactions.deleteMany({ where: { reference: { in: [attempt.id, attempt5.id] } } }),
+    prisma.dunda_payment_attempts.deleteMany({ where: { id: { in: [attempt.id, attempt5.id] } } }),
+    prisma.dunda_tab_items.deleteMany({ where: { tab_id: { in: [tab.id, tab2.id, tab3.id, tab4.id, tab5.id] } } }),
+    prisma.dunda_tabs.deleteMany({ where: { id: { in: [tab.id, tab2.id, tab3.id, tab4.id, tab5.id] } } }),
     prisma.dunda_tables.updateMany({
-      where: { tab_id: { in: [tab.id, tab2.id, tab3.id] } },
+      where: { tab_id: { in: [tab.id, tab2.id, tab3.id, tab4.id, tab5.id] } },
       data: { status: "AVAILABLE", tab_id: null, customer: null, total: 0 },
     }),
   ]);
