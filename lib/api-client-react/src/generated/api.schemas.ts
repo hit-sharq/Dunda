@@ -64,6 +64,17 @@ export interface Category {
   id: string;
   name: string;
   color: string;
+  group?: string | null;
+  station?: string | null;
+  sortOrder?: number | null;
+}
+
+export interface CategoryInput {
+  name: string;
+  color?: string | null;
+  group?: string | null;
+  station?: string | null;
+  sortOrder?: number | null;
 }
 
 export interface Product {

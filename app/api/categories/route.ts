@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db/client";
-import { route, requireSession, orgWhere } from "@/lib/server/http";
+import { route, requireSession, requirePermission, orgWhere, parseBody } from "@/lib/server/http";
+import { notFound } from "@/lib/errors.server";
+import { checkRateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
+const categoryInputSchema = z.object({
+  name: z.string().min(1, "Give the category a name.").max(60),
+  color: z.string().optional(),
+  group: z.string().optional(),
+  station: z.string().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
 
 export const GET = route(async (request: Request) => {
   const session = await requireSession();
@@ -55,4 +65,52 @@ export const GET = route(async (request: Request) => {
   );
 
   return NextResponse.json(counts);
+});
+
+/**
+ * Add a category to the club's menu.
+ */
+export const POST = route(async (request: Request) => {
+  checkRateLimit(clientIpKey(request), 60, 60 * 60 * 1000);
+
+  const session = await requirePermission("manage_products");
+  const organizationId = session.organizationId as string;
+
+  const input = await parseBody(categoryInputSchema, request);
+
+  const created = await prisma.$transaction(async (tx) => {
+    const category = await tx.dunda_categories.create({
+      data: {
+        organization_id: organizationId,
+        name: input.name,
+        color: input.color ?? "#6f9fb2",
+        group: input.group ?? null,
+        station: input.station ?? null,
+        sort_order: input.sortOrder ?? 0,
+      },
+    });
+
+    await tx.dunda_audit_logs.create({
+      data: {
+        organization_id: organizationId,
+        staff_id: session.staffId,
+        action: "CREATE",
+        entity: "category",
+        entity_id: category.id,
+        detail: `${input.name} added to the menu`,
+        new_value: { name: input.name },
+      },
+    });
+
+    return category;
+  });
+
+  return NextResponse.json({
+    id: created.id,
+    name: created.name,
+    color: created.color,
+    group: created.group,
+    station: created.station,
+    sortOrder: created.sort_order,
+  }, { status: 201 });
 });

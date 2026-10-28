@@ -1,14 +1,22 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  getGetCategoriesQueryKey,
   getGetProductsQueryKey,
+  useCreateCategory,
   useCreateProduct,
   useCreateProductUnit,
+  useDeleteCategory,
+  useDeleteProduct,
   useGetCategories,
   useGetProducts,
   useGetProductUnits,
+  useUpdateCategory,
+  useUpdateProduct,
   useUpdateProductUnit,
+  type Category,
   type Product,
+  type ProductInput,
   type ProductUnitInput,
 } from "@/lib/api-client-react/src";
 import {
@@ -32,6 +40,17 @@ export function Products() {
   const [search, setSearch] = useState("");
   const [newProduct, setNewProduct] = useState<null | Record<string, string>>(null);
   const [unitFor, setUnitFor] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+
+  const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
+  const createCategory = useCreateCategory();
+  const updateCategory = useUpdateCategory();
+  const deleteCategory = useDeleteCategory();
+  const [newCategory, setNewCategory] = useState<null | Record<string, string>>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
 
   const list = products.data ?? [];
   const filtered = useMemo(
@@ -123,13 +142,81 @@ export function Products() {
                     {p.trackInventory ? p.stock : "—"}
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <Button
-                      variant="outline"
-                      onClick={() => setUnitFor(p)}
-                      data-testid={`button-units-${p.id}`}
-                    >
-                      Units
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingProduct(p)}
+                        data-testid={`button-edit-product-${p.id}`}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeletingProductId(p.id)}
+                        data-testid={`button-delete-product-${p.id}`}
+                      >
+                        Delete
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setUnitFor(p)}
+                        data-testid={`button-units-${p.id}`}
+                      >
+                        Units
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="surface overflow-hidden rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-xl font-bold">Menu categories</h3>
+          <Button onClick={() => setNewCategory({ name: "", color: "#6f9fb2", group: "", station: "", sortOrder: "0" })} data-testid="button-new-category">
+            + New category
+          </Button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[600px] text-sm">
+            <thead>
+              <tr className="border-b border-[hsl(var(--app-line-soft))] text-left text-xs uppercase tracking-wider text-[hsl(var(--app-faint))]">
+                <th className="px-5 py-3 font-semibold">Name</th>
+                <th className="px-5 py-3 font-semibold">Color</th>
+                <th className="px-5 py-3 text-right font-semibold" />
+              </tr>
+            </thead>
+            <tbody>
+              {categories.data?.map((c) => (
+                <tr key={c.id} className="border-b border-[hsl(var(--app-raised))] last:border-0" data-testid={`row-category-${c.id}`}>
+                  <td className="px-5 py-3">
+                    <span className="font-semibold">{c.name}</span>
+                  </td>
+                  <td className="px-5 py-3">{c.color}</td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => {
+                        setNewCategory({
+                          name: c.name,
+                          color: c.color ?? "",
+                          group: c.group ?? "",
+                          station: c.station ?? "",
+                          sortOrder: String(c.sortOrder ?? 0),
+                        });
+                        setEditingCategory(c);
+                      }} data-testid={`button-edit-category-${c.id}`}>
+                        Edit
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setDeletingCategoryId(c.id)} data-testid={`button-delete-category-${c.id}`}>
+                        Delete
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -208,6 +295,119 @@ export function Products() {
             )
           }
           busy={createUnit.isPending || updateUnit.isPending}
+        />
+      )}
+
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          categories={categories.data ?? []}
+          onClose={() => setEditingProduct(null)}
+          updateProduct={updateProduct}
+          qc={qc}
+          onSuccess={() => setEditingProduct(null)}
+        />
+      )}
+
+      {deletingProductId && (
+        <DeleteProductModal
+          product={products.data?.find((p) => p.id === deletingProductId)!}
+          onClose={() => setDeletingProductId(null)}
+          busy={deleteProduct.isPending}
+          onConfirm={() => {
+            deleteProduct.mutate(
+              { productId: deletingProductId! },
+              {
+                onSuccess: () => {
+                  qc.invalidateQueries({ queryKey: getGetProductsQueryKey() });
+                  setDeletingProductId(null);
+                },
+              },
+            );
+          }}
+        />
+      )}
+
+      {newCategory && (
+        <CategoryForm
+          value={newCategory}
+          onChange={setNewCategory}
+          busy={createCategory.isPending}
+          onClose={() => setNewCategory(null)}
+          onSubmit={() => {
+            createCategory.mutate(
+              {
+                data: {
+                  name: newCategory.name ?? "",
+                  color: newCategory.color ?? "#6f9fb2",
+                  group: newCategory.group ?? null,
+                  station: newCategory.station ?? null,
+                  sortOrder: Number(newCategory.sortOrder ?? 0),
+                },
+              },
+              {
+                onSuccess: () => {
+                  qc.invalidateQueries({ queryKey: getGetCategoriesQueryKey() });
+                  setNewCategory(null);
+                },
+              },
+            );
+          }}
+        />
+      )}
+
+      {editingCategory && (
+        <CategoryForm
+          value={{
+            name: editingCategory.name,
+            color: editingCategory.color ?? "",
+            group: editingCategory.group ?? "",
+            station: editingCategory.station ?? "",
+            sortOrder: String(editingCategory.sortOrder ?? 0),
+          }}
+          onChange={setNewCategory}
+          busy={updateCategory.isPending}
+          onClose={() => setEditingCategory(null)}
+          onSubmit={() => {
+            updateCategory.mutate(
+              {
+                categoryId: editingCategory.id,
+                data: {
+                  name: newCategory?.name ?? editingCategory.name,
+                  color: newCategory?.color ?? editingCategory.color ?? "#6f9fb2",
+                  group: newCategory?.group ?? editingCategory.group ?? null,
+                  station: newCategory?.station ?? editingCategory.station ?? null,
+                  sortOrder: Number(newCategory?.sortOrder ?? editingCategory.sortOrder ?? 0),
+                },
+              },
+              {
+                onSuccess: () => {
+                  qc.invalidateQueries({ queryKey: getGetCategoriesQueryKey() });
+                  setEditingCategory(null);
+                  setNewCategory({ name: "", color: "#6f9fb2", group: "", station: "", sortOrder: "0" });
+                },
+              },
+            );
+          }}
+        />
+      )}
+
+      {deletingCategoryId && (
+        <DeleteCategoryModal
+          category={categories.data?.find((c) => c.id === deletingCategoryId)!}
+          onClose={() => setDeletingCategoryId(null)}
+          busy={deleteCategory.isPending}
+          onConfirm={() => {
+            deleteCategory.mutate(
+              { categoryId: deletingCategoryId! },
+              {
+                onSuccess: () => {
+                  qc.invalidateQueries({ queryKey: getGetCategoriesQueryKey() });
+                  setDeletingCategoryId(null);
+                },
+              },
+            );
+          }}
         />
       )}
     </div>
@@ -504,6 +704,227 @@ function UnitManager({
           </Button>
         </form>
       </div>
+    </Modal>
+  );
+}
+
+function EditProductModal({
+  product,
+  categories,
+  onClose,
+  updateProduct,
+  qc,
+  onSuccess,
+}: {
+  product: Product;
+  categories: { id: string; name: string }[];
+  onClose: () => void;
+  updateProduct: ReturnType<typeof useUpdateProduct>;
+  qc: ReturnType<typeof useQueryClient>;
+  onSuccess: () => void;
+}) {
+  const { currency } = useMoney();
+  const [draft, setDraft] = useState({
+    name: product.name,
+    categoryId: product.categoryId,
+    price: String(product.price),
+  });
+
+  const set = (k: string, v: string) => setDraft({ ...draft, [k]: v });
+
+  return (
+    <Modal title="Edit product" onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          updateProduct.mutate(
+            {
+              productId: product.id,
+              data: {
+                name: draft.name,
+                categoryId: draft.categoryId,
+                category:
+                  categories.find((c) => c.id === draft.categoryId)?.name ??
+                  product.category,
+                price: Number(draft.price),
+              },
+            },
+            {
+              onSuccess: () => {
+                qc.invalidateQueries({ queryKey: getGetProductsQueryKey() });
+                onSuccess();
+              },
+            },
+          );
+        }}
+        className="grid gap-4"
+      >
+        <Field label="Name">
+          <input
+            required
+            value={draft.name}
+            onChange={(e) => set("name", e.target.value)}
+            className={inputClass}
+            data-testid="input-edit-product-name"
+          />
+        </Field>
+        <Field label="Category">
+          <select
+            required
+            value={draft.categoryId}
+            onChange={(e) => set("categoryId", e.target.value)}
+            className={inputClass}
+            data-testid="select-edit-product-category"
+          >
+            <option value="">Select a category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label={`Price (${currency})`}>
+          <input
+            required
+            type="number"
+            min={0}
+            value={draft.price}
+            onChange={(e) => set("price", e.target.value)}
+            className={inputClass}
+            data-testid="input-edit-product-price"
+          />
+        </Field>
+        <Button className="mt-2 w-full" disabled={updateProduct.isPending} data-testid="button-save-edit-product">
+          {updateProduct.isPending ? "Saving…" : "Save changes"}
+        </Button>
+      </form>
+    </Modal>
+  );
+}
+
+function DeleteProductModal({
+  product,
+  onClose,
+  busy,
+  onConfirm,
+}: {
+  product: Product;
+  onClose: () => void;
+  busy: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal title="Delete product" onClose={onClose}>
+      <p>Remove <strong>{product.name}</strong> from the menu?</p>
+      <p className="text-xs text-[hsl(var(--app-faint))]">
+        If it has been sold, it will be taken off the menu rather than deleted.
+      </p>
+      <div className="mt-4 flex gap-2">
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="danger" disabled={busy} onClick={onConfirm}>
+          {busy ? "Deleting…" : "Delete"}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function DeleteCategoryModal({
+  category,
+  onClose,
+  busy,
+  onConfirm,
+}: {
+  category: Category;
+  onClose: () => void;
+  busy: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal title="Delete category" onClose={onClose}>
+      <p>Remove <strong>{category.name}</strong> from the menu?</p>
+      <p className="text-xs text-[hsl(var(--app-faint))]">
+        Only possible if no products use this category.
+      </p>
+      <div className="mt-4 flex gap-2">
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="danger" disabled={busy} onClick={onConfirm}>
+          {busy ? "Deleting…" : "Delete"}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function CategoryForm({
+  value,
+  onChange,
+  onSubmit,
+  onClose,
+  busy,
+}: {
+  value: Record<string, string>;
+  onChange: (v: Record<string, string>) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+  busy: boolean;
+}) {
+  const set = (k: string, v: string) => onChange({ ...value, [k]: v });
+
+  return (
+    <Modal title="New category" onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit();
+        }}
+        className="grid gap-4"
+      >
+        <Field label="Name">
+          <input
+            required
+            value={value.name ?? ""}
+            onChange={(e) => set("name", e.target.value)}
+            className={inputClass}
+            data-testid="input-category-name"
+          />
+        </Field>
+        <Field label="Color">
+          <input
+            type="color"
+            value={value.color ?? "#6f9fb2"}
+            onChange={(e) => set("color", e.target.value)}
+            className={inputClass}
+            data-testid="input-category-color"
+          />
+        </Field>
+        <Field label="Group (optional)">
+          <input
+            value={value.group ?? ""}
+            onChange={(e) => set("group", e.target.value)}
+            placeholder="e.g. Drinks, Food"
+            className={inputClass}
+            data-testid="input-category-group"
+          />
+        </Field>
+        <Field label="Sort order">
+          <input
+            type="number"
+            value={value.sortOrder ?? "0"}
+            onChange={(e) => set("sortOrder", e.target.value)}
+            className={inputClass}
+            data-testid="input-category-sortorder"
+          />
+        </Field>
+        <Button className="mt-2 w-full" disabled={busy} data-testid="button-save-category">
+          {busy ? "Saving…" : "Create category"}
+        </Button>
+      </form>
     </Modal>
   );
 }
