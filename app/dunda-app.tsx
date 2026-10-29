@@ -25,6 +25,7 @@ import {
 import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch, NotificationBell } from '@/components/chrome';
 import { PesapalMerchantSettings } from '@/components/pesapal-merchant-settings';
+import { QrCode } from '@/components/qr-code';
 import { useLiveRefresh } from '@/hooks/use-live-refresh';
 import { usePaymentAttempt } from '@/hooks/use-payment-attempt';
 import {
@@ -1094,6 +1095,35 @@ function Settings() {
   const branchLimit = me.data?.branchLimit ?? 1;
   const branchCount = settingsBranches.data?.length ?? 0;
 
+  // Menu QR code
+  const [orgSlug, setOrgSlug] = useState<string | null>(null);
+  const [orgSlugLoading, setOrgSlugLoading] = useState(false);
+
+  async function loadOrgSlug() {
+    setOrgSlugLoading(true);
+    try {
+      const response = await fetch("/api/admin/organizations", {
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+      });
+      const bodies = (await response.json().catch(() => [])) as Array<{
+        id: string;
+        slug: string;
+        name: string;
+      }>;
+      const org = bodies.find((o) => o.id === me.data?.organizationId);
+      if (org) setOrgSlug(org.slug);
+    } catch {
+      // ignore — QR shows empty until org loads
+    } finally {
+      setOrgSlugLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (me.data?.organizationId && !orgSlug) loadOrgSlug();
+  }, [me.data?.organizationId, orgSlug]);
+
   async function addBranch(event: FormEvent) {
     event.preventDefault();
     setBranchPending(true);
@@ -1173,6 +1203,40 @@ function Settings() {
             <p className="text-xs text-[var(--app-muted)]">Ask an owner to manage branches.</p>
           )}
           {branchResult && <p className={`mt-4 text-xs font-semibold ${branchResult.ok ? "text-[var(--app-success)]" : "text-[var(--app-critical)]"}`} role="status">{branchResult.text}</p>}
+        </section>
+
+        <section className="surface rounded-2xl p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[var(--app-faint)]">Customer QR menu</p><h3 className="font-display text-xl font-bold">Table menu QR</h3></div>
+            <SlidersHorizontal size={18} className="text-[var(--app-muted)]" />
+          </div>
+          <div className="mt-4 rounded-xl bg-[var(--app-bg)] p-6">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-xs font-semibold uppercase tracking-[.16em] text-[var(--app-faint)]">Scan to order from your table</p>
+              <div className="flex flex-col items-center gap-3">
+                <div className="rounded-xl border border-[var(--app-line)] bg-[hsl(var(--app-bg))] p-4">
+                  {orgSlugLoading ? (
+                    <div className="h-48 w-48 flex items-center justify-center rounded-lg border border-dashed bg-[var(--app-surface)]">
+                      <span className="text-[10px] text-[hsl(var(--app-faint))]">Loading QR…</span>
+                    </div>
+                  ) : orgSlug ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <QrCode url={`${window.location.origin}/m/${orgSlug}`} size={260} />
+                      <p className="text-xs font-mono text-[hsl(var(--app-faint))] break-all">{`${window.location.origin}/m/${orgSlug}`}</p>
+                    </div>
+                  ) : (
+                    <div className="h-48 w-48 flex items-center justify-center rounded-lg border border-dashed bg-[var(--app-surface)]">
+                      <span className="text-[10px] text-[hsl(var(--app-faint))]">No club found</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-[hsl(var(--app-faint))]">Print this page and place it on each table. Customers scan to open your menu and order.</p>
+              </div>
+              <button onClick={() => window.print()} className="rounded-lg bg-[var(--app-gold)] px-5 py-2.5 text-sm font-bold text-[hsl(var(--app-ink))] hover:bg-[var(--app-gold-hover)]" data-testid="button-print-qr">
+                Print QR menu
+              </button>
+            </div>
+          </div>
         </section>
       </div>
     </div>
