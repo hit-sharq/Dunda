@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetStaffQueryKey,
   useCreateStaff,
+  useDeleteStaff,
   useGetBranches,
   useGetMe,
   useGetStaff,
@@ -20,6 +21,7 @@ export function StaffManager() {
   const branches = useGetBranches();
   const create = useCreateStaff();
   const update = useUpdateStaff();
+  const delStaff = useDeleteStaff();
   const qc = useQueryClient();
 
   const [inviting, setInviting] = useState<null | {
@@ -30,6 +32,7 @@ export function StaffManager() {
     branchId: string;
   }>(null);
   const [editing, setEditing] = useState<null | { staff: StaffMember; roleId: string; status: string }>(null);
+  const [deleting, setDeleting] = useState<null | { id: string; name: string }>(null);
   const [notice, setNotice] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
   const grantable = (me.data?.roles ?? []).filter((r) => r.grantable);
@@ -139,6 +142,15 @@ export function StaffManager() {
                     data-testid={`button-edit-staff-${s.id}`}
                   >
                     Edit
+                  </Button>
+                )}
+                {me.data?.canGrantStaff && (
+                  <Button
+                    variant="danger"
+                    onClick={() => setDeleting({ id: s.id, name: s.name })}
+                    data-testid={`button-delete-staff-${s.id}`}
+                  >
+                    Disable
                   </Button>
                 )}
               </div>
@@ -339,6 +351,57 @@ export function StaffManager() {
           </form>
         </Modal>
       )}
+      {deleting && (
+        <DeleteStaffModal
+          staff={deleting}
+          onClose={() => setDeleting(null)}
+          busy={delStaff.isPending}
+          onConfirm={() => {
+            delStaff.mutate(
+              { staffId: deleting.id },
+              {
+                onSuccess: () => {
+                  qc.invalidateQueries({ queryKey: getGetStaffQueryKey() });
+                  setDeleting(null);
+                  setNotice({ tone: "ok", text: `${deleting.name} removed from the staff roster.` });
+                },
+                onError: (err: unknown) =>
+                  setNotice({ tone: "err", text: describeActionError(err, { what: "removing this staff member" }) }),
+              },
+            );
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+function DeleteStaffModal({
+  staff,
+  onClose,
+  busy,
+  onConfirm,
+}: {
+  staff: { id: string; name: string };
+  onClose: () => void;
+  busy: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal title="Remove staff member" onClose={onClose}>
+      <p>
+        Remove <strong>{staff.name}</strong> from the club roster? This suspends
+        their access immediately. Their shifts and order history are kept for
+        the record.
+      </p>
+      <div className="mt-4 flex gap-2">
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="danger" disabled={busy} onClick={onConfirm}>
+          {busy ? "Suspending…" : "Suspend"}
+        </Button>
+      </div>
+    </Modal>
   );
 }

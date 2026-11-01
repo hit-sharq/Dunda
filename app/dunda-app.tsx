@@ -1095,34 +1095,38 @@ function Settings() {
   const branchLimit = me.data?.branchLimit ?? 1;
   const branchCount = settingsBranches.data?.length ?? 0;
 
-  // Menu QR code
-  const [orgSlug, setOrgSlug] = useState<string | null>(null);
-  const [orgSlugLoading, setOrgSlugLoading] = useState(false);
+  // Table QR codes per table
+  const [tableQRs, setTableQRs] = useState<Array<{ tableId: string; tableName: string }>>([]);
+  const [tableQRsLoading, setTableQRsLoading] = useState(false);
 
-  async function loadOrgSlug() {
-    setOrgSlugLoading(true);
+  async function loadTableQRs() {
+    setTableQRsLoading(true);
     try {
       const response = await fetch("/api/admin/organizations", {
         credentials: "include",
         headers: { "content-type": "application/json" },
       });
-      const bodies = (await response.json().catch(() => [])) as Array<{
+      const orgs = (await response.json().catch(() => [])) as Array<{
         id: string;
         slug: string;
         name: string;
+        branches: Array<{ id: string; name: string; tables: Array<{ id: string; name: string }> }>;
       }>;
-      const org = bodies.find((o) => o.id === me.data?.organizationId);
-      if (org) setOrgSlug(org.slug);
+      const org = orgs.find((o) => o.id === me.data?.organizationId);
+      const tables = org?.branches.flatMap((b) =>
+        b.tables.map((t) => ({ tableId: t.id, tableName: `${b.name} — ${t.name}` }))
+      ) ?? [];
+      setTableQRs(tables);
     } catch {
       // ignore — QR shows empty until org loads
     } finally {
-      setOrgSlugLoading(false);
+      setTableQRsLoading(false);
     }
   }
 
   useEffect(() => {
-    if (me.data?.organizationId && !orgSlug) loadOrgSlug();
-  }, [me.data?.organizationId, orgSlug]);
+    if (me.data?.organizationId && tableQRs.length === 0) loadTableQRs();
+  }, [me.data?.organizationId]);
 
   async function addBranch(event: FormEvent) {
     event.preventDefault();
@@ -1210,34 +1214,27 @@ function Settings() {
             <div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[var(--app-faint)]">Customer QR menu</p><h3 className="font-display text-xl font-bold">Table menu QR</h3></div>
             <SlidersHorizontal size={18} className="text-[var(--app-muted)]" />
           </div>
-          <div className="mt-4 rounded-xl bg-[var(--app-bg)] p-6">
-            <div className="flex flex-col items-center gap-4">
-              <p className="text-xs font-semibold uppercase tracking-[.16em] text-[var(--app-faint)]">Scan to order from your table</p>
-              <div className="flex flex-col items-center gap-3">
-                <div className="rounded-xl border border-[var(--app-line)] bg-[hsl(var(--app-bg))] p-4">
-                  {orgSlugLoading ? (
-                    <div className="h-48 w-48 flex items-center justify-center rounded-lg border border-dashed bg-[var(--app-surface)]">
-                      <span className="text-[10px] text-[hsl(var(--app-faint))]">Loading QR…</span>
+            <div className="mt-4 rounded-xl bg-[var(--app-bg)] p-6">
+              <div className="flex flex-col items-center gap-4">
+                <p className="text-xs font-semibold uppercase tracking-[.16em] text-[var(--app-faint)]">One QR per table — scan to order at that table</p>
+                <div className="flex flex-wrap gap-4 justify-center">
+                  {tableQRs.map((tq) => (
+                    <div key={tq.tableId} className="rounded-xl border border-[var(--app-line)] bg-[hsl(var(--app-bg))] p-4 flex flex-col items-center gap-3">
+                      <div className="flex flex-col items-center gap-2">
+                        <QrCode url={`${window.location.origin}/order/${tq.tableId}`} size={200} />
+                        <p className="text-xs font-mono text-[hsl(var(--app-faint))] break-all">{`${window.location.origin}/order/${tq.tableId}`}</p>
+                        <p className="text-xs font-semibold">{tq.tableName}</p>
+                      </div>
                     </div>
-                  ) : orgSlug ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <QrCode url={`${window.location.origin}/m/${orgSlug}`} size={260} />
-                      <p className="text-xs font-mono text-[hsl(var(--app-faint))] break-all">{`${window.location.origin}/m/${orgSlug}`}</p>
-                    </div>
-                  ) : (
-                    <div className="h-48 w-48 flex items-center justify-center rounded-lg border border-dashed bg-[var(--app-surface)]">
-                      <span className="text-[10px] text-[hsl(var(--app-faint))]">No club found</span>
-                    </div>
-                  )}
+                  ))}
                 </div>
-                <p className="text-xs text-[hsl(var(--app-faint))]">Print this page and place it on each table. Customers scan to open your menu and order.</p>
+                <p className="text-xs text-[hsl(var(--app-faint))]">Print this page and stick one QR code on each table. Customers scan to order at that table immediately — no branch or table picker.</p>
+                <button onClick={() => window.print()} className="rounded-lg bg-[var(--app-gold)] px-5 py-2.5 text-sm font-bold text-[hsl(var(--app-ink))] hover:bg-[var(--app-gold-hover)]" data-testid="button-print-qr">
+                  Print table QR codes
+                </button>
               </div>
-              <button onClick={() => window.print()} className="rounded-lg bg-[var(--app-gold)] px-5 py-2.5 text-sm font-bold text-[hsl(var(--app-ink))] hover:bg-[var(--app-gold-hover)]" data-testid="button-print-qr">
-                Print QR menu
-              </button>
             </div>
-          </div>
-        </section>
+          </section>
       </div>
     </div>
   );

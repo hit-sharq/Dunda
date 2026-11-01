@@ -3890,6 +3890,66 @@ export const useDeleteProduct = <TError = ErrorType<unknown>,
       return useMutation(getDeleteProductMutationOptions(options));
     }
 
+export const getDeleteStaffUrl = (staffId: string,) => {
+
+
+
+  return `/api/staff/${staffId}`
+}
+
+
+export const deleteStaff = async (staffId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteStaffUrl(staffId),
+  {
+    ...options,
+    method: 'DELETE'
+
+  });}
+
+
+
+export const getDeleteStaffMutationKey = () => ['deleteStaff'] as const;
+
+export const getDeleteStaffMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteStaff>>, TError,DeleteStaffMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteStaff>>, TError,DeleteStaffMutationVariables, TContext> => {
+
+const mutationKey = getDeleteStaffMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteStaff>>, DeleteStaffMutationVariables> = (props) => {
+          const {staffId} = props ?? {};
+
+          return  deleteStaff(staffId,requestOptions)
+        }
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteStaffMutationResult = NonNullable<Awaited<ReturnType<typeof deleteStaff>>>
+
+    export type DeleteStaffMutationError = ErrorType<unknown>
+    export type DeleteStaffMutationVariables = {staffId: string}
+
+
+
+export const useDeleteStaff = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteStaff>>, TError,DeleteStaffMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteStaff>>,
+        TError,
+        DeleteStaffMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteStaffMutationOptions(options));
+    }
+
 export const getUpdateProductUnitUrl = (productId: string,
     unitId: string,) => {
 
