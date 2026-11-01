@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/client";
-import { route, requireSession, requirePermission, orgWhere, assertSameOrg } from "@/lib/server/http";
+import { route, requireSession, requirePermission, orgWhere, assertSameOrg, operatorIds } from "@/lib/server/http";
 import { createStaffSchema, createShiftSchema, clockOutSchema } from "@/lib/server/schemas";
 import { checkRateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
@@ -67,6 +67,13 @@ export const POST = route(async (request: Request) => {
         code: "VALIDATION_FAILED",
       },
       { status: 422 },
+    );
+  }
+
+  if (parsed.data.clerkUserId && operatorIds().has(parsed.data.clerkUserId)) {
+    return NextResponse.json(
+      { error: "Operators cannot be added as club staff.", code: "FORBIDDEN" },
+      { status: 403 },
     );
   }
 

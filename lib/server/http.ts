@@ -32,6 +32,8 @@ function operatorIds(): Set<string> {
   );
 }
 
+export { operatorIds };
+
 export async function resolveSession(): Promise<Session | null> {
   const { userId, sessionClaims } = await auth();
   if (!userId) return null;

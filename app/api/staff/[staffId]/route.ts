@@ -6,6 +6,7 @@ import {
   requirePermission,
   orgWhere,
   assertSameOrg,
+  operatorIds,
   parseBody,
 } from "@/lib/server/http";
 import { wrongState } from "@/lib/errors.server";
@@ -79,6 +80,13 @@ export const PATCH = route(
       include: { dunda_roles: { select: { name: true } } },
     });
     assertSameOrg(existing, organizationId, "That staff member");
+
+    if (existing.clerk_user_id && operatorIds().has(existing.clerk_user_id)) {
+      return NextResponse.json(
+        { error: "Operators cannot be modified as club staff.", code: "FORBIDDEN" },
+        { status: 403 },
+      );
+    }
 
     if (input.roleId && input.roleId !== existing.role_id) {
       const role = await prisma.dunda_roles.findUnique({
