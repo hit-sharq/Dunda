@@ -56,6 +56,7 @@ export default async function ClubMenuPage({
 
   const categories = [...new Set(products.map((p) => p.category))];
   const currency = org.currency;
+  const singleBranch = org.dunda_branches.length === 1;
 
   const productJson = JSON.stringify(
     products.map((p) => ({
@@ -99,7 +100,7 @@ export default async function ClubMenuPage({
       </header>
 
       <div className="mx-auto max-w-3xl px-4 py-5">
-        <div className="mb-5" id="location-picker">
+        <div className={`mb-5 ${singleBranch ? 'hidden' : ''}`} id="location-picker">
           <p className="mb-2 text-[10px] font-mono uppercase tracking-[.2em] text-[hsl(var(--app-faint))]">
             Choose where you are
           </p>
@@ -170,6 +171,7 @@ export default async function ClubMenuPage({
             let cart = [];
             let branchId = BRANCHES.length ? BRANCHES[0].id : null;
             let tableId = null;
+            const singleBranch = BRANCHES.length === 1;
 
             const money = (n) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: CURRENCY, maximumFractionDigits: 0 }).format(n);
             const el = (id) => document.getElementById(id);
