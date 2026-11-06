@@ -1,11 +1,3 @@
-/*
- * Dunda service worker.
- *
- * Caches the shell so the app opens on a phone with a weak or missing
- * connection, which is the normal state of a cellar or a back room. API
- * calls are never cached: a stale price or a stale tab is worse than no
- * answer at all.
- */
 
 const VERSION = "dunda-v1";
 const SHELL = "dunda-shell-v1";

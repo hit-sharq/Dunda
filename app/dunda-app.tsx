@@ -9,11 +9,11 @@ import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bell, Building2, CalendarDays, ChevronDown, CircleDot, Layers, LifeBuoy, Repeat,
   ChevronLeft, ChevronRight, CircleHelp, ClipboardList, CreditCard, Database, DoorOpen, Grid2X2,
   LayoutDashboard, Menu, Package, Plus, RefreshCw, Search, Settings2, ShoppingBag,
-  SlidersHorizontal, Sparkles, Store,   Ticket, UserRound, Users, Utensils, WalletCards, X,
+  SlidersHorizontal, Sparkles, Store, Ticket, Trash2, UserRound, Users, Utensils, WalletCards, X,
 } from 'lucide-react';
 import {
   getGetBranchFloorQueryKey, getGetBranchesQueryKey, getGetCategoriesQueryKey, getGetDashboardActivityQueryKey, getGetDashboardSummaryQueryKey,
-  getGetInventoryAlertsQueryKey, getGetOrdersQueryKey, getGetProductsQueryKey, getGetReservationsQueryKey, getGetStaffQueryKey, getGetTabsQueryKey, getGetCustomersQueryKey, getGetEventsQueryKey, getGetSalesReportQueryKey, getGetAuditLogsQueryKey, getGetInventoryQueryKey,
+  getGetInventoryAlertsQueryKey, getGetOrdersQueryKey, getGetProductsQueryKey, getGetReservationsQueryKey, getGetStaffQueryKey, getGetTabsQueryKey, getGetCustomersQueryKey, getGetEventsQueryKey, getGetSalesReportQueryKey, getGetAuditLogsQueryKey, getGetInventoryQueryKey, getGetAdminOrganizationsQueryKey,
   useAddTabItem,   useAdjustInventory, useCheckoutTab, useCreateCustomer, useCreateEvent, useCreateOrder,
   useCreateReservation, useCreateShift, useCreateStaff, useCreateTab, useCreateSupplier, useGetBranchFloor,
   useGetBranches, useGetCategories, useGetMe, useGetDashboardActivity, useGetDashboardSummary, useGetEvents, useGetInventory, useGetInventoryAlerts,
@@ -718,6 +718,28 @@ function PlatformLanding() {
     { label: 'Needs attention', value: o ? String(o.pastDueClubs + o.suspendedClubs).padStart(2, '0') : '—', note: o ? `${o.pastDueClubs} past due · ${o.suspendedClubs} suspended` : 'Loading' },
   ];
 
+  const [deletingClubId, setDeletingClubId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
+
+  async function deleteClub(orgId: string, name: string) {
+    if (!confirm(`Are you sure you want to delete "${name}"? This permanently removes the club, all branches, staff, orders, payments, and data. This cannot be undone.`)) return;
+    setDeletingClubId(orgId);
+    try {
+      const res = await fetch(`/api/admin/organizations/${orgId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setNotice({ type: 'error', text: err.error || 'Failed to delete club.' });
+        setDeletingClubId(null);
+        return;
+      }
+      organizations.refetch();
+      setDeletingClubId(null);
+    } catch (e: any) {
+      setNotice({ type: 'error', text: e.message || 'Failed to delete club.' });
+      setDeletingClubId(null);
+    }
+  }
+
   return <div className="rise">
     <PageIntro eyebrow={`Platform / ${todayLabel}`} title="Run the platform."
       detail="You are signed in as a Dunda administrator, so this account runs the clubs rather than serving one. Everything below is read across every organisation."
@@ -725,15 +747,29 @@ function PlatformLanding() {
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map((card, i) => <Metric key={card.label} label={card.label} value={card.value} note={card.note} tone={i === 1 ? 'coral' : 'plain'} />)}
     </div>
+    {notice && (
+      <div className={`mb-4 rounded-lg border px-3 py-2 text-xs ${
+        notice.type === 'ok'
+          ? 'border-[hsl(var(--app-success-soft))] bg-[hsl(var(--app-success-soft))] text-[hsl(var(--app-success))]'
+          : 'border-[hsl(var(--app-gold-soft))] bg-[hsl(var(--app-gold-soft))] text-[hsl(var(--app-critical))]'
+      }`} data-testid="admin-notice">
+        {notice.text}
+      </div>
+    )}
     <div className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_1fr]">
       <section className="surface rounded-2xl p-5 md:p-6">
         <div className="mb-5 flex items-start justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[var(--app-faint)]">Clubs</p><h3 className="mt-1 font-display text-xl font-bold">Every organisation</h3></div><Link href="/admin/clubs" className="text-xs font-semibold text-[var(--app-success)]" data-testid="link-view-clubs">Manage <ChevronRight className="inline" size={13} /></Link></div>
         <QueryNotice loading={organizations.isLoading} error={organizations.error} what="clubs" emptyTitle="No clubs yet." emptyHint="Provision one and it appears here." empty={!organizations.isLoading && !organizations.isError && !organizations.data?.length} onRetry={() => organizations.refetch()} />
-        {(organizations.data ?? []).slice(0, 6).map((club) => <div key={club.id} className="flex items-center gap-3 border-b border-[var(--app-line-soft)] py-3 last:border-0" data-testid={`club-${club.id}`}>
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--app-success-soft)] text-[var(--app-success)]"><Store size={14} /></div>
-          <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{club.name}</p><p className="truncate text-xs text-[var(--app-muted)]">{club.branches} {club.branches === 1 ? 'branch' : 'branches'} · {club.activeStaff} {club.activeStaff === 1 ? 'person' : 'people'}</p></div>
-          <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${club.subscriptionStatus === 'ACTIVE' ? 'bg-[var(--app-success-soft)] text-[var(--app-success)]' : club.subscriptionStatus === 'SUSPENDED' ? 'bg-[var(--app-critical-soft)] text-[var(--app-critical)]' : 'bg-[var(--app-warn-soft)] text-[var(--app-warn)]'}`}>{club.plan ?? club.subscriptionStatus ?? 'No plan'}</span>
-        </div>)}
+        {(organizations.data ?? []).slice(0, 6).map((club) => (
+          <div key={club.id} className="flex items-center gap-3 border-b border-[var(--app-line-soft)] py-3 last:border-0" data-testid={`club-${club.id}`}>
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--app-success-soft)] text-[var(--app-success)]"><Store size={14} /></div>
+            <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{club.name}</p><p className="truncate text-xs text-[var(--app-muted)]">{club.branches} {club.branches === 1 ? 'branch' : 'branches'} · {club.activeStaff} {club.activeStaff === 1 ? 'person' : 'people'}</p></div>
+            <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${club.subscriptionStatus === 'ACTIVE' ? 'bg-[var(--app-success-soft)] text-[var(--app-success)]' : club.subscriptionStatus === 'SUSPENDED' ? 'bg-[var(--app-critical-soft)] text-[var(--app-critical)]' : 'bg-[var(--app-warn-soft)] text-[var(--app-warn)]'}`}>{club.plan ?? club.subscriptionStatus ?? 'No plan'}</span>
+            <button onClick={() => deleteClub(club.id, club.name)} disabled={deletingClubId === club.id} className="ml-auto p-1.5 rounded-lg hover:bg-[var(--app-chrome-raised)] text-[var(--app-muted)] hover:text-[var(--app-chrome-ink)]" data-testid={`button-delete-club-${club.id}`} title="Delete club">
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
       </section>
       <section className="surface rounded-2xl p-5 md:p-6">
         <div className="mb-5"><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[var(--app-faint)]">Subscriptions</p><h3 className="mt-1 font-display text-xl font-bold">Where they stand</h3></div>
