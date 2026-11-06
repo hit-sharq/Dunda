@@ -266,3 +266,170 @@ export const PATCH = route(
     return NextResponse.json(updated);
   },
 );
+
+/**
+ * DELETE /api/admin/organizations/[organizationId]
+ * Permanently deletes a club and all its related data (branches, staff,
+ * subscriptions, payments, tabs, orders, inventory, events, etc.).
+ * Only platform operators can do this.
+ */
+export const DELETE = route(
+  async (request: Request, context: { params: Promise<{ organizationId: string }> }) => {
+    const session = await resolveSession();
+    if (!session) throw new NotProvisioned();
+    if (!session.isOperator) throw new Forbidden("platform_console");
+
+    const { organizationId } = await context.params;
+
+    const organization = await prisma.dunda_organizations.findUnique({
+      where: { id: organizationId },
+      select: { id: true, name: true, status: true },
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "That club does not exist.", code: "NOT_FOUND" },
+        { status: 404 },
+      );
+    }
+
+    // Delete in dependency order to avoid foreign key violations.
+    // Prisma cascades handle most related tables, but we delete
+    // dependent records explicitly to be safe across all databases.
+
+    // 1. Delete staff-shift assignments (staff_shifts has organization_id directly)
+    await prisma.dunda_staff_shifts.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 2. Delete staff members
+    await prisma.dunda_staff.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 3. Delete billing payments and provider transactions
+    await prisma.dunda_payment_provider_transactions.deleteMany({
+      where: { organization_id: organizationId },
+    });
+    await prisma.dunda_payments.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 4. Delete refunds
+    await prisma.dunda_refunds.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 5. Delete order-related records
+    await prisma.dunda_order_ticket_items.deleteMany({
+      where: { dunda_order_tickets: { dunda_orders: { organization_id: organizationId } } },
+    });
+    await prisma.dunda_order_tickets.deleteMany({
+      where: { dunda_orders: { organization_id: organizationId } },
+    });
+    await prisma.dunda_order_items.deleteMany({
+      where: { dunda_orders: { organization_id: organizationId } },
+    });
+    await prisma.dunda_orders.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 6. Delete tabs and their items
+    await prisma.dunda_tab_items.deleteMany({
+      where: { dunda_tabs: { organization_id: organizationId } },
+    });
+    await prisma.dunda_tabs.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 7. Delete stock counts and items
+    await prisma.dunda_stock_count_items.deleteMany({
+      where: { dunda_stock_counts: { organization_id: organizationId } },
+    });
+    await prisma.dunda_stock_counts.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 8. Delete stock movements
+    await prisma.dunda_stock_movements.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 9. Delete inventory alerts
+    await prisma.dunda_inventory_alerts.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 10. Delete pool sessions and tables
+    await prisma.dunda_pool_sessions.deleteMany({
+      where: { organization_id: organizationId },
+    });
+    await prisma.dunda_pool_tables.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 11. Delete events (cascades to event reservations, tickets, guest lists)
+    await prisma.dunda_events.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 12. Delete branches (cascades branch_members, designer, etc.)
+    await prisma.dunda_branches.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 13. Delete customers
+    await prisma.dunda_customers.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 14. Delete categories, inventory alerts, expenses
+    await prisma.dunda_categories.deleteMany({
+      where: { organization_id: organizationId },
+    });
+    await prisma.dunda_inventory_alerts.deleteMany({
+      where: { organization_id: organizationId },
+    });
+    await prisma.dunda_expenses.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 15. Delete subscription and billing records
+    await prisma.dunda_payment_provider_transactions.deleteMany({
+      where: { organization_id: organizationId },
+    });
+    await prisma.dunda_billing_payments.deleteMany({
+      where: { organization_id: organizationId },
+    });
+    await prisma.dunda_subscriptions.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 16. Delete features, settings, audit logs, notifications
+    await prisma.dunda_organization_features.deleteMany({
+      where: { organization_id: organizationId },
+    });
+    await prisma.dunda_organization_settings.deleteMany({
+      where: { organization_id: organizationId },
+    });
+    await prisma.dunda_platform_audit_logs.deleteMany({
+      where: { organization_id: organizationId },
+    });
+    await prisma.dunda_audit_logs.deleteMany({
+      where: { organization_id: organizationId },
+    });
+    await prisma.dunda_notifications.deleteMany({
+      where: { organization_id: organizationId },
+    });
+
+    // 17. Finally delete the organization itself
+    await prisma.dunda_organizations.delete({
+      where: { id: organizationId },
+    });
+
+    return NextResponse.json({
+      id: organizationId,
+      name: organization.name,
+      status: "DELETED",
+    });
+  },
+);
